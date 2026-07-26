@@ -269,6 +269,8 @@
     <string name="about_fxtwitter_summary">Default data source. Public profile, status, media, and recent-post analytics data</string>
     <string name="about_oneui_summary">One UI interface components. The magic behind the app\'s design</string>
     <string name="about_legal_section">Legal</string>
+    <string name="about_privacy_policy_title">Privacy policy</string>
+    <string name="about_privacy_policy_summary">How Twidget handles, protects and deletes information</string>
     <string name="about_open_source_licenses_title">Open Source Licences</string>
     <string name="about_open_source_licenses_summary">Apache License 2.0 • MIT License • BSD 3-Clause License • SIL Open Font License 1.1</string>
     <string name="about_legal_notice_title">Legal notice</string>
@@ -294,6 +296,7 @@
     <string name="link_oneui_project">https://github.com/OneUIProject</string>
     <string name="link_rettiwt">https://github.com/Rishikant181/Rettiwt-API</string>
     <string name="link_app_repo">https://github.com/thatjoshguy67/twidget</string>
+    <string name="link_privacy_policy">https://tjg.gg/blog/twidget-privacy-policy</string>
     <string name="sync_failed">Sync failed; showing cached stats.</string>
     <string name="onboarding_title">Twidget</string>
     <string name="onboarding_overview_title">Welcome to Twidget</string>
