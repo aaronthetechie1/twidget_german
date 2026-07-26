@@ -112,8 +112,11 @@ jobs:
             exit 1
           fi
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
-          APK_CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
-            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          APK_CERT=$("$APKSIGNER" verify --print-certs-pem app/build/outputs/apk/debug/app-debug.apk \
+            | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' \
+            | openssl x509 -outform DER \
+            | openssl dgst -sha256 -r \
+            | awk '{print $1}')
           AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/debug/app-debug.aab \
             | sed -n -E '/^META-INF\/.*\.(RSA|DSA|EC)$/ {p;q;}')
           AAB_CERT=$(unzip -p app/build/outputs/bundle/debug/app-debug.aab "$AAB_SIGNATURE" \
