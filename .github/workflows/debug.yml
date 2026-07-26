@@ -114,11 +114,19 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
           APK_CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-          AAB_CERT=$(keytool -printcert -rfc -jarfile app/build/outputs/bundle/debug/app-debug.aab \
+          AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/debug/app-debug.aab \
+            | sed -n -E '/^META-INF\/.*\.(RSA|DSA|EC)$/ {p;q;}')
+          AAB_CERT=$(unzip -p app/build/outputs/bundle/debug/app-debug.aab "$AAB_SIGNATURE" \
+            | openssl pkcs7 -inform DER -print_certs \
             | openssl x509 -outform DER \
             | openssl dgst -sha256 -r \
             | awk '{print $1}')
-          if [ -z "$APK_CERT" ] || [ -z "$AAB_CERT" ] || [ "$APK_CERT" != "$AAB_CERT" ]; then
+          if ! jarsigner -verify app/build/outputs/bundle/debug/app-debug.aab >/dev/null 2>&1; then
+            echo "::error::Debug AAB signature verification failed"
+            exit 1
+          fi
+          if [ -z "$APK_CERT" ] || [ -z "$AAB_SIGNATURE" ] || [ -z "$AAB_CERT" ] \
+            || [ "$APK_CERT" != "$AAB_CERT" ]; then
             echo "::error::Debug AAB is unsigned or does not match the APK signing certificate"
             exit 1
           fi
