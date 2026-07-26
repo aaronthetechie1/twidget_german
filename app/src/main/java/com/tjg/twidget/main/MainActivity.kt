@@ -31,6 +31,7 @@ import com.tjg.twidget.followers.TopFollowersScanWorker
 import com.tjg.twidget.notices.NoticeBadgeDrawable
 import com.tjg.twidget.notices.NoticesActivity
 import com.tjg.twidget.notices.ReleaseNoticesStore
+import com.tjg.twidget.schedule.ScheduleAccountScope
 import com.tjg.twidget.schedule.ScheduleComposeActivity
 import com.tjg.twidget.schedule.ScheduleQueueHostActivity
 import com.tjg.twidget.ui.startRightSidePopOverActivity
@@ -379,7 +380,11 @@ class MainActivity : ScheduleQueueHostActivity() {
         ) View.VISIBLE else View.GONE
     }
 
-    private fun showScheduling() {
+    override fun requestedUsername(): String =
+        ScheduleAccountScope.resolve(selectedAccount, super.requestedUsername())
+
+    private fun showScheduling(account: String) {
+        selectedAccount = ScheduleAccountScope.resolve(account, selectedAccount)
         editModeController.setEditMode(false)
         destination = MainDestination.SCHEDULING
         render()

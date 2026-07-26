@@ -1664,8 +1664,11 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         return getString(R.string.schedule_media_summary, media.size, names.joinToString(", "))
     }
 
-    private fun requestedUsername(): String =
-        TwidgetStore.settings(this).username.trim().trimStart('@')
+    protected open fun requestedUsername(): String =
+        ScheduleAccountScope.resolve(
+            intent?.getStringExtra(EXTRA_USERNAME),
+            TwidgetStore.settings(this).username,
+        )
 
     private fun isBufferMode(): Boolean =
         ScheduleSettingsStore.defaultProvider(this) == ScheduleProvider.BUFFER &&

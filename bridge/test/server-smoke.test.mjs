@@ -14,6 +14,109 @@ async function availablePort() {
   return port;
 }
 
+async function startBridge(t, environment) {
+  const port = await availablePort();
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-bridge-test-"));
+  const child = spawn(process.execPath, ["src/server.js"], {
+    cwd: path.resolve(import.meta.dirname, ".."),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HISTORY_STORE_PATH: path.join(temp, "history.json"),
+      WAYBACK_BACKFILL: "0",
+      TEST_MOCK_UPSTREAM: "1",
+      ...environment,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  t.after(async () => {
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+      await new Promise((resolve) => child.once("exit", resolve));
+    }
+    await rm(temp, { recursive: true, force: true });
+  });
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Bridge did not start")), 5000);
+    child.once("error", reject);
+    child.stdout.on("data", (chunk) => {
+      if (String(chunk).includes("Twidget bridge listening")) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+  });
+  return `http://127.0.0.1:${port}`;
+}
+
+test("public bridge hides shared-ranking writes without a publisher credential", async (t) => {
+  const base = await startBridge(t, {
+    BRIDGE_API_TOKEN: "",
+    HISTORY_ADMIN_TOKEN: "",
+    TOP_FOLLOWERS_PUBLISH_TOKEN: "",
+  });
+  const registered = await fetch(`${base}/history/example`);
+  assert.equal(registered.status, 200);
+
+  const forgedRanking = await fetch(`${base}/history/example/top-followers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      scanned: 1,
+      pages: 1,
+      top: [{
+        id: "attacker",
+        username: "attacker",
+        name: "Attacker",
+        followers: 1,
+        verified: false,
+        avatar: "https://example.com/attacker.jpg",
+      }],
+    }),
+  });
+  assert.equal(forgedRanking.status, 404);
+  assert.deepEqual(await forgedRanking.json(), { error: "not_found" });
+});
+
+test("public bridge accepts shared rankings only from its trusted publisher", async (t) => {
+  const base = await startBridge(t, {
+    BRIDGE_API_TOKEN: "",
+    HISTORY_ADMIN_TOKEN: "",
+    TOP_FOLLOWERS_PUBLISH_TOKEN: "publisher-token",
+  });
+  const registered = await fetch(`${base}/history/example`);
+  assert.equal(registered.status, 200);
+  const body = JSON.stringify({
+    scanned: 1,
+    pages: 1,
+    top: [{
+      id: "42",
+      username: "topfan",
+      name: "Top Fan",
+      followers: 9001,
+      verified: false,
+      avatar: "https://example.com/avatar.jpg",
+    }],
+  });
+
+  const unauthorized = await fetch(`${base}/history/example/top-followers`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+  assert.equal(unauthorized.status, 401);
+
+  const authorized = await fetch(`${base}/history/example/top-followers`, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer publisher-token",
+      "Content-Type": "application/json",
+    },
+    body,
+  });
+  assert.equal(authorized.status, 201);
+});
+
 test("bridge security and health defaults", async (t) => {
   const port = await availablePort();
   const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-bridge-test-"));

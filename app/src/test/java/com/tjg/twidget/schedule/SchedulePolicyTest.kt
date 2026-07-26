@@ -8,6 +8,12 @@ class SchedulePolicyTest {
     private val now = 1_000_000L
 
     @Test
+    fun `schedule account scope prefers and normalizes the requested account`() {
+        assertEquals("secondary", ScheduleAccountScope.resolve(" @secondary ", "primary"))
+        assertEquals("primary", ScheduleAccountScope.resolve("  ", " @primary "))
+    }
+
+    @Test
     fun acceptsValidFutureThread() {
         val issues = SchedulePolicy.validate(
             thread = listOf(ScheduleThreadItem(text = "Hello")),

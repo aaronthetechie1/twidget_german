@@ -13,9 +13,8 @@ across phones, tablets, and launchers.
 - Added an included, rate-limited TwitterAPIs trial for one Top Followers scan
   per account each day. Personal keys in Advanced settings take priority and
   remove Twidget's daily limit.
-- Participating shared-history installs can contribute completed Top Followers
-  rankings and reuse an existing ranking when the same account is added
-  elsewhere.
+- Participating shared-history installs can reuse trusted completed Top
+  Followers rankings when the same account is added elsewhere.
 - Added a dedicated onboarding permissions step for notifications and exact
   reminders before account setup.
 - Buffer drafts and scheduled posts can attach local images and videos, with
@@ -54,6 +53,12 @@ across phones, tablets, and launchers.
   Buffer thumbnails for reliable in-app previews.
 - Made Top Followers scans resumable and more reliable when the app is
   backgrounded or interrupted.
+- Restricted shared Top Followers ranking publication to authenticated,
+  server-side publishers so public clients cannot replace cached results.
+- Kept Scheduling scoped to the account selected in the drawer, including
+  queue filtering, Buffer channel selection, and newly composed posts.
+- Limited imported scheduling media to 100 MiB and delete partial private
+  copies when a provider omits or misreports the file size.
 - Prevented cancelled Top Followers scans from committing an in-flight page,
   promoted scans to foreground work immediately, and validated nonexistent
   handles during onboarding.

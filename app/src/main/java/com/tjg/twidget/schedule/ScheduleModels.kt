@@ -219,3 +219,12 @@ object SchedulePolicy {
         return issues
     }
 }
+
+internal object ScheduleAccountScope {
+    fun resolve(requested: String?, fallback: String): String =
+        requested
+            ?.trim()
+            ?.trimStart('@')
+            ?.takeIf(String::isNotBlank)
+            ?: fallback.trim().trimStart('@')
+}

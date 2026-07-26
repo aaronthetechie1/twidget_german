@@ -27,6 +27,8 @@ npm test
 - `GET /analytics/:username` — recent original-post analytics, cached for 45 minutes.
 - `GET /banger/:username` — opt-in, resumable Hall of Fame scan for the account's best balanced post.
 - `GET /history/:username` — opt-in pooled daily history registration/read.
+- `GET /history/:username/top-followers` — reads a completed shared ranking.
+- `POST /history/:username/top-followers` — trusted ranking publication; requires `TOP_FOLLOWERS_PUBLISH_TOKEN` on a public bridge or `BRIDGE_API_TOKEN` on a private bridge.
 - `POST /history/:username/analytics-import` — reconstructs X Analytics movements and admits gap days only when live and stored follower anchors match within a tight margin.
 - `DELETE /admin/history/:username` — operator-only permanent deletion; hidden unless `HISTORY_ADMIN_TOKEN` is configured.
 - `GET /official/user/:username` — disabled publicly by default, even with an X bearer configured.
@@ -52,6 +54,11 @@ shared bridge intentionally remains token-free; check `/health` for
 Android sends the configured bridge token as both a Bearer token and the legacy
 `X-Rettiwt-Api-Key` header. Do not ship a private token inside a publicly
 distributed APK.
+
+Shared ranking reads remain public, but writes fail closed. A public deployment
+must set `TOP_FOLLOWERS_PUBLISH_TOKEN` and give it only to a trusted server-side
+publisher; ordinary app installs must not receive it. If neither that credential
+nor `BRIDGE_API_TOKEN` is configured, the write route is hidden.
 
 Application middleware cannot absorb a volumetric or distributed DDoS attack.
 Put a public production domain behind an edge WAF/DDoS service and monitor
@@ -139,6 +146,7 @@ The safe reference values are in [`.env.example`](.env.example). Important
 controls include:
 
 - `BRIDGE_API_TOKEN` — optional token for private/self-hosted data routes.
+- `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TRUST_PROXY_HOPS` — exact reverse-proxy hop count; Railway uses `1`.
 - `RATE_LIMIT_*`, `EXPENSIVE_RATE_LIMIT_MAX` — request budgets; shared when Redis is configured.
 - `REDIS_URL` — shared rate limits, response caches, and scheduled-job locks.

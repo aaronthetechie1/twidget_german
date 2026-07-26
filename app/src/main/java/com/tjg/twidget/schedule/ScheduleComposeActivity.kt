@@ -31,6 +31,8 @@ import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -281,11 +283,27 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
 
     private fun importPickedMedia(uri: Uri): ImportedMedia? {
         val mimeType = runCatching { contentResolver.getType(uri) }.getOrNull()
-        val displayName = runCatching {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
+        val metadata = runCatching {
+            contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use PickedMediaMetadata()
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                PickedMediaMetadata(
+                    displayName = nameIndex.takeIf { it >= 0 && !cursor.isNull(it) }
+                        ?.let(cursor::getString),
+                    size = sizeIndex.takeIf { it >= 0 && !cursor.isNull(it) }
+                        ?.let(cursor::getLong),
+                )
             }
-        }.getOrNull()?.takeIf { it.isNotBlank() }
+        }.getOrNull() ?: PickedMediaMetadata()
+        if (!ScheduleMediaImportPolicy.isReportedSizeAllowed(metadata.size)) return null
+        val displayName = metadata.displayName?.takeIf { it.isNotBlank() }
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
             ?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
             ?: displayName?.substringAfterLast('.', "")
@@ -301,7 +319,9 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         )
         return runCatching {
             contentResolver.openInputStream(uri)?.use { input ->
-                file.outputStream().use { output -> input.copyTo(output) }
+                file.outputStream().use { output ->
+                    ScheduleMediaImportPolicy.copyLimited(input, output)
+                }
             } ?: error("Unable to read selected media")
             val ownedUri = FileProvider.getUriForFile(this, "$packageName.update_files", file)
             ImportedMedia(
@@ -562,7 +582,10 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
     }
 
     private fun requestedUsername(): String =
-        TwidgetStore.settings(this).username.trim().trimStart('@')
+        ScheduleAccountScope.resolve(
+            intent?.getStringExtra(EXTRA_USERNAME),
+            TwidgetStore.settings(this).username,
+        )
 
     private fun setBusy(value: Boolean) {
         busy = value
@@ -605,11 +628,40 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         val file: File,
     )
 
+    private data class PickedMediaMetadata(
+        val displayName: String? = null,
+        val size: Long? = null,
+    )
+
     companion object {
         const val EXTRA_USERNAME = "com.tjg.twidget.extra.COMPOSE_USERNAME"
         const val EXTRA_SCHEDULE_ID = "com.tjg.twidget.extra.COMPOSE_SCHEDULE_ID"
         const val EXTRA_SCHEDULED_AT = "com.tjg.twidget.extra.COMPOSE_SCHEDULED_AT"
         private const val MAX_THREAD_ITEMS = 20
         private const val SAMSUNG_GALLERY_PACKAGE = "com.sec.android.gallery3d"
+    }
+}
+
+internal object ScheduleMediaImportPolicy {
+    const val MAX_MEDIA_BYTES = 100L * 1024L * 1024L
+
+    fun isReportedSizeAllowed(size: Long?): Boolean =
+        size == null || size < 0L || size <= MAX_MEDIA_BYTES
+
+    fun copyLimited(
+        input: InputStream,
+        output: OutputStream,
+        maxBytes: Long = MAX_MEDIA_BYTES,
+    ): Long {
+        require(maxBytes >= 0L)
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) return total
+            total += read
+            if (total > maxBytes) error("Selected media is too large")
+            output.write(buffer, 0, read)
+        }
     }
 }

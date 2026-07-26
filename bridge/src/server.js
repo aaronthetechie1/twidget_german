@@ -43,6 +43,8 @@ const waybackMaxSnapshots = envInteger("WAYBACK_MAX_SNAPSHOTS", 12, 1, 50);
 const maxWaybackConcurrent = envInteger("WAYBACK_MAX_CONCURRENT", 1, 1, 5);
 const bridgeApiToken = String(process.env.BRIDGE_API_TOKEN || "").trim();
 const historyAdminToken = String(process.env.HISTORY_ADMIN_TOKEN || "").trim();
+const topFollowersPublishToken = bridgeApiToken ||
+  String(process.env.TOP_FOLLOWERS_PUBLISH_TOKEN || "").trim();
 const xOAuthEnabled = process.env.X_OAUTH_ENABLED === "1";
 const publicOfficialApi = process.env.PUBLIC_OFFICIAL_API === "1";
 const historyStorePath = process.env.HISTORY_STORE_PATH ||
@@ -394,7 +396,7 @@ app.get("/history/:username/top-followers", async (req, res) => {
   res.json({ userName: username, ...cached });
 });
 
-app.post("/history/:username/top-followers", historyJsonBody, async (req, res) => {
+app.post("/history/:username/top-followers", requireTopFollowersPublisher, historyJsonBody, async (req, res) => {
   const username = cleanUsername(req.params.username);
   if (!username) {
     res.status(400).json({ error: "invalid_username" });
@@ -860,6 +862,9 @@ const server = app.listen(port, "0.0.0.0", () => {
   console.log(`Twidget bridge listening on ${port}`);
   if (!bridgeApiToken && (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT)) {
     console.warn("BRIDGE_API_TOKEN is not set; data routes are public and rate-limited only.");
+  }
+  if (!topFollowersPublishToken && (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT)) {
+    console.warn("TOP_FOLLOWERS_PUBLISH_TOKEN is not set; shared ranking writes are disabled.");
   }
 });
 server.requestTimeout = envInteger("REQUEST_TIMEOUT_MS", 30_000, 1_000, 300_000);
@@ -1501,6 +1506,19 @@ function requestToken(req) {
   const authorization = String(req.get("authorization") || "");
   const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
   return String(bearer || req.get("x-rettiwt-api-key") || "").trim();
+}
+
+function requireTopFollowersPublisher(req, res, next) {
+  if (!topFollowersPublishToken) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!tokenMatches(requestToken(req), topFollowersPublishToken)) {
+    res.setHeader("WWW-Authenticate", "Bearer");
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  next();
 }
 
 function tokenMatches(received, expected) {

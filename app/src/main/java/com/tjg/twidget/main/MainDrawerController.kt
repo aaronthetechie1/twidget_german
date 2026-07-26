@@ -39,7 +39,7 @@ internal class MainDrawerController(
     private val isEditMode: () -> Boolean = { false },
     private val exitEditMode: () -> Unit = {},
     private val isSchedulePage: () -> Boolean = { false },
-    private val openSchedule: () -> Unit,
+    private val openSchedule: (String) -> Unit,
 ) {
     private val drawerAccountItemIds = mutableMapOf<Int, String>()
     private val drawerAvatarItemIds = mutableSetOf<Int>()
@@ -351,7 +351,7 @@ internal class MainDrawerController(
         }
         if (item.itemId == DRAWER_ITEM_SCHEDULE) {
             closeDrawerOnCompactScreens()
-            openSchedule()
+            openSchedule(selectedAccount())
             return true
         }
         return false
