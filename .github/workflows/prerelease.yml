@@ -72,7 +72,7 @@ jobs:
           fi
           echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
 
-      - name: Build signed beta APK
+      - name: Build signed beta APK and AAB
         env:
           GH_PACKAGES_USER: ${{ secrets.GH_PACKAGES_USER }}
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
@@ -89,8 +89,25 @@ jobs:
             echo "::error::TWITTERAPIS_DEFAULT_API_KEY is not configured"
             exit 1
           fi
-          ./gradlew testBetaUnitTest assembleBeta lintVitalBeta \
+          ./gradlew testBetaUnitTest assembleBeta bundleBeta lintVitalBeta \
             -PbetaNumber=${{ steps.beta.outputs.number }} --no-daemon --stacktrace
+
+      - name: Verify signed beta APK and AAB
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::Unable to locate apksigner in the Android SDK"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/beta/app-beta.apk
+          APK_CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/beta/app-beta.apk \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          AAB_CERT=$(keytool -printcert -jarfile app/build/outputs/bundle/beta/app-beta.aab \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$AAB_CERT" ] || [ "$APK_CERT" != "$AAB_CERT" ]; then
+            echo "::error::Beta AAB is unsigned or does not match the APK signing certificate"
+            exit 1
+          fi
 
       - name: Read and validate beta version
         id: version
@@ -124,8 +141,10 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - name: Stage APK with version in filename
-        run: cp app/build/outputs/apk/beta/app-beta.apk "twidget-v${{ steps.version.outputs.version }}.apk"
+      - name: Stage APK and AAB with version in filenames
+        run: |
+          cp app/build/outputs/apk/beta/app-beta.apk "twidget-v${{ steps.version.outputs.version }}.apk"
+          cp app/build/outputs/bundle/beta/app-beta.aab "twidget-v${{ steps.version.outputs.version }}.aab"
 
       - name: Generate changelog
         env:
@@ -172,12 +191,13 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="twidget-v$VERSION"
-          ARTIFACT="twidget-v$VERSION.apk"
+          APK="twidget-v$VERSION.apk"
+          AAB="twidget-v$VERSION.aab"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --prerelease --notes-file release-notes.md
-            gh release upload "$TAG" "$ARTIFACT" --clobber
+            gh release upload "$TAG" "$APK" "$AAB" --clobber
           else
-            gh release create "$TAG" "$ARTIFACT" \
+            gh release create "$TAG" "$APK" "$AAB" \
               --prerelease \
               --title "Twidget v$VERSION" \
               --notes-file release-notes.md

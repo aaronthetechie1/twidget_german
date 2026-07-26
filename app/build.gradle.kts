@@ -78,6 +78,22 @@ val twitterApisDefaultApiKey = providers.gradleProperty("twitterApisDefaultApiKe
     ?: ""
 require(debugNumber > 0) { "prereleaseNumber must be greater than zero" }
 require(betaNumber > 0) { "betaNumber must be greater than zero" }
+require(debugNumber <= 79) {
+    "Debug build number $debugNumber exceeds this version's Play Store slot range; bump versionName"
+}
+require(betaNumber <= 19) {
+    "Beta build number $betaNumber exceeds this version's Play Store slot range; bump versionName"
+}
+
+// Reserve 100 monotonically ordered Play Store version-code slots for each
+// semantic version: debug 01-79, beta 80-98, and stable 99. The layout stays
+// below Play's 2,100,000,000 ceiling through version 20.999.999.
+val versionCodeBase =
+    versionMajor * 100_000_000 + versionMinor * 100_000 + versionPatch * 100
+val stableVersionCode = versionCodeBase + 99
+require(versionMajor in 0..20 && stableVersionCode <= 2_100_000_000) {
+    "versionName $baseVersionName cannot be represented as a Play Store version code"
+}
 
 android {
     namespace = "com.tjg.twidget"
@@ -86,8 +102,8 @@ android {
     defaultConfig {
         applicationId = "com.tjg.twidget"
         minSdk = 26
-        targetSdk = 35
-        versionCode = versionMajor * 1_000_000 + versionMinor * 1_000 + versionPatch
+        targetSdk = 36
+        versionCode = stableVersionCode
         versionName = baseVersionName
         resValue("string", "buffer_oauth_client_id", bufferOAuthClientId)
         resValue("string", "cloudinary_cloud_name", cloudinaryCloudName)
@@ -157,6 +173,19 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        val versionCode = when (variant.buildType) {
+            "debug" -> versionCodeBase + debugNumber
+            "beta" -> versionCodeBase + 79 + betaNumber
+            else -> stableVersionCode
+        }
+        variant.outputs.forEach { output ->
+            output.versionCode.set(versionCode)
+        }
     }
 }
 

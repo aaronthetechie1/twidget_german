@@ -90,7 +90,7 @@ jobs:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
-      - name: Build signed release APK
+      - name: Build signed release APK and AAB
         env:
           GH_PACKAGES_USER: ${{ secrets.GH_PACKAGES_USER }}
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
@@ -107,9 +107,9 @@ jobs:
             echo "::error::TWITTERAPIS_DEFAULT_API_KEY is not configured"
             exit 1
           fi
-          ./gradlew testReleaseUnitTest assembleRelease lintVitalRelease --no-daemon --stacktrace
+          ./gradlew testReleaseUnitTest assembleRelease bundleRelease lintVitalRelease --no-daemon --stacktrace
 
-      - name: Verify signed release APK
+      - name: Verify signed release APK and AAB
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then
@@ -117,6 +117,14 @@ jobs:
             exit 1
           fi
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          APK_CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          AAB_CERT=$(keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$AAB_CERT" ] || [ "$APK_CERT" != "$AAB_CERT" ]; then
+            echo "::error::Release AAB is unsigned or does not match the APK signing certificate"
+            exit 1
+          fi
 
       - name: Create tag if missing
         run: |
@@ -126,8 +134,10 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - name: Stage APK with version in filename
-        run: cp app/build/outputs/apk/release/app-release.apk "twidget-v${{ github.event.inputs.version }}.apk"
+      - name: Stage APK and AAB with version in filenames
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "twidget-v${{ github.event.inputs.version }}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "twidget-v${{ github.event.inputs.version }}.aab"
 
       - name: Generate changelog
         env:
@@ -156,12 +166,13 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version }}"
           TAG="twidget-v$VERSION"
-          ARTIFACT="twidget-v$VERSION.apk"
+          APK="twidget-v$VERSION.apk"
+          AAB="twidget-v$VERSION.aab"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --prerelease=false --latest --notes-file release-notes.md
-            gh release upload "$TAG" "$ARTIFACT" --clobber
+            gh release upload "$TAG" "$APK" "$AAB" --clobber
           else
-            gh release create "$TAG" "$ARTIFACT" \
+            gh release create "$TAG" "$APK" "$AAB" \
               --latest \
               --title "Twidget v$VERSION" \
               --notes-file release-notes.md

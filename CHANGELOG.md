@@ -2,7 +2,7 @@
 
 All notable changes to Twidget are documented here.
 
-## [1.1.1] - Unreleased
+## [1.1.1] - 2026-07-26
 
 Minor release. Improvements to scheduling, top followers and laying groundwork for future updates.
 

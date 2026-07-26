@@ -66,7 +66,7 @@ jobs:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
-      - name: Test and build debug APK
+      - name: Test and build debug APK and AAB
         env:
           # oneui-design + SESL libs live on GitHub Packages, which requires
           # auth even for public packages (token needs read:packages).
@@ -82,18 +82,29 @@ jobs:
           TWITTERAPIS_DEFAULT_API_KEY: ${{ secrets.TWITTERAPIS_DEFAULT_API_KEY }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            ./gradlew testDebugUnitTest compileDebugAndroidTestKotlin assembleDebug lintDebug --no-daemon --stacktrace
+            ./gradlew testDebugUnitTest compileDebugAndroidTestKotlin assembleDebug bundleDebug lintDebug --no-daemon --stacktrace
+            jarsigner \
+              -keystore app/debug.keystore \
+              -storepass android \
+              -keypass android \
+              app/build/outputs/bundle/debug/app-debug.aab \
+              androiddebugkey
           else
             if [ -z "$TWITTERAPIS_DEFAULT_API_KEY" ]; then
               echo "::error::TWITTERAPIS_DEFAULT_API_KEY is not configured"
               exit 1
             fi
-            ./gradlew testDebugUnitTest compileDebugAndroidTestKotlin assembleDebug lintDebug \
+            ./gradlew testDebugUnitTest compileDebugAndroidTestKotlin assembleDebug bundleDebug lintDebug \
               -PsignDebugWithRelease=true --no-daemon --stacktrace
+            jarsigner \
+              -keystore "$RELEASE_STORE_FILE" \
+              -storepass "$RELEASE_STORE_PASSWORD" \
+              -keypass "$RELEASE_KEY_PASSWORD" \
+              app/build/outputs/bundle/debug/app-debug.aab \
+              "$RELEASE_KEY_ALIAS"
           fi
 
-      - name: Verify production-signed debug APK
-        if: github.event_name != 'pull_request'
+      - name: Verify signed debug APK and AAB
         run: |
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then
@@ -101,6 +112,14 @@ jobs:
             exit 1
           fi
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
+          APK_CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          AAB_CERT=$(keytool -printcert -jarfile app/build/outputs/bundle/debug/app-debug.aab \
+            | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$AAB_CERT" ] || [ "$APK_CERT" != "$AAB_CERT" ]; then
+            echo "::error::Debug AAB is unsigned or does not match the APK signing certificate"
+            exit 1
+          fi
 
       - name: Read debug version
         id: version
@@ -120,11 +139,17 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Upload debug APK
+      - name: Stage debug APK and AAB
+        run: |
+          mkdir -p debug-artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk debug-artifacts/
+          cp app/build/outputs/bundle/debug/app-debug.aab debug-artifacts/
+
+      - name: Upload debug APK and AAB
         uses: actions/upload-artifact@v4
         with:
           name: twidget-v${{ steps.version.outputs.version }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: debug-artifacts/
           if-no-files-found: error
 
       - name: Upload lint report
@@ -143,7 +168,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download verified debug APK
+      - name: Download verified debug APK and AAB
         uses: actions/download-artifact@v4
         with:
           name: twidget-v${{ needs.build.outputs.version }}
@@ -156,17 +181,19 @@ jobs:
         run: |
           TAG=twidget-debug-latest
           APK=debug-release/twidget-debug-latest.apk
+          AAB=debug-release/twidget-debug-latest.aab
           VERSION_FILE=debug-release/twidget-debug-latest.version
           mv debug-release/app-debug.apk "$APK"
+          mv debug-release/app-debug.aab "$AAB"
           printf '%s\n' "$VERSION" > "$VERSION_FILE"
-          NOTES="Production-signed APK from successful Debug Build run $GITHUB_RUN_ID ($GITHUB_SHA)."
+          NOTES="Production-signed APK and AAB from successful Debug Build run $GITHUB_RUN_ID ($GITHUB_SHA)."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK" "$VERSION_FILE" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" "$APK" "$AAB" "$VERSION_FILE" --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" --prerelease --title "$VERSION" --notes "$NOTES" \
               --repo "$GITHUB_REPOSITORY"
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" \
               -f sha="$GITHUB_SHA" -F force=true >/dev/null
           else
-            gh release create "$TAG" "$APK" "$VERSION_FILE" --prerelease --target "$GITHUB_SHA" \
+            gh release create "$TAG" "$APK" "$AAB" "$VERSION_FILE" --prerelease --target "$GITHUB_SHA" \
               --title "$VERSION" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
           fi
