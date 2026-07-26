@@ -44,6 +44,14 @@ The checked-in `app/debug.keystore` is intentionally public. It contains the
 standard Android debug credentials, has no production trust, and must never be
 used to sign a stable or beta release.
 
+Self-hosted bridge deployments should set `BRIDGE_API_TOKEN` so data routes
+require a bearer token. The maintainer-operated shared bridge remains
+token-free by design; it relies on rate limits and operational monitoring
+instead. Check `/health` for `publicMode: true` when no token is configured.
+Public shared-ranking reads do not authorize writes: ranking publication
+requires the server-only `TOP_FOLLOWERS_PUBLISH_TOKEN`, and the endpoint is
+hidden when that credential is absent.
+
 ## Scope notes
 
 Reports about Twidget's code and hosted bridge are welcome. Availability or

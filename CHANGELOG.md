@@ -2,17 +2,108 @@
 
 All notable changes to Twidget are documented here.
 
-## Unreleased
+## [1.1.1] - 2026-07-26
+
+Twidget 1.1.1 moves scheduled publishing to Buffer, makes Top Followers scans
+more resilient and accessible, and improves onboarding and adaptive layouts
+across phones, tablets, and launchers.
 
 ### Added
 
-- Added pull-to-refresh on the About page to immediately recheck the selected update channel.
-- Debug builds now expose a debug-only update channel backed by the latest successful, production-signed CI build, using public sidecar metadata that does not consume the GitHub API quota.
+- Added an included, rate-limited TwitterAPIs trial for one Top Followers scan
+  per account each day. Personal keys in Advanced settings take priority and
+  remove Twidget's daily limit.
+- Participating shared-history installs can reuse trusted completed Top
+  Followers rankings when the same account is added elsewhere.
+- Added a dedicated onboarding permissions step for notifications and exact
+  reminders before account setup.
+- Buffer drafts and scheduled posts can attach local images and videos, with
+  Twidget securely hosting the media before Buffer publishes it.
+- The native composer now uses Android's active keyboard for spell checking,
+  autocorrection, and word suggestions.
+- Drafts can be pinned with quick actions, a long-press context menu, and bulk
+  pin, unpin, and delete selection mode.
+- Added initial Samsung Modes and Routines support for refreshing Twidget
+  statistics on compatible Galaxy devices.
+
+### Changed
+
+- Replaced Postpone cloud scheduling and API-key onboarding with Buffer OAuth,
+  encrypted refresh-token rotation, connected X-channel mapping, and
+  Buffer-backed draft and schedule syncing.
+- Long-running Top Followers scans now continue as foreground work after the
+  app leaves the screen and show progress through Android Live Updates on
+  supported devices.
+- Redesigned scheduled-post cards with clearer dates and actions, more readable
+  post text, and responsive media thumbnails.
+- Kept the shared-history choice in initial onboarding only, so adding another
+  account cannot accidentally change the install-wide privacy setting.
+- Reorganized the Android source tree for clearer feature ownership and easier
+  maintenance.
+- Prepared Play Store distribution with Android 16 targeting and signed App
+  Bundles for debug, beta, and stable release workflows.
 
 ### Fixed
 
+- Hardened Buffer request throttling, media synchronization, refresh-token
+  handling, and background schedule updates.
+- Buffer publishing now sends a confirmation after a successful post and a
+  detailed notification when publishing fails.
+- Buffer refreshes now preserve per-item media added to X threads and use
+  Buffer thumbnails for reliable in-app previews.
+- Made Top Followers scans resumable and more reliable when the app is
+  backgrounded or interrupted.
+- Restricted shared Top Followers ranking publication to authenticated,
+  server-side publishers so public clients cannot replace cached results.
+- Kept Scheduling scoped to the account selected in the drawer, including
+  queue filtering, Buffer channel selection, and newly composed posts.
+- Limited imported scheduling media to 100 MiB and delete partial private
+  copies when a provider omits or misreports the file size.
+- Prevented cancelled Top Followers scans from committing an in-flight page,
+  promoted scans to foreground work immediately, and validated nonexistent
+  handles during onboarding.
+- Improved adaptive dashboard layouts, chart spacing, widget sizing, and
+  blank-state handling across phones, tablets, and non-One UI launchers.
+
+[1.1.1]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.1.1-beta.2...twidget-v1.1.1
+
+## [1.1.0] - 2026-07-14
+
+Stable release of Twidget 1.1, bringing scheduled publishing, richer analytics, release notices, and more reliable widgets across launchers.
+
+### Added
+
+- A complete scheduling workspace with calendar and agenda views, local reminder notifications, Postpone integration, drafts, account mapping, and recovery after reboot.
+- A native One UI composer for single tweets and threads, including media attachments, camera capture, date and time selection, character limits, a dedicated Draft action, and publish checklists.
+- Detailed X Analytics CSV imports covering followers, impressions, engagements, likes, bookmarks, shares, replies, reposts, profile visits, posts, video views, and media views.
+- Import validation against trusted snapshots, honest gaps for unavailable data, diagnostic rejection messages, and blending of verified imports into dashboard cards and averages.
+- Configurable analytics cards and range-aware insights surfaced directly on the dashboard.
+- An in-app Notices feed backed by GitHub Releases, with prerelease labels, offline caching, unread indicators, changelog previews, and full in-app release notes.
+- Automatic update checks when the app launches, respecting the selected stable or beta release channel.
+- Pull-to-refresh on the About page to immediately recheck the selected update channel.
+- Debug builds now expose a debug-only update channel backed by the latest successful, production-signed CI build, using public sidecar metadata that does not consume the GitHub API quota.
+
+### Changed
+
+- Scheduling now uses native One UI calendar, card, switcher, pop-over, floating-toolbar, and composer patterns throughout.
+- The composer header is shorter, with a plain Draft action beside the contained Save action.
+- Analytics remain embedded in the dashboard; the redundant standalone Analytics page and drawer entry were removed.
+- Notices are now a toolbar action with an orange unread dot; redundant drawer and About-page entries were removed.
+- Home-screen widgets render to the exact launcher-provided size while preserving artwork proportions, including on non-One UI launchers.
+- Private-account analytics now explain their limited availability instead of presenting incomplete data without context.
+- GitHub release workflows now place these human-written notes before generated commit and pull-request links.
+
+### Fixed
+
+- Fixed blank or incorrectly sized widgets on non-One UI launchers and prevented artwork from stretching or cropping at unusual launcher dimensions.
+- Fixed analytics imports that contain untracked follower removals while continuing to reject genuinely inconsistent histories.
+- Restored analytics-import shortcuts and kept the import action available from the account menu.
+- Fixed dashboard card touch feedback, chart interactions, and drawer avatar tint persistence.
+- Fixed scheduling switcher expansion, composer token highlighting, floating chrome insets, and several light-theme notice/composer surface artifacts.
 - Prevented the expanded About-page update control from being clipped on tablets, foldables, and other large-screen layouts.
 - Debug builds can now move to beta or stable builds of the same base version, so testers are not stranded on older builds.
+
+[1.1.0]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.1.0-beta.1...twidget-v1.1.0
 
 ## [1.1.0-beta.1] - 2026-07-13
 
@@ -64,7 +155,7 @@ First public release of Twidget, an X/Twitter follower dashboard and Samsung One
 - Background refresh on a configurable interval (15–240 minutes) via WorkManager, plus refresh-on-launch.
 - Included the optional FxTwitter/Rettiwt `bridge/` Node service for self-hosting and pooled history.
 - Bridge smoke tests and CI checks for security defaults, authentication, syntax, and dependency vulnerabilities.
-- Eighteen deterministic Android tests for provider fallback, analytics filtering/pagination, history migration, metric provenance, official-X likes handling, encrypted credential envelopes, and update-channel version selection.
+- Deterministic unit tests for provider fallback, analytics filtering/pagination, history migration, metric provenance, official-X likes handling, encrypted credential envelopes, and update-channel version selection.
 - Hidden debug menu, unlocked by tapping the version in About seven times: rerun onboarding, a dummy profile with an editable follower count for widget testing, and a log of bridge traffic.
 
 ### Changed

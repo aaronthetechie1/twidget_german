@@ -22,11 +22,13 @@ npm test
 
 ## Routes
 
-- `GET /health` — small unauthenticated readiness response; returns `503` if the configured history backend is unavailable.
+- `GET /health` — small unauthenticated readiness response; returns `503` if the configured history backend is unavailable. Includes `publicMode: true` when `BRIDGE_API_TOKEN` is unset.
 - `GET /user/:username` — normalized public profile data.
 - `GET /analytics/:username` — recent original-post analytics, cached for 45 minutes.
 - `GET /banger/:username` — opt-in, resumable Hall of Fame scan for the account's best balanced post.
 - `GET /history/:username` — opt-in pooled daily history registration/read.
+- `GET /history/:username/top-followers` — reads a completed shared ranking.
+- `POST /history/:username/top-followers` — trusted ranking publication; requires `TOP_FOLLOWERS_PUBLISH_TOKEN` on a public bridge or `BRIDGE_API_TOKEN` on a private bridge.
 - `POST /history/:username/analytics-import` — reconstructs X Analytics movements and admits gap days only when live and stored follower anchors match within a tight margin.
 - `DELETE /admin/history/:username` — operator-only permanent deletion; hidden unless `HISTORY_ADMIN_TOKEN` is configured.
 - `GET /official/user/:username` — disabled publicly by default, even with an X bearer configured.
@@ -46,9 +48,17 @@ can amplify work or weaken data trust and should stay off on a public instance
 unless there is a concrete operational reason to enable them.
 
 `BRIDGE_API_TOKEN` protects all data routes for private/self-hosted instances.
+Self-hosted deployments should always set this token. The maintainer-operated
+shared bridge intentionally remains token-free; check `/health` for
+`publicMode: true` when evaluating exposure.
 Android sends the configured bridge token as both a Bearer token and the legacy
 `X-Rettiwt-Api-Key` header. Do not ship a private token inside a publicly
 distributed APK.
+
+Shared ranking reads remain public, but writes fail closed. A public deployment
+must set `TOP_FOLLOWERS_PUBLISH_TOKEN` and give it only to a trusted server-side
+publisher; ordinary app installs must not receive it. If neither that credential
+nor `BRIDGE_API_TOKEN` is configured, the write route is hidden.
 
 Application middleware cannot absorb a volumetric or distributed DDoS attack.
 Put a public production domain behind an edge WAF/DDoS service and monitor
@@ -85,6 +95,13 @@ absent field was historically serialized as zero. Startup schema migration
 marks legacy Wayback zero fields unknown, keeps positive archive values known,
 and preserves genuine observed zero values from live/client samples. Sample
 `src` records `live`, `client`, or `wayback` provenance where available.
+
+Participating clients may also attach the latest completed Top Followers
+ranking to an already registered public account through
+`POST /history/:username/top-followers`. Other participating clients read it
+with `GET /history/:username/top-followers`. The bridge bounds the payload to
+five validated public profiles and stores it in the account metadata; these
+routes do not create history-pool accounts on their own.
 
 For the first deployment onto an existing PostgreSQL store, keep the bridge at
 one replica and take a database backup. Startup takes a PostgreSQL advisory
@@ -129,6 +146,7 @@ The safe reference values are in [`.env.example`](.env.example). Important
 controls include:
 
 - `BRIDGE_API_TOKEN` — optional token for private/self-hosted data routes.
+- `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TRUST_PROXY_HOPS` — exact reverse-proxy hop count; Railway uses `1`.
 - `RATE_LIMIT_*`, `EXPENSIVE_RATE_LIMIT_MAX` — request budgets; shared when Redis is configured.
 - `REDIS_URL` — shared rate limits, response caches, and scheduled-job locks.

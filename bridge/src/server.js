@@ -7,6 +7,7 @@ import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
+import { prepareTopFollowersCache } from "./top-followers.js";
 import {
   LocalFixedWindowLimiter,
   LocalHistoryRepository,
@@ -42,6 +43,8 @@ const waybackMaxSnapshots = envInteger("WAYBACK_MAX_SNAPSHOTS", 12, 1, 50);
 const maxWaybackConcurrent = envInteger("WAYBACK_MAX_CONCURRENT", 1, 1, 5);
 const bridgeApiToken = String(process.env.BRIDGE_API_TOKEN || "").trim();
 const historyAdminToken = String(process.env.HISTORY_ADMIN_TOKEN || "").trim();
+const topFollowersPublishToken = bridgeApiToken ||
+  String(process.env.TOP_FOLLOWERS_PUBLISH_TOKEN || "").trim();
 const xOAuthEnabled = process.env.X_OAUTH_ENABLED === "1";
 const publicOfficialApi = process.env.PUBLIC_OFFICIAL_API === "1";
 const historyStorePath = process.env.HISTORY_STORE_PATH ||
@@ -184,6 +187,7 @@ app.get("/health", async (_req, res) => {
     service: "twidget-bridge",
     upstream: "fxtwitter",
     authMode: bridgeApiToken ? "bearer" : "public",
+    publicMode: !bridgeApiToken,
     xOAuthConfigured: xOAuthEnabled && Boolean(process.env.X_CLIENT_ID),
     history: {
       enabled: true,
@@ -370,6 +374,48 @@ app.get("/history/:username", async (req, res) => {
     }
   }
   res.json({ userName: username, history: await historyFor(username, { touch: true }) });
+});
+
+app.get("/history/:username/top-followers", async (req, res) => {
+  const username = cleanUsername(req.params.username);
+  if (!username) {
+    res.status(400).json({ error: "invalid_username" });
+    return;
+  }
+  const key = username.toLowerCase();
+  if (!(await historyRepository.hasAccount(key))) {
+    res.status(404).json({ error: "top_followers_not_cached" });
+    return;
+  }
+  await historyRepository.getHistory(key, { touch: true });
+  const cached = (await historyRepository.getMeta(key)).topFollowers;
+  if (!cached || !Array.isArray(cached.top) || !cached.top.length) {
+    res.status(404).json({ error: "top_followers_not_cached" });
+    return;
+  }
+  res.json({ userName: username, ...cached });
+});
+
+app.post("/history/:username/top-followers", requireTopFollowersPublisher, historyJsonBody, async (req, res) => {
+  const username = cleanUsername(req.params.username);
+  if (!username) {
+    res.status(400).json({ error: "invalid_username" });
+    return;
+  }
+  const key = username.toLowerCase();
+  if (!(await historyRepository.hasAccount(key))) {
+    res.status(409).json({ error: "history_account_not_registered" });
+    return;
+  }
+  const cached = prepareTopFollowersCache(req.body);
+  if (!cached) {
+    res.status(400).json({ error: "invalid_top_followers" });
+    return;
+  }
+  const meta = await historyRepository.getMeta(key);
+  await historyRepository.setMeta(key, { ...meta, topFollowers: cached });
+  await historyRepository.getHistory(key, { touch: true });
+  res.status(201).json({ userName: username, ...cached });
 });
 
 app.post("/history/:username/analytics-import", historyJsonBody, async (req, res) => {
@@ -657,6 +703,7 @@ function publicBangerState(state) {
 }
 
 async function fetchFxWeeklyPosts(username, weekAgo) {
+  if (process.env.TEST_MOCK_UPSTREAM === "1") return [];
   const url = new URL(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(username)}/statuses`);
   url.searchParams.set("count", String(analyticsPostCount));
   url.searchParams.set("since", String(weekAgo));
@@ -813,6 +860,12 @@ app.use((error, _req, res, _next) => {
 
 const server = app.listen(port, "0.0.0.0", () => {
   console.log(`Twidget bridge listening on ${port}`);
+  if (!bridgeApiToken && (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT)) {
+    console.warn("BRIDGE_API_TOKEN is not set; data routes are public and rate-limited only.");
+  }
+  if (!topFollowersPublishToken && (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT)) {
+    console.warn("TOP_FOLLOWERS_PUBLISH_TOKEN is not set; shared ranking writes are disabled.");
+  }
 });
 server.requestTimeout = envInteger("REQUEST_TIMEOUT_MS", 30_000, 1_000, 300_000);
 server.headersTimeout = envInteger("HEADERS_TIMEOUT_MS", 15_000, 1_000, server.requestTimeout);
@@ -947,6 +1000,9 @@ async function fetchProfileLimited(username) {
 // verified/protected directly. Rettiwt stays as the fallback for the days
 // FxTwitter is down or blocked.
 async function fetchProfile(username) {
+  if (process.env.TEST_MOCK_UPSTREAM === "1") {
+    return mockProfile(username);
+  }
   try {
     return await fetchFxProfile(username);
   } catch (error) {
@@ -955,7 +1011,29 @@ async function fetchProfile(username) {
   return fetchRettiwtProfile(username);
 }
 
+function mockProfile(username) {
+  const clean = cleanUsername(username) || "example";
+  return {
+    fullName: `Mock ${clean}`,
+    userName: clean,
+    followersCount: 1234,
+    followersCountKnown: true,
+    followingsCount: 321,
+    followingsCountKnown: true,
+    statusesCount: 42,
+    statusesCountKnown: true,
+    likeCount: 99,
+    likeCountKnown: true,
+    profileImage: "",
+    isVerified: false,
+    isPrivate: false,
+  };
+}
+
 async function fetchFxProfile(username) {
+  if (process.env.TEST_MOCK_UPSTREAM === "1") {
+    return mockProfile(username);
+  }
   const response = await fetch(`https://api.fxtwitter.com/${encodeURIComponent(username)}`, {
     headers: { Accept: "application/json", "User-Agent": "TwidgetBridge/0.1" },
     signal: AbortSignal.timeout(10000),
@@ -1428,6 +1506,19 @@ function requestToken(req) {
   const authorization = String(req.get("authorization") || "");
   const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
   return String(bearer || req.get("x-rettiwt-api-key") || "").trim();
+}
+
+function requireTopFollowersPublisher(req, res, next) {
+  if (!topFollowersPublishToken) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!tokenMatches(requestToken(req), topFollowersPublishToken)) {
+    res.setHeader("WWW-Authenticate", "Bearer");
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  next();
 }
 
 function tokenMatches(received, expected) {

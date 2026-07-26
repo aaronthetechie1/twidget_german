@@ -38,6 +38,7 @@ Twitter widget app, with extra stats
 
 - Dashboard for all your Twitter account stats. Followers, following, impressions, engagement, etc...
 - View your best and worst tweets of the week.
+- Find the largest public accounts following you with a rate-limited TwitterAPIs trial or your own key.
 - Local or cloud based stats history
 - Track multiple accounts
 - One UI style app design
@@ -50,8 +51,11 @@ Twidget can fetch stats a few ways.
 
 1. **FxTwitter** — a free public FxTwitter/FxEmbed API source called directly from the app for both profile stats and weekly tweet analytics/media. No credentials are needed, calls happen on-device. 
 2. **Twidget bridge** — an externally hosted instance of [`bridge/`](bridge/). Currently uses FxTwitter first and falls back to Rettiwt for profile lookups when possible. Caches fetched results for other Twidget users.
-3. **Self-hosted bridge** — deploy [`bridge/`](bridge/) yourself with any Node 22 host. Point Twidget at it under Settings → Advanced → Self-hosted bridge. Bridge routes include `GET /user/:username` and `GET /analytics/:username`. Supports bridge bearer tokens for added security.
+3. **Self-hosted bridge** — deploy [`bridge/`](bridge/) yourself with any Node 22 host. Point Twidget at it under Settings → Advanced → Self-hosted bridge. Bridge routes include `GET /user/:username` and `GET /analytics/:username`. Set `BRIDGE_API_TOKEN` on self-hosted instances; the shared Twidget bridge remains token-free by design.
 4. **Official X API (bring your own credentials)** — for direct official profile stats. Bring your own API keys and fetch data directly from X using their V2 API. This is not cheap, so only paying X API users can utilise this option. Twidget does not provide this. 
+5. **TwitterAPIs** — Twidget's included app key provides a rate-limited Top Followers trial. Add your own key for direct profile stats, bounded seven-day post analytics/media, and no Twidget daily scan limit. Paid post analytics are cached for six hours and fall back to the configured bridge when unavailable.
+
+The **Your Top Followers** dashboard card uses [TwitterAPIs](https://twitterapis.com) to enumerate a public account's followers. The included app key permits one completed scan per account per local day. A personal key entered under Settings → Advanced takes priority, is encrypted on-device, and removes Twidget's daily limit; TwitterAPIs charges and provider limits still apply. Scans are manual, resumable, and capped at 6,250 paid pages per run (the provider's documented $5 at $0.0008 per read). Protected accounts are not supported. When shared history is enabled, a completed ranking is cached with that account's bridge history so participating installs can reuse it instead of paying for the same scan again.
 
 > Shared history is opt-in. The [`bridge/`](bridge/) stores only accounts explicitly registered through the history route. Normal profile lookups do not create persistent records. 
 
@@ -73,11 +77,43 @@ Twidget can fetch stats a few ways.
 
 ## Build it yourself
 
+Requires JDK 17 or newer and the Android SDK. GitHub Actions uses JDK 21; the
+app bytecode target is JVM 17.
+
+**macOS:**
+
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleDebug
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+$env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
+.\gradlew :app:assembleDebug
+```
+
+**Linux:**
+
+```bash
+./gradlew :app:assembleDebug
+```
+
 The app id is `com.tjg.twidget`.
+
+Buffer scheduling uses a public OAuth client with PKCE. Register the redirect
+URI `https://thatjoshguy67.github.io/twidget/oauth/buffer/` in Buffer. The
+minimal callback page forwards the short-lived response to
+`twidget://oauth/buffer` on the device. Provide the client ID at build time with
+`BUFFER_OAUTH_CLIENT_ID` or `-PbufferOAuthClientId=...`; no client secret is
+embedded in the Android app.
+
+Device media attached to Buffer posts is hosted on Cloudinary through an
+unsigned upload preset. Provide the shared account at build time with
+`CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_UPLOAD_PRESET` (or
+`-PcloudinaryCloudName=...`/`-PcloudinaryUploadPreset=...`); users can override
+both in Buffer settings. Only the cloud name and unsigned preset name are
+embedded — no API key or secret.
 
 GitHub Packages credentials belong in
 `~/.config/twidget/github.properties`; start from
