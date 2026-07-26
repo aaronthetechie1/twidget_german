@@ -4,36 +4,63 @@ All notable changes to Twidget are documented here.
 
 ## [1.1.1] - 2026-07-26
 
-Minor release. Improvements to scheduling, top followers and laying groundwork for future updates.
-
-### Changed
-
-- Reorganized the app's source tree from one flat package into neatly organised folders. For better maintainability.
-- Replaced Postpone cloud scheduling and API-key onboarding with Buffer OAuth, encrypted refresh-token rotation, connected X-channel mapping, and Buffer-backed draft and schedule syncing.
-- Long-running top-follower scans now continue as foreground work after the app leaves the screen and surface progress through Android Live Updates on supported devices.
-- Redesigned scheduled-tweet cards with clearer date and action rows, more readable post text, and responsive media thumbnails.
-- Kept the shared-history choice in initial onboarding only, so adding another account cannot accidentally change the install-wide privacy setting.
+Twidget 1.1.1 moves scheduled publishing to Buffer, makes Top Followers scans
+more resilient and accessible, and improves onboarding and adaptive layouts
+across phones, tablets, and launchers.
 
 ### Added
 
-- Added an included, rate-limited TwitterAPIs trial for one Top Followers scan per account each day; personal keys in Advanced settings take priority and remove Twidget's daily limit.
-- Participating shared-history installs now contribute completed Top Followers rankings to the bridge and reuse an existing ranking when that account is added elsewhere.
-- Added a dedicated onboarding permissions step that confirms notification and exact-reminder access before account setup.
-- Buffer drafts and scheduled posts can now attach local images and videos; Twidget hosts them with its built-in cloud configuration before syncing them to Buffer.
-- The native composer now uses Android's active keyboard for spell checking, autocorrection, and word suggestions.
-- Drafts can be pinned with quick actions, a long-press context menu, and bulk pin/unpin/delete selection mode.
-- Started work integrating Twidget into Modes and Routines on Galaxy devices. Barebones for now, but more features coming in the future.
+- Added an included, rate-limited TwitterAPIs trial for one Top Followers scan
+  per account each day. Personal keys in Advanced settings take priority and
+  remove Twidget's daily limit.
+- Participating shared-history installs can contribute completed Top Followers
+  rankings and reuse an existing ranking when the same account is added
+  elsewhere.
+- Added a dedicated onboarding permissions step for notifications and exact
+  reminders before account setup.
+- Buffer drafts and scheduled posts can attach local images and videos, with
+  Twidget securely hosting the media before Buffer publishes it.
+- The native composer now uses Android's active keyboard for spell checking,
+  autocorrection, and word suggestions.
+- Drafts can be pinned with quick actions, a long-press context menu, and bulk
+  pin, unpin, and delete selection mode.
+- Added initial Samsung Modes and Routines support for refreshing Twidget
+  statistics on compatible Galaxy devices.
+
+### Changed
+
+- Replaced Postpone cloud scheduling and API-key onboarding with Buffer OAuth,
+  encrypted refresh-token rotation, connected X-channel mapping, and
+  Buffer-backed draft and schedule syncing.
+- Long-running Top Followers scans now continue as foreground work after the
+  app leaves the screen and show progress through Android Live Updates on
+  supported devices.
+- Redesigned scheduled-post cards with clearer dates and actions, more readable
+  post text, and responsive media thumbnails.
+- Kept the shared-history choice in initial onboarding only, so adding another
+  account cannot accidentally change the install-wide privacy setting.
+- Reorganized the Android source tree for clearer feature ownership and easier
+  maintenance.
+- Prepared Play Store distribution with Android 16 targeting and signed App
+  Bundles for debug, beta, and stable release workflows.
 
 ### Fixed
 
-- Hardened Buffer request throttling, media synchronization, refresh-token handling, and background schedule updates.
-- Buffer publishing now sends a confirmation notification after a successful post and an error notification with details when publishing fails.
-- Buffer refreshes now preserve per-item media added to X threads in Buffer and use Buffer thumbnails for reliable in-app previews.
-- Made top-follower scans resumable and more reliable when the app is backgrounded or interrupted.
-- Prevented cancelled top-follower scans from committing an in-flight page, promoted scans to foreground work immediately, and validated nonexistent handles inline during onboarding.
-- Improved adaptive dashboard layouts, chart spacing, widget sizing, and blank-state handling across phones, tablets, and non-One UI launchers.
+- Hardened Buffer request throttling, media synchronization, refresh-token
+  handling, and background schedule updates.
+- Buffer publishing now sends a confirmation after a successful post and a
+  detailed notification when publishing fails.
+- Buffer refreshes now preserve per-item media added to X threads and use
+  Buffer thumbnails for reliable in-app previews.
+- Made Top Followers scans resumable and more reliable when the app is
+  backgrounded or interrupted.
+- Prevented cancelled Top Followers scans from committing an in-flight page,
+  promoted scans to foreground work immediately, and validated nonexistent
+  handles during onboarding.
+- Improved adaptive dashboard layouts, chart spacing, widget sizing, and
+  blank-state handling across phones, tablets, and non-One UI launchers.
 
-[1.1.1]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.1.0...twidget-v1.1.1
+[1.1.1]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.1.1-beta.2...twidget-v1.1.1
 
 ## [1.1.0] - 2026-07-14
 
