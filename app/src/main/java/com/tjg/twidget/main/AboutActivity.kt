@@ -84,6 +84,9 @@ class AboutActivity : FoldablePopOverActivity() {
         findViewById<View>(R.id.about_oneui_credit).setOnClickListener {
             openUrl(getString(R.string.link_oneui_project))
         }
+        findViewById<View>(R.id.about_privacy_policy).setOnClickListener {
+            openUrl(getString(R.string.link_privacy_policy))
+        }
         findViewById<View>(R.id.about_open_source_licenses).setOnClickListener {
             showOpenSourceLicenses()
         }

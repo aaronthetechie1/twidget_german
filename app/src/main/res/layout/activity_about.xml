@@ -285,11 +285,21 @@
                 android:orientation="vertical">
 
                 <dev.oneuiproject.oneui.widget.CardItemView
-                    android:id="@+id/about_open_source_licenses"
+                    android:id="@+id/about_privacy_policy"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:clickable="true"
                     app:showTopDivider="false"
+                    app:summary="@string/about_privacy_policy_summary"
+                    app:summaryMaxLines="3"
+                    app:title="@string/about_privacy_policy_title" />
+
+                <dev.oneuiproject.oneui.widget.CardItemView
+                    android:id="@+id/about_open_source_licenses"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    app:showTopDivider="true"
                     app:summary="@string/about_open_source_licenses_summary"
                     app:summaryMaxLines="6"
                     app:title="@string/about_open_source_licenses_title" />
