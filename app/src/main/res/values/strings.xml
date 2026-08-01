@@ -406,13 +406,20 @@
     <string name="brief_debug_inputs_category">Engine inputs</string>
     <string name="brief_debug_ranking_category">Candidate ranking</string>
     <string name="brief_debug_actions_category">Engine actions</string>
+    <string name="brief_debug_refresh">Refresh and regenerate Brief</string>
+    <string name="brief_debug_refresh_summary">Open the Brief, reevaluate all content, and run the configured AI provider again</string>
     <string name="brief_debug_force_rebuild">Force engine rebuild</string>
     <string name="brief_debug_force_rebuild_summary">Ignore the saved daily Brief and evaluate every candidate again</string>
     <string name="brief_debug_rebuilt">Brief rebuilt</string>
     <string name="brief_debug_full_report">Full engine report</string>
     <string name="brief_debug_full_report_summary">Inspect or copy the inputs, scores, ordering, and selection result</string>
     <string name="brief_debug_log_category">Recent engine log</string>
+    <string name="brief_debug_log_title">Engine log</string>
     <string name="brief_debug_log_empty">No engine evaluations logged yet</string>
+    <plurals name="brief_debug_log_summary">
+        <item quantity="one">%1$d entry · Latest: %2$s · %3$s</item>
+        <item quantity="other">%1$d entries · Latest: %2$s · %3$s</item>
+    </plurals>
     <string name="brief_debug_nano_category">Gemini Nano diagnostics</string>
     <string name="brief_debug_nano_checking">Checking Gemini Nano…</string>
     <string name="brief_debug_nano_checking_summary">Querying ML Kit GenAI and Android AICore</string>

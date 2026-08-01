@@ -203,6 +203,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".settings.BriefDebugLogActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".bridge.DebugBridgeLogActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />

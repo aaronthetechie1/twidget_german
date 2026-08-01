@@ -3,6 +3,7 @@ package com.tjg.twidget.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
@@ -25,6 +26,7 @@ import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.InsetPreferenceFragment
+import com.tjg.twidget.ui.startSettingsSubActivity
 import androidx.lifecycle.lifecycleScope
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import java.text.SimpleDateFormat
@@ -44,6 +46,23 @@ class BriefDebugActivity : FoldablePopOverActivity() {
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.preference_fragment_container, BriefDebugFragment())
+                .commit()
+        }
+    }
+}
+
+class BriefDebugLogActivity : FoldablePopOverActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_preference_screen)
+        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
+            setTitle(getString(R.string.brief_debug_log_title))
+            setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        }
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.preference_fragment_container, BriefDebugLogFragment())
                 .commit()
         }
     }
@@ -180,6 +199,16 @@ class BriefDebugFragment : InsetPreferenceFragment() {
 
         screen.addPreference(category(R.string.brief_debug_actions_category))
         screen.addPreference(Preference(context).apply {
+            key = "brief_debug_refresh"
+            title = getString(R.string.brief_debug_refresh)
+            summary = getString(R.string.brief_debug_refresh_summary)
+            isEnabled = username.isNotBlank()
+            setOnPreferenceClickListener {
+                startActivity(TwidgetBriefActivity.refreshIntent(context, username))
+                true
+            }
+        })
+        screen.addPreference(Preference(context).apply {
             key = "brief_debug_force_rebuild"
             title = getString(R.string.brief_debug_force_rebuild)
             summary = getString(R.string.brief_debug_force_rebuild_summary)
@@ -202,64 +231,32 @@ class BriefDebugFragment : InsetPreferenceFragment() {
 
         val log = BriefDebugLog.entries(context)
         screen.addPreference(category(R.string.brief_debug_log_category))
-        if (log.isEmpty()) {
-            screen.addPreference(Preference(context).apply {
-                key = "brief_debug_log_empty"
-                title = getString(R.string.brief_debug_log_empty)
-                isSelectable = false
-            })
-        } else {
-            screen.addPreference(Preference(context).apply {
-                key = "brief_debug_clear_log"
-                title = SpannableString(getString(R.string.clear_log)).apply {
-                    setSpan(ForegroundColorSpan(context.getColor(R.color.metric_red)), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-                setOnPreferenceClickListener {
-                    BriefDebugLog.clear(context)
-                    buildScreen()
-                    true
-                }
-            })
-            log.forEachIndexed { index, entry ->
-                screen.addPreference(Preference(context).apply {
-                    key = "brief_debug_log_$index"
-                    title = "${entry.event} · @${entry.username}"
-                    summary = SimpleDateFormat("MMM d, HH:mm:ss", Locale.US).format(Date(entry.timestamp))
-                    setOnPreferenceClickListener {
-                        showText(entry.event, entry.report, copyable = true)
-                        true
-                    }
-                })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_open_log"
+            title = getString(R.string.brief_debug_log_title)
+            summary = log.firstOrNull()?.let { latest ->
+                resources.getQuantityString(
+                    R.plurals.brief_debug_log_summary,
+                    log.size,
+                    log.size,
+                    latest.event,
+                    SimpleDateFormat("MMM d, HH:mm:ss", Locale.US).format(Date(latest.timestamp)),
+                )
+            } ?: getString(R.string.brief_debug_log_empty)
+            setOnPreferenceClickListener {
+                requireActivity().startSettingsSubActivity(
+                    Intent(context, BriefDebugLogActivity::class.java),
+                )
+                true
             }
-        }
+        })
 
         screen.addBottomInset()
         preferenceScreen = screen
     }
 
     private fun showText(title: String, value: String, copyable: Boolean = false) {
-        val context = requireContext()
-        val textView = TextView(context).apply {
-            text = value
-            typeface = android.graphics.Typeface.MONOSPACE
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTextColor(context.getColor(R.color.oneui_text_primary))
-            setTextIsSelectable(true)
-            val pad = (16 * resources.displayMetrics.density).toInt()
-            setPadding(pad, pad / 2, pad, pad / 2)
-        }
-        AlertDialog.Builder(context)
-            .setTitle(title)
-            .setView(ScrollView(context).apply { addView(textView) })
-            .setNegativeButton(R.string.done, null)
-            .apply {
-                if (copyable) setPositiveButton(R.string.copy) { _, _ ->
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText(title, value))
-                    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-                }
-            }
-            .show()
+        showDebugText(requireContext(), title, value, copyable)
     }
 
     private fun selectedScenario(): BriefDebugScenario = BriefDebugScenario.fromStorageId(
@@ -304,4 +301,90 @@ class BriefDebugFragment : InsetPreferenceFragment() {
     companion object {
         private const val KEY_SCENARIO = "brief_debug_scenario"
     }
+}
+
+class BriefDebugLogFragment : InsetPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        buildScreen()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        buildScreen()
+    }
+
+    private fun buildScreen() {
+        val context = requireContext()
+        val screen = preferenceManager.createPreferenceScreen(context)
+        val log = BriefDebugLog.entries(context)
+
+        if (log.isEmpty()) {
+            screen.addPreference(Preference(context).apply {
+                key = "brief_debug_log_empty"
+                title = getString(R.string.brief_debug_log_empty)
+                isSelectable = false
+            })
+        } else {
+            screen.addPreference(Preference(context).apply {
+                key = "brief_debug_clear_log"
+                title = SpannableString(getString(R.string.clear_log)).apply {
+                    setSpan(
+                        ForegroundColorSpan(context.getColor(R.color.metric_red)),
+                        0,
+                        length,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
+                setOnPreferenceClickListener {
+                    BriefDebugLog.clear(context)
+                    buildScreen()
+                    true
+                }
+            })
+            log.forEachIndexed { index, entry ->
+                screen.addPreference(Preference(context).apply {
+                    key = "brief_debug_log_$index"
+                    title = "${entry.event} · @${entry.username}"
+                    summary = SimpleDateFormat("MMM d, HH:mm:ss", Locale.US)
+                        .format(Date(entry.timestamp))
+                    setOnPreferenceClickListener {
+                        showDebugText(context, entry.event, entry.report, copyable = true)
+                        true
+                    }
+                })
+            }
+        }
+
+        screen.addBottomInset()
+        preferenceScreen = screen
+    }
+}
+
+private fun showDebugText(
+    context: Context,
+    title: String,
+    value: String,
+    copyable: Boolean = false,
+) {
+    val textView = TextView(context).apply {
+        text = value
+        typeface = android.graphics.Typeface.MONOSPACE
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        setTextColor(context.getColor(R.color.oneui_text_primary))
+        setTextIsSelectable(true)
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        setPadding(pad, pad / 2, pad, pad / 2)
+    }
+    AlertDialog.Builder(context)
+        .setTitle(title)
+        .setView(ScrollView(context).apply { addView(textView) })
+        .setNegativeButton(R.string.done, null)
+        .apply {
+            if (copyable) setPositiveButton(R.string.copy) { _, _ ->
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(title, value))
+                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            }
+        }
+        .show()
 }

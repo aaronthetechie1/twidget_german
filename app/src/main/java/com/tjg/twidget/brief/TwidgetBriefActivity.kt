@@ -85,28 +85,40 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
-        loadBrief()
+        val forceRefresh = intent.getBooleanExtra(EXTRA_FORCE_REFRESH, false)
+        loadBrief(forceEngine = forceRefresh, forceAi = forceRefresh)
     }
 
     override fun onResume() {
         super.onResume()
         if (reloadOnResume) {
             reloadOnResume = false
-            loadBrief(force = true)
+            loadBrief(forceEngine = true)
         }
     }
 
-    private fun loadBrief(force: Boolean = false) {
+    private fun loadBrief(forceEngine: Boolean = false, forceAi: Boolean = false) {
         setLoading(true)
         lifecycleScope.launch {
             try {
                 val source = withContext(Dispatchers.IO) {
+                    if (forceAi) {
+                        BriefStore.resetAi(this@TwidgetBriefActivity, username)
+                    }
                     debugScenario.snapshot(
-                        BriefEngine.rebuild(this@TwidgetBriefActivity, username, force),
+                        BriefEngine.rebuild(
+                            this@TwidgetBriefActivity,
+                            username,
+                            force = forceEngine,
+                        ),
                     )
                 }
                 val result = if (debugScenario == BriefDebugScenario.REAL) {
-                    BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source)
+                    BriefAiCoordinator.enrich(
+                        this@TwidgetBriefActivity,
+                        source,
+                        force = forceAi,
+                    )
                 } else {
                     BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
                 }
@@ -676,11 +688,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     companion object {
         const val EXTRA_USERNAME = "username"
         private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"
+        private const val EXTRA_FORCE_REFRESH = "brief_force_refresh"
 
         fun intent(context: Context, username: String) =
             Intent(context, TwidgetBriefActivity::class.java).putExtra(EXTRA_USERNAME, username)
 
         fun debugIntent(context: Context, username: String, scenario: BriefDebugScenario) =
             intent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)
+
+        fun refreshIntent(context: Context, username: String) =
+            intent(context, username).putExtra(EXTRA_FORCE_REFRESH, true)
     }
 }
