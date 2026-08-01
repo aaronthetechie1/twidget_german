@@ -12,15 +12,17 @@
 
     <ImageView
         android:id="@+id/brief_dashboard_icon"
-        android:layout_width="76dp"
-        android:layout_height="76dp"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
         android:contentDescription="@null"
-        android:padding="18dp" />
+        android:padding="10dp"
+        android:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/brief_dashboard_copy"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="14dp"
+        android:layout_marginStart="0dp"
         android:layout_weight="1"
         android:orientation="vertical">
 

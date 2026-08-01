@@ -39,6 +39,7 @@ import com.tjg.twidget.main.MilestoneMetricResolver
 import com.tjg.twidget.main.MilestonePerformanceState
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.StreakCardFactory
+import com.tjg.twidget.settings.BriefSettingsActivity
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.MetricChartView
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -109,7 +110,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             visibility = if (loading) View.VISIBLE else View.GONE
             if (loading) playAnimation() else cancelAnimation()
         }
-        findViewById<ImageButton>(R.id.brief_info).isEnabled = !loading
+        findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = !loading
+        findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = !loading
     }
 
     private fun bindChrome() {
@@ -120,10 +122,18 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             imageTintList = tint
             setOnClickListener { finish() }
         }
-        findViewById<ImageButton>(R.id.brief_info).apply {
+        findViewById<TextView>(R.id.brief_footer_account).text = "@$username"
+        findViewById<ImageButton>(R.id.brief_footer_info).apply {
             setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_info_outline))
             imageTintList = tint
             setOnClickListener { showProviderInfo() }
+        }
+        findViewById<ImageButton>(R.id.brief_footer_settings).apply {
+            setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_settings_outline))
+            imageTintList = tint
+            setOnClickListener {
+                startActivity(Intent(this@TwidgetBriefActivity, BriefSettingsActivity::class.java))
+            }
         }
     }
 
@@ -414,8 +424,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun showProviderInfo() {
         val snapshot = renderedSnapshot ?: return
         val builder = AlertDialog.Builder(this)
-            .setTitle(R.string.brief_title)
-            .setMessage(snapshot.providerMessage)
+            .setTitle(R.string.brief_ai_disclaimer)
+            .setMessage(getString(R.string.brief_ai_disclaimer_body, snapshot.providerMessage))
             .setNegativeButton(android.R.string.cancel, null)
         if (localStatus == BriefLocalStatus.DOWNLOADABLE) {
             builder.setPositiveButton(R.string.brief_prepare_local) { _, _ -> downloadLocalModel() }

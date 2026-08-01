@@ -47,6 +47,7 @@
     <color name="import_failure_start">#FF8D8F</color>
     <color name="brief_dashboard_glow">#8DCCFF</color>
     <color name="brief_screen_top">#A1D5FF</color>
+    <color name="brief_top_bar_transparent">#00A1D5FF</color>
     <color name="brief_screen_bottom">#F1F1F3</color>
     <color name="brief_card_surface">#99FFFFFF</color>
     <color name="brief_text_supporting">#848487</color>

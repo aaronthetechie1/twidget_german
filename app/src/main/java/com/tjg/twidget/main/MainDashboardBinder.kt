@@ -31,6 +31,7 @@ import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.XAnalyticsMovement
 import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -345,9 +346,23 @@ internal class MainDashboardBinder(
         val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
         val snapshot = BriefEngine.rebuild(activity, account)
         val hero = snapshot.cards.first()
+        val iconRes = when (hero.type) {
+            BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
+            BriefCardType.STREAK -> R.drawable.ic_streak_fire
+            BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community
+            else -> null
+        }
         root.findViewById<ImageView>(R.id.brief_dashboard_icon).apply {
-            setImageDrawable(AppCompatResources.getDrawable(activity, OneUiIconR.drawable.ic_oui_equalizer_2))
-            imageTintList = ColorStateList.valueOf(activity.getColor(R.color.oneui_text_primary))
+            visibility = if (iconRes == null) View.GONE else View.VISIBLE
+            iconRes?.let {
+                setImageDrawable(AppCompatResources.getDrawable(activity, it))
+                imageTintList = ColorStateList.valueOf(activity.getColor(R.color.oneui_text_primary))
+            }
+        }
+        root.findViewById<LinearLayout>(R.id.brief_dashboard_copy).apply {
+            (layoutParams as LinearLayout.LayoutParams).marginStart = activity.dp(
+                if (iconRes == null) 4 else 12,
+            )
         }
         root.findViewById<TextView>(R.id.brief_dashboard_title).text = hero.title
         root.findViewById<TextView>(R.id.brief_dashboard_message).text = hero.body
