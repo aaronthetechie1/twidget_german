@@ -189,11 +189,11 @@ open class TwidgetWidget : AppWidgetProvider() {
                 val dark = isDark(context, widgetSettings)
                 val base = if (dark) 16 else 255
                 val backgroundColor = Color.argb(widgetSettings.tintAlpha, base, base, base)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !TwidgetFonts.hasSystemOneUiSans) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     // Tint the existing rounded shape instead of replacing it
-                    // with a rectangular ColorDrawable. Keeping the surface
-                    // separate also lets the text bitmap scale without being
-                    // distorted to fill unusual launcher cell ratios.
+                    // with a rectangular ColorDrawable. One UI uses this
+                    // drawable as the glass/blur surface; replacing it made the
+                    // milestone widget translucent but left the wallpaper sharp.
                     setColorStateList(
                         android.R.id.background,
                         "setBackgroundTintList",

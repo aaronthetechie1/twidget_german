@@ -9,12 +9,12 @@ import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.NumberPicker
 import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.SwitchCompat
+import androidx.picker.widget.SeslNumberPicker
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
@@ -33,7 +33,7 @@ class MilestoneGoalActivity : EdgeToEdgeActivity() {
     private lateinit var metricStep: View
     private lateinit var targetStep: View
     private lateinit var continueButton: TextView
-    private lateinit var picker: NumberPicker
+    private lateinit var picker: SeslNumberPicker
     private lateinit var autoSwitch: SwitchCompat
     private var selectedMetric = MilestoneMetric.FOLLOWERS
     private var targetOptions = emptyList<Double>()

@@ -1,5 +1,6 @@
 package com.tjg.twidget.main
 
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
@@ -78,12 +79,20 @@ internal class MilestoneCardBinder(
 
     private fun bindColors(root: View, arc: MilestoneArcView, accent: Int, glow: Int) {
         arc.progressColor = accent
+        val night = activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
         root.background = MilestoneCardBackgroundDrawable(
-            glowColor = glow,
+            glowColor = if (night) darkGlow(glow) else glow,
             surfaceColor = activity.getColor(R.color.oneui_card_bg),
             radiusPx = activity.dp(28).toFloat(),
         )
     }
+
+    private fun darkGlow(color: Int): Int = android.graphics.Color.rgb(
+        (android.graphics.Color.red(color) * DARK_GLOW_STRENGTH).toInt(),
+        (android.graphics.Color.green(color) * DARK_GLOW_STRENGTH).toInt(),
+        (android.graphics.Color.blue(color) * DARK_GLOW_STRENGTH).toInt(),
+    )
 
     private fun boldTarget(body: String, target: String): CharSequence {
         val start = body.indexOf(target)
@@ -108,6 +117,7 @@ internal class MilestoneCardBinder(
     }
 
     private companion object {
+        const val DARK_GLOW_STRENGTH = 0.30f
         const val COLOR_BLUE = 0xFF1881FF.toInt()
         const val GLOW_BLUE = 0xFF8DCCFF.toInt()
         const val COLOR_GREEN = 0xFF0FCF6E.toInt()

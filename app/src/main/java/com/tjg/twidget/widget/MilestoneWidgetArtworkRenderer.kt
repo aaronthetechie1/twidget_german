@@ -84,15 +84,15 @@ internal object MilestoneWidgetArtworkRenderer {
             MilestoneCopyFactory.message(context, account, state, progress, target, noun)
                 .let { it.title to it.body }
         }
-        val widthDp = width / density
-        val heightDp = height / density
-        val compact = heightDp <= 110f
-        val wideCompact = compact && widthDp > 230f
-        val tallWide = !compact && widthDp > 230f
-        val pad = dp(context, if (wideCompact) 14 else 10).toFloat()
+        val layout = widgetLayout(width / density, height / density)
+        val pad = dp(context, if (layout == MilestoneWidgetLayout.WIDE_STRIP) 14 else 10).toFloat()
         val iconDiameter = min(dp(context, 48).toFloat(), height - pad * 2f)
         val iconCenterX = pad + iconDiameter / 2f
-        val iconCenterY = pad + iconDiameter / 2f
+        val iconCenterY = if (layout == MilestoneWidgetLayout.WIDE_STRIP) {
+            height / 2f
+        } else {
+            pad + iconDiameter / 2f
+        }
         drawArcAndIcon(
             context,
             canvas,
@@ -107,18 +107,10 @@ internal object MilestoneWidgetArtworkRenderer {
         val primary = if (dark) Color.WHITE else Color.BLACK
         val secondary = Color.argb(204, Color.red(primary), Color.green(primary), Color.blue(primary))
         val titlePaint = textPaint(context, settings, primary, 700).apply {
-            textSize = when {
-                wideCompact || tallWide -> 24f
-                compact -> 20f
-                else -> 18f
-            } * density
+            textSize = if (layout == MilestoneWidgetLayout.SQUARE) 18f * density else 24f * density
         }
         val bodyPaint = textPaint(context, settings, primary, 400).apply {
-            textSize = when {
-                tallWide -> 16f
-                compact -> 12.5f
-                else -> 14f
-            } * density
+            textSize = if (layout == MilestoneWidgetLayout.WIDE_TALL) 16f * density else 14f * density
         }
         val bodyEmphasisPaint = textPaint(context, settings, primary, 700).apply {
             textSize = bodyPaint.textSize
@@ -126,89 +118,100 @@ internal object MilestoneWidgetArtworkRenderer {
         val handlePaint = textPaint(context, settings, secondary, 600).apply {
             textSize = 12f * density
         }
-        val textLeft = if (compact) {
+        val textLeft = if (layout == MilestoneWidgetLayout.WIDE_STRIP) {
             iconCenterX + iconDiameter / 2f + dp(context, 14).toFloat()
-        } else {
-            pad
-        }
+        } else pad
         val textRight = width - pad
         val textWidth = (textRight - textLeft).coerceAtLeast(dp(context, 60).toFloat())
-        val displayedTitle = if (wideCompact && goal.configured && goal.target > 0.0) {
-            "${message.first} · $target"
-        } else {
-            message.first
-        }
+        val displayedTitle = message.first
         shrinkToFit(titlePaint, displayedTitle, textWidth, 13f * density)
-        val titleBaseline = if (compact) {
-            if (wideCompact) {
-                dp(context, 10).toFloat() + titlePaint.textSize * 0.82f
-            } else {
-                height / 2f - dp(context, 3).toFloat()
-            }
-        } else if (tallWide) {
-            pad + iconDiameter + dp(context, 40).toFloat()
-        } else {
-            pad + iconDiameter + dp(context, 26).toFloat()
+        val titleBaseline = when (layout) {
+            MilestoneWidgetLayout.WIDE_STRIP -> height / 2f - dp(context, 4).toFloat()
+            MilestoneWidgetLayout.SQUARE -> dp(context, 80).toFloat()
+            MilestoneWidgetLayout.WIDE_TALL -> dp(context, 98).toFloat()
         }
-        val titleLeft = if (wideCompact) {
+        val titleLeft = if (layout == MilestoneWidgetLayout.WIDE_STRIP) {
             textLeft + (textWidth - titlePaint.measureText(displayedTitle)) / 2f
         } else {
             textLeft
         }
         canvas.drawText(displayedTitle, titleLeft, titleBaseline, titlePaint)
 
-        if (!wideCompact) {
-            val displayedBody = if (
-                compact &&
-                goal.configured &&
-                goal.target > 0.0
-            ) {
-                "$target $noun goal"
-            } else {
-                message.second
-            }
+        if (layout != MilestoneWidgetLayout.WIDE_STRIP) {
             drawEmphasizedWrapped(
                 canvas,
-                displayedBody,
+                message.second,
                 bodyPaint,
                 bodyEmphasisPaint,
                 target.takeIf { goal.configured && goal.target > 0.0 },
                 textLeft,
-                titleBaseline + dp(context, 5).toFloat() + bodyPaint.textSize,
+                titleBaseline + if (layout == MilestoneWidgetLayout.SQUARE) {
+                    dp(context, 25).toFloat()
+                } else {
+                    dp(context, 28).toFloat()
+                },
                 textWidth,
-                if (compact) 1 else 2,
+                2,
             )
         }
 
-        if (wideCompact || !compact) {
-            drawFooter(
-                context = context,
+        when (layout) {
+            MilestoneWidgetLayout.WIDE_STRIP -> {
+                val footerLeft = centeredFooterLeft(
+                    context = context,
+                    account = account,
+                    paint = handlePaint,
+                    areaLeft = textLeft,
+                    areaWidth = textWidth,
+                )
+                drawFooter(
+                    context,
+                    canvas,
+                    settings,
+                    account,
+                    footerLeft,
+                    (height - dp(context, 10)).toFloat(),
+                    primary,
+                    handlePaint,
+                )
+            }
+            MilestoneWidgetLayout.SQUARE -> drawHandle(
                 canvas = canvas,
-                settings = settings,
                 account = account,
-                left = if (wideCompact) {
-                    centeredFooterLeft(
-                        context = context,
-                        settings = settings,
-                        account = account,
-                        paint = handlePaint,
-                        areaLeft = textLeft,
-                        areaWidth = textWidth,
-                    )
-                } else {
-                    pad
-                },
+                left = pad,
                 baseline = height - pad,
-                primary = primary,
                 paint = handlePaint,
             )
+            MilestoneWidgetLayout.WIDE_TALL -> {
+                drawFooter(
+                    context = context,
+                    canvas = canvas,
+                    settings = settings,
+                    account = account,
+                    left = pad,
+                    baseline = height - pad,
+                    primary = primary,
+                    paint = handlePaint,
+                )
+            }
         }
         return bitmap
     }
 
+    internal fun widgetLayout(widthDp: Float, heightDp: Float): MilestoneWidgetLayout = when {
+        heightDp <= 110f -> MilestoneWidgetLayout.WIDE_STRIP
+        widthDp <= 230f -> MilestoneWidgetLayout.SQUARE
+        else -> MilestoneWidgetLayout.WIDE_TALL
+    }
+
+    internal enum class MilestoneWidgetLayout {
+        WIDE_STRIP,
+        SQUARE,
+        WIDE_TALL,
+    }
+
     private fun centeredFooterLeft(
         context: Context,
-        settings: TwidgetWidgetSettings,
         account: String,
         paint: Paint,
         areaLeft: Float,
@@ -249,6 +252,16 @@ internal object MilestoneWidgetArtworkRenderer {
         }
         val handle = "@${account.trim().trimStart('@')}"
         canvas.drawText(handle, left + logoSize + dp(context, 6), baseline, paint)
+    }
+
+    private fun drawHandle(
+        canvas: Canvas,
+        account: String,
+        left: Float,
+        baseline: Float,
+        paint: Paint,
+    ) {
+        canvas.drawText("@${account.trim().trimStart('@')}", left, baseline, paint)
     }
 
     private fun drawArcAndIcon(

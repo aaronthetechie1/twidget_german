@@ -100,7 +100,7 @@
                         android:textSize="36sp"
                         android:textStyle="bold" />
 
-                    <NumberPicker
+                    <androidx.picker.widget.SeslNumberPicker
                         android:id="@+id/milestone_number_picker"
                         android:layout_width="match_parent"
                         android:layout_height="230dp"

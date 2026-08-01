@@ -14,7 +14,6 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.ViewStub
 import android.widget.Toast
@@ -63,7 +62,6 @@ class MainActivity : ScheduleQueueHostActivity() {
     private var navigationBarInset = 0
     private var launchChromeReady = false
     private var embeddedScheduleAttached = false
-    private var launchSplash: LaunchSplashView? = null
 
     private val bangerUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -111,15 +109,6 @@ class MainActivity : ScheduleQueueHostActivity() {
         postAnalyticsBinder = MainPostAnalyticsBinder(this)
 
         setContentView(R.layout.activity_main)
-        launchSplash = LaunchSplashView(this).also { splash ->
-            addContentView(
-                splash,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                ),
-            )
-        }
         destination = savedInstanceState?.getString(STATE_DESTINATION)
             ?.let(MainDestination::valueOf)
             ?: MainDestination.DASHBOARD
@@ -162,8 +151,6 @@ class MainActivity : ScheduleQueueHostActivity() {
                         RefreshWorker.schedule(applicationContext)
                     }
                     render()
-                    launchSplash?.finishAfterMinimumDuration()
-                    launchSplash = null
                     if (savedInstanceState == null) checkReleasesOnLaunch()
                     if (TwidgetStore.settings(this@MainActivity).refreshOnLaunch) {
                         syncController.sync()
