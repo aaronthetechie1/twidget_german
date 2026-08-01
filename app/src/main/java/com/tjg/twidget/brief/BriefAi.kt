@@ -50,67 +50,67 @@ object BriefAiCoordinator {
         force: Boolean = false,
     ): BriefAiResult = withContext(Dispatchers.IO) {
         generationMutex.withLock {
-        val mode = BriefSettingsStore.provider(context)
-        val cached = if (force) {
-            source
-        } else {
-            BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source)
-        }
-        if (!force && cachedProviderMatches(mode, cached.providerUsed)) {
-            if (cached !== source) BriefStore.write(context, cached)
-            return@withLock BriefAiResult(
-                cached,
-                if (cached.providerUsed == BriefProviderUsed.LOCAL) {
-                    BriefLocalStatus.AVAILABLE
-                } else {
-                    BriefLocalStatus.UNAVAILABLE
-                },
-            )
-        }
-        val localProbe = GeminiNanoBriefProvider.probe(context)
-        val localStatus = localProbe.status
-        val resultMatchesMode = when (mode) {
-            BriefProviderMode.LOCAL -> source.providerUsed == BriefProviderUsed.LOCAL
-            BriefProviderMode.CLOUD -> source.providerUsed == BriefProviderUsed.CLOUD
-            BriefProviderMode.AUTO -> when (localStatus) {
-                BriefLocalStatus.AVAILABLE -> source.providerUsed == BriefProviderUsed.LOCAL
-                else -> source.providerUsed == BriefProviderUsed.CLOUD
+            val mode = BriefSettingsStore.provider(context)
+            val cached = if (force) {
+                source
+            } else {
+                BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source)
             }
-        }
-        if (!force && resultMatchesMode) {
-            return@withLock BriefAiResult(source, localStatus)
-        }
-
-        val generated = when (mode) {
-            BriefProviderMode.LOCAL -> {
-                BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                GeminiNanoBriefProvider.generate(context, source)?.copy(
-                    providerMessage = "Written privately with Gemini Nano on this device",
+            if (!force && cachedProviderMatches(mode, cached.providerUsed)) {
+                if (cached !== source) BriefStore.write(context, cached)
+                return@withLock BriefAiResult(
+                    cached,
+                    if (cached.providerUsed == BriefProviderUsed.LOCAL) {
+                        BriefLocalStatus.AVAILABLE
+                    } else {
+                        BriefLocalStatus.UNAVAILABLE
+                    },
                 )
             }
-            BriefProviderMode.CLOUD -> {
-                BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                GeminiCloudBriefProvider.generate(context, source)?.copy(
-                    providerMessage = "Written with Gemini Cloud using your API key",
-                )
-            }
-            BriefProviderMode.AUTO -> {
-                BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                GeminiNanoBriefProvider.generate(context, source)?.copy(
-                    providerMessage = "Written privately with Gemini Nano on this device",
-                ) ?: run {
-                    BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                    GeminiCloudBriefProvider.generate(context, source)?.copy(
-                        providerMessage = "Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key",
-                    )
+            val localProbe = GeminiNanoBriefProvider.probe(context)
+            val localStatus = localProbe.status
+            val resultMatchesMode = when (mode) {
+                BriefProviderMode.LOCAL -> source.providerUsed == BriefProviderUsed.LOCAL
+                BriefProviderMode.CLOUD -> source.providerUsed == BriefProviderUsed.CLOUD
+                BriefProviderMode.AUTO -> when (localStatus) {
+                    BriefLocalStatus.AVAILABLE -> source.providerUsed == BriefProviderUsed.LOCAL
+                    else -> source.providerUsed == BriefProviderUsed.CLOUD
                 }
             }
-        } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context))
+            if (!force && resultMatchesMode) {
+                return@withLock BriefAiResult(source, localStatus)
+            }
 
-        BriefAiDiagnosticsStore.outcome(context, generated.providerUsed, generated.providerMessage)
-        BriefStore.write(context, generated)
-        TwidgetBriefWidget.updateAll(context)
-        BriefAiResult(generated, localStatus)
+            val generated = when (mode) {
+                BriefProviderMode.LOCAL -> {
+                    BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
+                    GeminiNanoBriefProvider.generate(context, source)?.copy(
+                        providerMessage = "Written privately with Gemini Nano on this device",
+                    )
+                }
+                BriefProviderMode.CLOUD -> {
+                    BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
+                    GeminiCloudBriefProvider.generate(context, source)?.copy(
+                        providerMessage = "Written with Gemini Cloud using your API key",
+                    )
+                }
+                BriefProviderMode.AUTO -> {
+                    BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
+                    GeminiNanoBriefProvider.generate(context, source)?.copy(
+                        providerMessage = "Written privately with Gemini Nano on this device",
+                    ) ?: run {
+                        BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
+                        GeminiCloudBriefProvider.generate(context, source)?.copy(
+                            providerMessage = "Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key",
+                        )
+                    }
+                }
+            } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context))
+
+            BriefAiDiagnosticsStore.outcome(context, generated.providerUsed, generated.providerMessage)
+            BriefStore.write(context, generated)
+            TwidgetBriefWidget.updateAll(context)
+            BriefAiResult(generated, localStatus)
         }
     }
 
@@ -461,12 +461,13 @@ internal object BriefAiCardResponse {
             source.cards.filterNot { it.id in seen }.forEach(::add)
         }
         if (applied == 0) return Result(null, 0, "Response contained no recognised card ids")
+        val generatedAt = System.currentTimeMillis()
         return Result(
             snapshot = source.copy(
-                generatedAt = System.currentTimeMillis(),
+                generatedAt = generatedAt,
                 cards = rewritten,
                 providerUsed = provider,
-                aiGeneratedAt = System.currentTimeMillis(),
+                aiGeneratedAt = generatedAt,
             ),
             appliedCards = applied,
         )
