@@ -2,10 +2,25 @@ package com.tjg.twidget.brief
 
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.main.MilestonePerformanceState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BriefRankingPolicyTest {
+    @Test
+    fun ordersCardsByEngineScoreRatherThanMockupOrTypeOrder() {
+        val cards = listOf(
+            BriefCard("post", BriefCardType.POST, "Post", "", 72),
+            BriefCard("milestone", BriefCardType.MILESTONE, "Goal", "", 88),
+            BriefCard("slowdown", BriefCardType.SLOWDOWN, "Slow", "", 96),
+        )
+
+        assertEquals(
+            listOf("slowdown", "milestone", "post"),
+            BriefRankingPolicy.order(cards).map(BriefCard::id),
+        )
+    }
+
     @Test
     fun accountActivityChangesGrowthPriority() {
         val quiet = BriefRankingPolicy.growth(today = 5, week = 15, weeklyPercent = 2.0)

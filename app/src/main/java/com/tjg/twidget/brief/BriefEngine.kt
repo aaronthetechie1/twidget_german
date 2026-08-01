@@ -124,9 +124,7 @@ object BriefEngine {
                 score = 50,
             )
         }
-        val ranked = candidates.sortedWith(
-            compareByDescending<BriefCard>(BriefCard::score).thenBy(BriefCard::id),
-        )
+        val ranked = BriefRankingPolicy.order(candidates)
         val selected = ranked.take(MAX_CARDS)
         return Evaluation(
             report = BriefEngineReport(
@@ -343,6 +341,10 @@ object BriefEngine {
 }
 
 internal object BriefRankingPolicy {
+    fun order(cards: List<BriefCard>): List<BriefCard> = cards.sortedWith(
+        compareByDescending<BriefCard>(BriefCard::score).thenBy(BriefCard::id),
+    )
+
     fun growth(today: Long, week: Long, weeklyPercent: Double): Int =
         (68 + today.coerceAtLeast(0).coerceAtMost(25) +
             (week.coerceAtLeast(0).coerceAtMost(50) / 5) +
