@@ -54,6 +54,8 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             initialPrefetchItemCount = 0
         }
         listView.adapter = adapter
+        listView.seslSetScrollbarVerticalPadding(dp(26), dp(26))
+        listView.seslSetGoToTopEnabled(true)
         listView.background = GradientDrawable().apply {
             cornerRadius = dp(28).toFloat()
             setColor(getColor(R.color.oneui_card_bg))
