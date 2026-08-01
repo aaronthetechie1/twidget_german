@@ -33,6 +33,7 @@ object BriefStore {
         put("username", snapshot.username)
         put("generatedAt", snapshot.generatedAt)
         put("sourceSyncedAt", snapshot.sourceSyncedAt)
+        put("analyticsCachedAt", snapshot.analyticsCachedAt)
         put("followerScanCompletedAt", snapshot.followerScanCompletedAt)
         put("followers", snapshot.followers)
         put("following", snapshot.following)
@@ -64,6 +65,7 @@ object BriefStore {
             username = root.optString("username"),
             generatedAt = root.optLong("generatedAt"),
             sourceSyncedAt = root.optLong("sourceSyncedAt"),
+            analyticsCachedAt = root.optLong("analyticsCachedAt"),
             followerScanCompletedAt = root.optLong("followerScanCompletedAt"),
             followers = root.optLong("followers"),
             following = root.optLong("following"),

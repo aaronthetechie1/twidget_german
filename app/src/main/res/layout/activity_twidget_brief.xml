@@ -1,157 +1,237 @@
 <?xml version="1.0" encoding="utf-8"?>
-<dev.oneuiproject.oneui.layout.ToolbarLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/brief_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/oneui_bg"
-    app:expandable="true"
-    app:expanded="true"
-    app:handleInsets="false"
-    app:mainRoundedCorners="top"
-    app:showNavButtonAsBack="true">
+    android:background="@drawable/brief_screen_background">
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/brief_scroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:fillViewport="true"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="32dp"
-        app:layout_location="main_content">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/brief_sync"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_marginBottom="12dp"
-                android:textColor="@color/oneui_text_secondary"
-                android:textSize="13sp" />
+            android:orientation="vertical"
+            android:paddingStart="10dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="32dp">
 
             <LinearLayout
-                android:id="@+id/brief_hero"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/brief_hero_background"
-                android:clipToOutline="true"
+                android:layout_height="50dp"
                 android:gravity="center_vertical"
-                android:minHeight="112dp"
-                android:orientation="horizontal"
-                android:padding="18dp">
+                android:orientation="horizontal">
 
-                <ImageView
-                    android:layout_width="68dp"
-                    android:layout_height="68dp"
-                    android:background="@drawable/brief_card_background"
-                    android:contentDescription="@null"
-                    android:padding="18dp"
-                    android:src="@drawable/ic_oui_lightning"
-                    app:tint="@color/oneui_accent" />
+                <ImageButton
+                    android:id="@+id/brief_back"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/back"
+                    android:padding="13dp"
+                    android:scaleType="centerInside" />
 
-                <LinearLayout
+                <Space
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
-                    <TextView
-                        android:id="@+id/brief_hero_title"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/oneui_text_primary"
-                        android:textSize="23sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/brief_hero_body"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:includeFontPadding="false"
-                        android:lineSpacingExtra="2dp"
-                        android:textColor="@color/oneui_text_secondary"
-                        android:textSize="15sp" />
-                </LinearLayout>
+                <ImageButton
+                    android:id="@+id/brief_info"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/info"
+                    android:padding="13dp"
+                    android:scaleType="centerInside" />
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/brief_card_background"
+                android:layout_marginTop="20dp"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:paddingStart="19dp"
+                android:paddingEnd="19dp">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/brief_followers"
-                    android:textColor="@color/oneui_text_secondary"
-                    android:textSize="14sp" />
-
-                <LinearLayout
+                    android:id="@+id/brief_hero_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/brief_followers_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/oneui_text_primary"
-                        android:textSize="32sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/brief_followers_delta"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textColor="@color/metric_green"
-                        android:textSize="14sp" />
-                </LinearLayout>
-
-                <com.tjg.twidget.ui.MetricChartView
-                    android:id="@+id/brief_chart"
-                    android:layout_width="match_parent"
-                    android:layout_height="180dp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/brief_card_background"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/brief_top_followers"
+                    android:fontFamily="sec"
+                    android:includeFontPadding="false"
                     android:textColor="@color/oneui_text_primary"
-                    android:textSize="18sp"
+                    android:textSize="36sp"
                     android:textStyle="bold" />
 
-                <LinearLayout
-                    android:id="@+id/brief_top_followers"
+                <TextView
+                    android:id="@+id/brief_hero_body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical" />
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="sec"
+                    android:includeFontPadding="false"
+                    android:lineSpacingExtra="1dp"
+                    android:textColor="@color/oneui_text_primary"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/brief_post_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/brief_growth_label"
+                    style="@style/TwidgetBriefSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="263dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/brief_card_background"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp">
+
+                        <ImageView
+                            android:id="@+id/brief_followers_icon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:contentDescription="@null" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="20dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/brief_followers_value"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sec"
+                                    android:includeFontPadding="false"
+                                    android:textColor="@color/oneui_text_primary"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/brief_followers_delta"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:fontFamily="sec"
+                                    android:includeFontPadding="false"
+                                    android:textColor="@color/metric_green"
+                                    android:textSize="18sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sec"
+                                android:includeFontPadding="false"
+                                android:text="@string/brief_followers"
+                                android:textColor="@color/brief_text_supporting"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
+                        android:background="@color/brief_divider" />
+
+                    <com.tjg.twidget.ui.MetricChartView
+                        android:id="@+id/brief_chart"
+                        android:layout_width="match_parent"
+                        android:layout_height="194dp"
+                        android:paddingStart="12dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/brief_followers_label"
+                    style="@style/TwidgetBriefSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/brief_card_background"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="sec"
+                            android:includeFontPadding="false"
+                            android:text="@string/brief_top_followers"
+                            android:textColor="@color/brief_text_supporting"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/brief_refresh_icon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:contentDescription="@null" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/brief_top_followers"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
@@ -159,32 +239,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/brief_card_background"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <TextView
-                    android:id="@+id/brief_provider_status"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/oneui_text_secondary"
-                    android:textSize="13sp" />
-
-                <Button
-                    android:id="@+id/brief_prepare_local"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/brief_prepare_local"
-                    android:textAllCaps="false"
-                    android:visibility="gone" />
-            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-</dev.oneuiproject.oneui.layout.ToolbarLayout>
+</FrameLayout>

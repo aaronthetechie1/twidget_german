@@ -650,9 +650,17 @@
     <string name="brief_followers">Followers</string>
     <string name="brief_top_followers">Top followers</string>
     <string name="brief_top_followers_empty">No follower ranking yet. Twidget will scan once daily after TwitterAPIs access is configured.</string>
+    <string name="brief_post_love">Your last post got a lot of love!</string>
+    <string name="brief_weekly_growth">You gained %1$s new followers in the past week.</string>
+    <string name="brief_weekly_decline">You lost %1$s followers in the past week.</string>
+    <string name="brief_weekly_steady">Your follower count held steady over the past week.</string>
+    <string name="brief_new_top_follower">You have a new top follower!</string>
+    <string name="brief_top_followers_now">Your top followers right now.</string>
     <string name="brief_prepare_local">Prepare local AI</string>
     <string name="brief_widget_label">Twidget Brief</string>
     <string name="brief_widget_description">A changing message based on your latest account activity</string>
     <string name="brief_widget_empty_title">Your brief is getting ready</string>
     <string name="brief_widget_empty_body">Open Twidget Brief to set it up.</string>
+    <string name="back">Back</string>
+    <string name="info">Information</string>
 </resources>

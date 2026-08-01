@@ -1,6 +1,8 @@
 package com.tjg.twidget.brief
 
 import android.content.Context
+import com.tjg.twidget.analytics.AnalyticsClient
+import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistorySample
 import com.tjg.twidget.data.TwidgetStore
@@ -17,10 +19,12 @@ object BriefEngine {
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
         val stats = TwidgetStore.currentStats(context, clean)
+        val analytics = AnalyticsClient.cached(context, clean)
         val followerState = TopFollowersStore.read(context, clean)
         val previous = BriefStore.read(context, clean)
         if (!force && previous != null &&
             previous.sourceSyncedAt == stats.syncedAt &&
+            previous.analyticsCachedAt == (analytics?.cachedAt ?: 0L) &&
             previous.followerScanCompletedAt == followerState.completedAt
         ) return previous
 
@@ -35,6 +39,7 @@ object BriefEngine {
         val facts = mutableListOf<BriefCard>()
 
         growthCard(stats.followersCount, todayDelta, weekDelta)?.let(facts::add)
+        postCard(analytics?.best, stats.followersCount)?.let(facts::add)
         slowdownCard(history, stats.followersCount, todayDelta)?.let(facts::add)
         inactivityCard(history, stats.statusesCount)?.let(facts::add)
         milestoneCard(context, clean, stats.followersCount)?.let(facts::add)
@@ -55,6 +60,7 @@ object BriefEngine {
             username = clean,
             generatedAt = System.currentTimeMillis(),
             sourceSyncedAt = stats.syncedAt,
+            analyticsCachedAt = analytics?.cachedAt ?: 0L,
             followerScanCompletedAt = followerState.completedAt,
             followers = stats.followersCount,
             following = stats.followingsCount,
@@ -81,6 +87,30 @@ object BriefEngine {
             else -> "You gained ${format(week)} followers over the last week."
         }
         return BriefCard("growth", BriefCardType.GROWTH, headline, body, 95)
+    }
+
+    private fun postCard(post: PostSummary?, followers: Long): BriefCard? {
+        post ?: return null
+        val attentionByViews = post.views >= maxOf(10_000L, followers * 2)
+        val attentionByLikes = post.likes >= maxOf(100L, followers / 50)
+        if (!attentionByViews && !attentionByLikes) return null
+        return BriefCard(
+            id = "post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
+            type = BriefCardType.POST,
+            title = "Getting attention",
+            body = standoutPostBody(post),
+            score = 98,
+        )
+    }
+
+    private fun standoutPostBody(post: PostSummary): String {
+        val views = TwidgetStore.compactNumber(post.views)
+        val likes = TwidgetStore.compactNumber(post.likes)
+        return when {
+            post.views > 0 && post.likes > 0 -> "Your last post got $views views and $likes likes."
+            post.views > 0 -> "Your last post got $views views."
+            else -> "Your last post got $likes likes."
+        }
     }
 
     private fun slowdownCard(history: List<HistorySample>, followers: Long, today: Long): BriefCard? {

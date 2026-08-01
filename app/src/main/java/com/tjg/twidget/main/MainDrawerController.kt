@@ -14,7 +14,6 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.graphics.drawable.DrawableCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsImportActivity
-import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.TwidgetStore
@@ -103,17 +102,8 @@ internal class MainDrawerController(
         }
         menu.add(
             DRAWER_GROUP_ACTIONS,
-            DRAWER_ITEM_BRIEF,
-            drawerAccounts.size + 1,
-            activity.getString(R.string.brief_title),
-        ).apply {
-            setIcon(OneUiIconR.drawable.ic_oui_lightning_outline)
-            contentDescription = activity.getString(R.string.brief_title)
-        }
-        menu.add(
-            DRAWER_GROUP_ACTIONS,
             DRAWER_ITEM_SCHEDULE,
-            drawerAccounts.size + 2,
+            drawerAccounts.size + 1,
             activity.getString(R.string.schedule_title),
         ).apply {
             setIcon(OneUiIconR.drawable.ic_oui_time_outline)
@@ -262,7 +252,6 @@ internal class MainDrawerController(
         }
         listOf(
             DRAWER_ITEM_ADD_ACCOUNT,
-            DRAWER_ITEM_BRIEF,
             DRAWER_ITEM_SCHEDULE,
         ).forEach { itemId ->
             drawerNav.findViewById<View>(itemId)
@@ -360,13 +349,6 @@ internal class MainDrawerController(
             activity.startAddAccountActivity()
             return true
         }
-        if (item.itemId == DRAWER_ITEM_BRIEF) {
-            closeDrawerOnCompactScreens()
-            activity.startLeftSidePopOverActivity(
-                TwidgetBriefActivity.intent(activity, selectedAccount()),
-            )
-            return true
-        }
         if (item.itemId == DRAWER_ITEM_SCHEDULE) {
             closeDrawerOnCompactScreens()
             openSchedule(selectedAccount())
@@ -406,7 +388,6 @@ internal class MainDrawerController(
         private const val DRAWER_ACCOUNT_ITEM_BASE = 10_000
         private const val DRAWER_ITEM_ADD_ACCOUNT = 20_000
         private const val DRAWER_ITEM_SCHEDULE = 20_001
-        private const val DRAWER_ITEM_BRIEF = 20_002
         private const val DRAWER_STANDARD_ICON_ALPHA = 0.7f
     }
 }

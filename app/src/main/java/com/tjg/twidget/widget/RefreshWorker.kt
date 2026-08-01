@@ -32,10 +32,11 @@ class RefreshWorker(context: Context, params: WorkerParameters) : Worker(context
         if (!TwidgetStore.isOnboarded(context)) return Result.success()
 
         var anySuccess = false
+        val defaultAccount = TwidgetStore.settings(context).username
         accountsToSync(context).forEach { account ->
             runCatching {
                 TwidgetStore.saveStats(context, RettiwtClient.refresh(context, account))
-                if (BriefSettingsStore.enabled(context)) {
+                if (BriefSettingsStore.enabled(context) && account.equals(defaultAccount, ignoreCase = true)) {
                     BriefEngine.rebuild(context, account, force = true)
                     val startedToday = TopFollowersStore.read(context, account).lastStartedDay ==
                         LocalDate.now().toString()

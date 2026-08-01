@@ -40,4 +40,10 @@
     <color name="import_grad_center">#081928</color>
     <color name="import_grad_end">#010102</color>
     <color name="import_failure_start">#6B2028</color>
+    <color name="brief_dashboard_glow">#002F52</color>
+    <color name="brief_screen_top">#003B66</color>
+    <color name="brief_screen_bottom">#17171A</color>
+    <color name="brief_card_surface">#9917171A</color>
+    <color name="brief_text_supporting">#A7A7AB</color>
+    <color name="brief_divider">#33FFFFFF</color>
 </resources>

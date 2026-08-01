@@ -30,6 +30,9 @@ import com.tjg.twidget.analytics.BlendedAnalytics
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.XAnalyticsMovement
+import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefSettingsStore
+import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
 import com.tjg.twidget.data.HistoryRange
 import com.tjg.twidget.data.HistorySample
@@ -68,7 +71,7 @@ internal enum class DashboardCardType(val id: String, val labelRes: Int, val siz
     X_ENGAGEMENTS("x_engagements", R.string.x_engagements, DashboardCardSize.HALF),
     X_PROFILE_VISITS("x_profile_visits", R.string.x_profile_visits, DashboardCardSize.HALF),
     X_LIKES_RECEIVED("x_likes_received", R.string.x_likes_received, DashboardCardSize.HALF),
-    MILESTONE("milestone", R.string.milestone_account_goals, DashboardCardSize.MILESTONE),
+    MILESTONE("milestone", R.string.brief_title, DashboardCardSize.MILESTONE),
     DAILY_STREAK("daily_streak", R.string.daily_streak, DashboardCardSize.STREAK),
     GROWTH_PACE("growth_pace", R.string.growth_pace, DashboardCardSize.HALF),
     BEST_DAY("best_day", R.string.best_recent_day, DashboardCardSize.HALF),
@@ -175,6 +178,7 @@ internal class MainDashboardBinder(
         TwidgetStore.dashboardCards(activity)
             .mapNotNull(DashboardCardType::fromId)
             .filter { !it.requiresAnalyticsImport() || editModeController.hasAnalyticsImport() }
+            .filter { it != DashboardCardType.MILESTONE || isDefaultAccount(account) }
             .forEach { card ->
                 val content = if (card == DashboardCardType.TOP_FOLLOWERS) {
                     createTopFollowersCard(account)
@@ -183,11 +187,7 @@ internal class MainDashboardBinder(
                 } else if (card.size == DashboardCardSize.CHART) {
                     createChartCard(card, account, stats, chartHistory, fullHistory)
                 } else if (card == DashboardCardType.MILESTONE) {
-                    createMilestoneCard(
-                        stats,
-                        TwidgetStore.rangedHistory(activity, account, HistoryRange.MONTH),
-                        account,
-                    )
+                    createBriefCard(stats, account)
                 } else if (card == DashboardCardType.DAILY_STREAK) {
                     createStreakCard(stats)
                 } else {
@@ -341,8 +341,33 @@ internal class MainDashboardBinder(
         }
     }
 
-    private fun createMilestoneCard(stats: ProfileStats, history: List<HistorySample>, account: String): View =
-        MilestoneCardBinder(activity).create(stats, history, account)
+    private fun createBriefCard(stats: ProfileStats, account: String): View {
+        val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
+        val snapshot = BriefEngine.rebuild(activity, account)
+        val hero = snapshot.cards.first()
+        root.findViewById<ImageView>(R.id.brief_dashboard_icon).apply {
+            setImageDrawable(AppCompatResources.getDrawable(activity, OneUiIconR.drawable.ic_oui_equalizer_2))
+            imageTintList = ColorStateList.valueOf(activity.getColor(R.color.oneui_text_primary))
+        }
+        root.findViewById<TextView>(R.id.brief_dashboard_title).text = hero.title
+        root.findViewById<TextView>(R.id.brief_dashboard_message).text = hero.body
+        root.background = MilestoneCardBackgroundDrawable(
+            glowColor = activity.getColor(R.color.brief_dashboard_glow),
+            surfaceColor = activity.getColor(R.color.oneui_card_bg),
+            radiusPx = activity.dp(28).toFloat(),
+        )
+        root.contentDescription = "${activity.getString(R.string.brief_title)}. ${hero.title}. ${hero.body}"
+        root.setOnClickListener {
+            if (!editModeController.editMode && isDefaultAccount(account)) {
+                BriefSettingsStore.setEnabled(activity, true)
+                activity.startActivity(TwidgetBriefActivity.intent(activity, account))
+            }
+        }
+        return root
+    }
+
+    private fun isDefaultAccount(account: String): Boolean =
+        account.equals(TwidgetStore.settings(activity).username, ignoreCase = true)
 
     private fun createStreakCard(stats: ProfileStats): View =
         StreakCardFactory.create(activity, ActivityClient.snapshot(activity, stats.userName))

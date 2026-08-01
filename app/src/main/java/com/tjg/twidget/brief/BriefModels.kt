@@ -19,6 +19,7 @@ enum class BriefCardType {
     SLOWDOWN,
     INACTIVITY,
     MILESTONE,
+    POST,
     TOP_FOLLOWER,
     STREAK,
 }
@@ -35,6 +36,7 @@ data class BriefSnapshot(
     val username: String,
     val generatedAt: Long,
     val sourceSyncedAt: Long,
+    val analyticsCachedAt: Long,
     val followerScanCompletedAt: Long,
     val followers: Long,
     val following: Long,

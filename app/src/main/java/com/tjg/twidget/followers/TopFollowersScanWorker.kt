@@ -160,7 +160,11 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
             TopFollowersNotificationHelper.showComplete(applicationContext, username, completed)
         }
         runCatching { TopFollowersBridgeCache.publish(applicationContext, username, completed) }
-        if (BriefSettingsStore.enabled(applicationContext)) {
+        if (BriefSettingsStore.enabled(applicationContext) && username.equals(
+                TwidgetStore.settings(applicationContext).username,
+                ignoreCase = true,
+            )
+        ) {
             runCatching { BriefEngine.rebuild(applicationContext, username, force = true) }
             TwidgetBriefWidget.updateAll(applicationContext)
         }
