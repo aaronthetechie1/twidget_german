@@ -476,7 +476,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(sectionLabel(sectionHeading(card)))
         val analytics = AnalyticsClient.cached(context, username)
         val hasFetchedPost = when (card.type) {
             BriefCardType.POST -> analytics?.best != null
@@ -486,7 +485,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         if (hasFetchedPost) {
             addView(sectionLabel(card.body).apply {
                 setLineSpacing(dp(2).toFloat(), 1f)
-            }, matchWrap(top = 8))
+            })
+        } else {
+            addView(sectionLabel(sectionHeading(card)))
         }
         val content = when (card.type) {
             BriefCardType.MILESTONE -> milestoneCard(card)
