@@ -692,6 +692,10 @@
     <string name="brief_widget_empty_body">Open Twidget Brief to set it up.</string>
     <string name="brief_preview_title">Getting attention</string>
     <string name="brief_preview_body">Your latest post is reaching more people. You’re on a roll.</string>
+    <string name="brief_goal_heading">Your goal</string>
+    <string name="brief_goal_close_heading">Your goal is close</string>
+    <string name="brief_goal_reached_heading">Goal reached</string>
+    <string name="brief_streak_heading">Your posting streak</string>
     <string name="back">Back</string>
     <string name="info">Information</string>
 </resources>

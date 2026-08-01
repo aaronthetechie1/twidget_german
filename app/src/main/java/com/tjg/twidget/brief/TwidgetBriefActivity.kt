@@ -290,27 +290,49 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun cardSection(card: BriefCard): View = when (card.type) {
-        BriefCardType.MILESTONE -> milestoneCard(card)
-        BriefCardType.STREAK -> StreakCardFactory.create(
-            this,
-            DailyStreakStore.snapshot(this, username),
-            titleOverride = card.title,
-            detailOverride = card.body,
-        )
-        else -> LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(sectionLabel(card.title))
-            val content = when (card.type) {
-                BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard(card)
-                BriefCardType.POST -> AnalyticsClient.cached(context, username)?.best?.let(::postCard)
-                    ?: genericCard(card)
-                BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
-                BriefCardType.INACTIVITY -> genericCard(card, warm = true)
-                else -> genericCard(card)
-            }
-            addView(content, matchWrap(top = 10))
+    private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(sectionLabel(sectionHeading(card)))
+        val content = when (card.type) {
+            BriefCardType.MILESTONE -> milestoneCard(card)
+            BriefCardType.STREAK -> StreakCardFactory.create(
+                this@TwidgetBriefActivity,
+                DailyStreakStore.snapshot(this@TwidgetBriefActivity, username),
+                titleOverride = card.title,
+                detailOverride = card.body,
+            )
+            BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard(card)
+            BriefCardType.POST -> AnalyticsClient.cached(context, username)?.best?.let(::postCard)
+                ?: genericCard(card)
+            BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
+            BriefCardType.INACTIVITY -> genericCard(card, warm = true)
+            else -> genericCard(card)
         }
+        addView(content, matchWrap(top = 10))
+    }
+
+    private fun sectionHeading(card: BriefCard): String = when (card.type) {
+        BriefCardType.MILESTONE -> {
+            val settings = MilestoneGoalStore.read(this, username)
+            val stats = TwidgetStore.currentStats(this, username)
+            val metric = MilestoneMetricResolver.resolve(
+                context = this,
+                account = username,
+                metric = settings.metric,
+                stats = stats,
+                history = TwidgetStore.fullHistory(this, username),
+                analytics = AnalyticsClient.cached(this, username),
+                imported = ImportedAnalyticsStore.all(this, username),
+            )
+            val progress = metric.value?.let { MilestonePolicy.progress(it, settings.target) } ?: 0
+            when {
+                progress >= 100 -> getString(R.string.brief_goal_reached_heading)
+                progress >= 75 -> getString(R.string.brief_goal_close_heading)
+                else -> getString(R.string.brief_goal_heading)
+            }
+        }
+        BriefCardType.STREAK -> getString(R.string.brief_streak_heading)
+        else -> card.title
     }
 
     private fun genericCard(card: BriefCard, warm: Boolean = false): View = LinearLayout(this).apply {
