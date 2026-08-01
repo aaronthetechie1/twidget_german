@@ -27,6 +27,7 @@ import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.MainActivity
 import com.tjg.twidget.settings.SettingsAdvancedActivity
 import com.tjg.twidget.providers.TwitterApisClient
+import com.tjg.twidget.providers.XApiClient
 import com.tjg.twidget.providers.TwitterApisAccessSource
 import com.tjg.twidget.ui.OneUiSpinner
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -300,7 +301,9 @@ internal class TopFollowersCardBinder(
     }
 
     private fun startScan(account: String) {
-        if (!TwitterApisClient.hasTopFollowersAccess(activity)) {
+        if (!TwitterApisClient.hasTopFollowersAccess(activity) &&
+            !XApiClient.hasCredentials(TwidgetStore.settings(activity))
+        ) {
             Toast.makeText(activity, R.string.top_followers_api_key_required, Toast.LENGTH_LONG).show()
             openApiKeySettings()
             return
