@@ -40,6 +40,8 @@ object BriefStore {
         put("posts", snapshot.posts)
         put("followersToday", snapshot.followersToday)
         put("followersWeek", snapshot.followersWeek)
+        put("engineVersion", snapshot.engineVersion)
+        put("contextFingerprint", snapshot.contextFingerprint)
         put("providerUsed", snapshot.providerUsed.name)
         put("providerMessage", snapshot.providerMessage)
         put("cards", JSONArray().apply {
@@ -88,6 +90,8 @@ object BriefStore {
             topFollowerRanks = buildMap {
                 ranksJson.keys().forEach { id -> put(id, ranksJson.optInt(id)) }
             },
+            engineVersion = root.optInt("engineVersion"),
+            contextFingerprint = root.optString("contextFingerprint"),
             providerUsed = runCatching { BriefProviderUsed.valueOf(root.optString("providerUsed")) }
                 .getOrDefault(BriefProviderUsed.TEMPLATE),
             providerMessage = root.optString(

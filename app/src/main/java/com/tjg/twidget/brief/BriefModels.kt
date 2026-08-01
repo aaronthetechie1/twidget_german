@@ -45,6 +45,8 @@ data class BriefSnapshot(
     val followersWeek: Long,
     val cards: List<BriefCard>,
     val topFollowerRanks: Map<String, Int>,
+    val engineVersion: Int = 0,
+    val contextFingerprint: String = "",
     val providerUsed: BriefProviderUsed = BriefProviderUsed.TEMPLATE,
     val providerMessage: String = "Built on device from your Twidget data",
 )

@@ -2,6 +2,7 @@ package com.tjg.twidget.brief
 
 import android.content.Context
 import com.tjg.twidget.analytics.AnalyticsClient
+import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.DailyStreakStore
@@ -11,6 +12,12 @@ import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollower
 import com.tjg.twidget.followers.TopFollowersState
 import com.tjg.twidget.followers.TopFollowersStore
+import com.tjg.twidget.main.MilestoneCopyFactory
+import com.tjg.twidget.main.MilestoneGoalStore
+import com.tjg.twidget.main.MilestoneMetric
+import com.tjg.twidget.main.MilestoneMetricResolver
+import com.tjg.twidget.main.MilestonePerformanceState
+import com.tjg.twidget.main.MilestonePolicy
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
@@ -18,6 +25,7 @@ import kotlin.math.abs
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
     private const val MAX_CARDS = 5
+    private const val ENGINE_VERSION = 2
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -25,7 +33,11 @@ object BriefEngine {
         val analytics = AnalyticsClient.cached(context, clean)
         val followerState = TopFollowersStore.read(context, clean)
         val previous = BriefStore.read(context, clean)
+        val fingerprint = contextFingerprint(context, clean)
         if (!force && previous != null &&
+            previous.engineVersion == ENGINE_VERSION &&
+            previous.contextFingerprint == fingerprint &&
+            previous.username.equals(clean, ignoreCase = true) &&
             previous.sourceSyncedAt == stats.syncedAt &&
             previous.analyticsCachedAt == (analytics?.cachedAt ?: 0L) &&
             previous.followerScanCompletedAt == followerState.completedAt
@@ -51,6 +63,8 @@ object BriefEngine {
             followersWeek = evaluation.report.followersWeek,
             cards = evaluation.selected,
             topFollowerRanks = evaluation.currentRanks,
+            engineVersion = ENGINE_VERSION,
+            contextFingerprint = fingerprint,
         )
         BriefStore.write(context, snapshot)
         BriefDebugLog.record(context, if (force) "forced rebuild" else "rebuild", evaluation.report)
@@ -97,7 +111,7 @@ object BriefEngine {
         postCard(analytics?.best, stats.followersCount)?.let(candidates::add)
         slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
         inactivityCard(history, stats.statusesCount)?.let(candidates::add)
-        milestoneCard(context, username, stats.followersCount)?.let(candidates::add)
+        milestoneCard(context, username, stats, history, analytics)?.let(candidates::add)
         streakCard(context, username)?.let(candidates::add)
         topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
 
@@ -110,7 +124,9 @@ object BriefEngine {
                 score = 50,
             )
         }
-        val ranked = candidates.sortedByDescending(BriefCard::score)
+        val ranked = candidates.sortedWith(
+            compareByDescending<BriefCard>(BriefCard::score).thenBy(BriefCard::id),
+        )
         val selected = ranked.take(MAX_CARDS)
         return Evaluation(
             report = BriefEngineReport(
@@ -146,7 +162,8 @@ object BriefEngine {
             today > 0 -> "You gained ${format(today)} followers today and ${format(week.coerceAtLeast(today))} over the last week."
             else -> "You gained ${format(week)} followers over the last week."
         }
-        return BriefCard("growth", BriefCardType.GROWTH, headline, body, 95)
+        val score = BriefRankingPolicy.growth(today, week, weeklyPercent)
+        return BriefCard("growth", BriefCardType.GROWTH, headline, body, score)
     }
 
     private fun postCard(post: PostSummary?, followers: Long): BriefCard? {
@@ -159,7 +176,7 @@ object BriefEngine {
             type = BriefCardType.POST,
             title = "Getting attention",
             body = standoutPostBody(post),
-            score = 98,
+            score = BriefRankingPolicy.post(post, followers),
         )
     }
 
@@ -183,7 +200,7 @@ object BriefEngine {
             BriefCardType.SLOWDOWN,
             "Growth has slowed down",
             "Your recent pace is ${format(abs(prior - recent))} followers behind the previous few days. A fresh post could help restart it.",
-            82,
+            BriefRankingPolicy.slowdown(recent, prior, today),
         )
     }
 
@@ -204,27 +221,43 @@ object BriefEngine {
         )
     }
 
-    private fun milestoneCard(context: Context, username: String, followers: Long): BriefCard? {
-        val target = TwidgetStore.milestoneSettings(context, username).target ?: return null
-        if (target <= 0L) return null
-        val remaining = target - followers
-        return when {
-            remaining <= 0 -> BriefCard(
-                "milestone-$target",
-                BriefCardType.MILESTONE,
-                "Milestone reached!",
-                "You made it to ${format(target)} followers. That deserves a victory lap.",
-                100,
-            )
-            remaining <= (target * 0.1).coerceAtLeast(10.0) -> BriefCard(
-                "milestone-$target",
-                BriefCardType.MILESTONE,
-                "Your goal is close",
-                "Only ${format(remaining)} followers remain before you reach ${format(target)}.",
-                90,
-            )
-            else -> null
-        }
+    private fun milestoneCard(
+        context: Context,
+        username: String,
+        stats: ProfileStats,
+        history: List<HistorySample>,
+        analytics: PostAnalytics?,
+    ): BriefCard? {
+        val settings = MilestoneGoalStore.read(context, username)
+        if (!settings.configured || settings.target <= 0.0) return null
+        val snapshot = MilestoneMetricResolver.resolve(
+            context = context,
+            account = username,
+            metric = settings.metric,
+            stats = stats,
+            history = history,
+            analytics = analytics,
+            imported = ImportedAnalyticsStore.all(context, username),
+        )
+        val value = snapshot.value ?: return null
+        val progress = MilestonePolicy.progress(value, settings.target) ?: return null
+        val state = MilestonePolicy.performanceState(snapshot.history)
+        val target = formatGoal(settings.metric, settings.target)
+        val message = MilestoneCopyFactory.message(
+            context,
+            username,
+            state,
+            progress,
+            target,
+            goalNoun(settings.metric),
+        )
+        return BriefCard(
+            id = "milestone-${settings.metric.storageId}-${settings.target}",
+            type = BriefCardType.MILESTONE,
+            title = message.title,
+            body = message.body,
+            score = BriefRankingPolicy.milestone(progress, state),
+        )
     }
 
     private fun streakCard(context: Context, username: String): BriefCard? {
@@ -236,7 +269,7 @@ object BriefEngine {
             "${streak.streak}-day posting streak",
             if (streak.activeToday) "You’ve already kept the streak alive today. Nice work."
             else "Post today to keep your ${streak.streak}-day rhythm going.",
-            if (streak.activeToday) 70 else 84,
+            BriefRankingPolicy.streak(streak.streak, streak.activeToday),
         )
     }
 
@@ -278,5 +311,67 @@ object BriefEngine {
     private fun followerKey(follower: TopFollower): String =
         follower.id.ifBlank { follower.username.lowercase(Locale.US) }
 
+    private fun contextFingerprint(context: Context, username: String): String {
+        val goal = MilestoneGoalStore.read(context, username)
+        val streak = DailyStreakStore.snapshot(context, username)
+        return listOf(
+            goal.configured,
+            goal.metric.storageId,
+            goal.target,
+            goal.autoAdjust,
+            streak.streak,
+            streak.activeToday,
+            streak.lastActiveDay,
+        ).joinToString("|")
+    }
+
+    private fun formatGoal(metric: MilestoneMetric, target: Double): String =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
+            "${(target * 100).toInt()}%"
+        } else {
+            format(target.toLong())
+        }
+
+    private fun goalNoun(metric: MilestoneMetric): String = when (metric) {
+        MilestoneMetric.FOLLOWERS -> "follower"
+        MilestoneMetric.VERIFIED_FOLLOWERS -> "verified follower"
+        MilestoneMetric.ENGAGEMENT_RATE -> "engagement rate"
+        MilestoneMetric.IMPRESSIONS -> "impression"
+    }
+
     private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+}
+
+internal object BriefRankingPolicy {
+    fun growth(today: Long, week: Long, weeklyPercent: Double): Int =
+        (68 + today.coerceAtLeast(0).coerceAtMost(25) +
+            (week.coerceAtLeast(0).coerceAtMost(50) / 5) +
+            weeklyPercent.coerceIn(0.0, 10.0).toInt()).coerceAtMost(99).toInt()
+
+    fun post(post: PostSummary, followers: Long): Int {
+        val viewThreshold = maxOf(10_000L, followers * 2).coerceAtLeast(1L)
+        val likeThreshold = maxOf(100L, followers / 50).coerceAtLeast(1L)
+        val views = (post.views.toDouble() / viewThreshold).coerceIn(0.0, 4.0)
+        val likes = (post.likes.toDouble() / likeThreshold).coerceIn(0.0, 4.0)
+        return (72 + maxOf(views, likes) * 6).toInt().coerceAtMost(98)
+    }
+
+    fun slowdown(recent: Long, prior: Long, today: Long): Int {
+        val lostPace = (prior - recent).coerceAtLeast(0)
+        return (68 + lostPace.coerceAtMost(20) + if (today < 0) 8 else 0)
+            .coerceAtMost(96)
+            .toInt()
+    }
+
+    fun milestone(progress: Int, state: MilestonePerformanceState): Int {
+        val stateBoost = when (state) {
+            MilestonePerformanceState.ACCELERATING -> 3
+            MilestonePerformanceState.DECELERATING -> 7
+            MilestonePerformanceState.NEUTRAL -> 0
+        }
+        return (52 + progress / 2 + stateBoost).coerceAtMost(100)
+    }
+
+    fun streak(days: Int, activeToday: Boolean): Int =
+        (if (activeToday) 58 else 76) + days.coerceAtMost(20) / 2
 }

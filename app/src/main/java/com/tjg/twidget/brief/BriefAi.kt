@@ -3,6 +3,8 @@ package com.tjg.twidget.brief
 import android.content.Context
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.common.GenAiException
+import com.google.mlkit.genai.prompt.Candidate
 import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
@@ -26,11 +28,14 @@ data class BriefAiDiagnostics(
     val runtimePresent: Boolean,
     val localStatus: BriefLocalStatus,
     val statusError: String?,
+    val localModelName: String?,
+    val localTokenLimit: Int?,
     val savedProvider: BriefProviderUsed,
     val lastAttemptAt: Long,
     val lastAttemptedProvider: String?,
     val lastOutcome: String?,
     val lastLocalFailure: String?,
+    val lastLocalDetail: String?,
     val cloudConfigured: Boolean,
 )
 
@@ -75,7 +80,7 @@ object BriefAiCoordinator {
                 ) ?: run {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
                     GeminiCloudBriefProvider.generate(context, source)?.copy(
-                        providerMessage = "Gemini Nano wasn’t available; used Gemini Cloud with your API key",
+                        providerMessage = "Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key",
                     )
                 }
             }
@@ -106,6 +111,8 @@ object BriefAiCoordinator {
             "Gemini Nano is supported and ready to download"
         mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.DOWNLOADING ->
             "Gemini Nano is still downloading"
+        mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.AVAILABLE ->
+            "Gemini Nano is available, but couldn’t complete this Brief"
         mode == BriefProviderMode.LOCAL -> "Gemini Nano isn’t available on this device"
         mode == BriefProviderMode.CLOUD && BriefSettingsStore.cloudApiKey(context).isBlank() ->
             "Add a Gemini API key in Settings to enable cloud writing"
@@ -117,18 +124,33 @@ object BriefAiCoordinator {
     }
 }
 
-private data class NanoProbe(val status: BriefLocalStatus, val error: String?)
+private data class NanoProbe(
+    val status: BriefLocalStatus,
+    val error: String?,
+    val modelName: String? = null,
+    val tokenLimit: Int? = null,
+)
 
 private object GeminiNanoBriefProvider {
     suspend fun probe(context: Context): NanoProbe = runCatching {
         val model = Generation.getClient()
         try {
-            NanoProbe(when (model.checkStatus()) {
+            val status = when (model.checkStatus()) {
                 FeatureStatus.AVAILABLE -> BriefLocalStatus.AVAILABLE
                 FeatureStatus.DOWNLOADABLE -> BriefLocalStatus.DOWNLOADABLE
                 FeatureStatus.DOWNLOADING -> BriefLocalStatus.DOWNLOADING
                 else -> BriefLocalStatus.UNAVAILABLE
-            }, null)
+            }
+            NanoProbe(
+                status = status,
+                error = null,
+                modelName = if (status == BriefLocalStatus.AVAILABLE) {
+                    runCatching { model.getBaseModelName() }.getOrNull()
+                } else null,
+                tokenLimit = if (status == BriefLocalStatus.AVAILABLE) {
+                    runCatching { model.getTokenLimit() }.getOrNull()
+                } else null,
+            )
         } finally {
             model.close()
         }
@@ -148,7 +170,7 @@ private object GeminiNanoBriefProvider {
             val model = Generation.getClient()
             try {
                 val request = generateContentRequest(
-                    TextPart("$SYSTEM_INSTRUCTION\n\n${promptFor(source)}"),
+                    TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source)}"),
                 ) {
                     temperature = 0.25f
                     topK = 3
@@ -157,19 +179,42 @@ private object GeminiNanoBriefProvider {
                     // rejected by AICore when the request is executed.
                     maxOutputTokens = 256
                 }
+                val inputTokens = runCatching { model.countTokens(request).totalTokens }.getOrNull()
                 val response = model.generateContent(request)
-                applyGeneratedCards(
+                val candidate = response.candidates.firstOrNull()
+                if (candidate == null) {
+                    BriefAiDiagnosticsStore.localFailure(context, "Generation returned no candidate")
+                    BriefAiDiagnosticsStore.localDetail(context, "candidate=missing")
+                    return@runCatching null
+                }
+                val finishReason = finishReasonName(candidate.finishReason)
+                val parsed = BriefAiCardResponse.apply(
                     source,
-                    response.candidates.firstOrNull()?.text.orEmpty(),
+                    candidate.text,
                     BriefProviderUsed.LOCAL,
                 )
+                BriefAiDiagnosticsStore.localDetail(
+                    context,
+                    buildString {
+                        append("finish=$finishReason")
+                        inputTokens?.let { append(" · input=$it tokens") }
+                        append(" · response=${candidate.text.length} chars · cards=${parsed.appliedCards}")
+                    },
+                )
+                if (parsed.snapshot == null) {
+                    BriefAiDiagnosticsStore.localFailure(
+                        context,
+                        "${parsed.failure ?: "Response parsing failed"} (finish=$finishReason, ${candidate.text.length} chars)",
+                    )
+                }
+                parsed.snapshot
             } finally {
                 model.close()
             }
         }.onFailure { error ->
             BriefAiDiagnosticsStore.localFailure(
                 context,
-                "${error.javaClass.simpleName}: ${error.message.orEmpty()}".trim(),
+                describeLocalError(error),
             )
         }.getOrNull()
     }
@@ -212,6 +257,7 @@ private object BriefAiDiagnosticsStore {
     private const val KEY_ATTEMPTED = "attempted"
     private const val KEY_OUTCOME = "outcome"
     private const val KEY_LOCAL_FAILURE = "local_failure"
+    private const val KEY_LOCAL_DETAIL = "local_detail"
 
     fun attempt(context: Context, provider: String) {
         prefs(context).edit()
@@ -231,6 +277,10 @@ private object BriefAiDiagnosticsStore {
         prefs(context).edit().putString(KEY_LOCAL_FAILURE, reason).apply()
     }
 
+    fun localDetail(context: Context, detail: String) {
+        prefs(context).edit().putString(KEY_LOCAL_DETAIL, detail).apply()
+    }
+
     fun read(
         context: Context,
         mode: BriefProviderMode,
@@ -243,11 +293,14 @@ private object BriefAiDiagnosticsStore {
             runtimePresent = runCatching { Class.forName("com.google.mlkit.genai.prompt.Generation") }.isSuccess,
             localStatus = probe.status,
             statusError = probe.error,
+            localModelName = probe.modelName,
+            localTokenLimit = probe.tokenLimit,
             savedProvider = savedProvider,
             lastAttemptAt = prefs.getLong(KEY_ATTEMPT_AT, 0L),
             lastAttemptedProvider = prefs.getString(KEY_ATTEMPTED, null),
             lastOutcome = prefs.getString(KEY_OUTCOME, null),
             lastLocalFailure = prefs.getString(KEY_LOCAL_FAILURE, null),
+            lastLocalDetail = prefs.getString(KEY_LOCAL_DETAIL, null),
             cloudConfigured = BriefSettingsStore.cloudApiKey(context).isNotBlank(),
         )
     }
@@ -295,7 +348,7 @@ private object GeminiCloudBriefProvider {
                 ?.optJSONObject(0)
                 ?.optString("text")
                 .orEmpty()
-            applyGeneratedCards(source, text, BriefProviderUsed.CLOUD)
+            BriefAiCardResponse.apply(source, text, BriefProviderUsed.CLOUD).snapshot
         }.getOrNull()
     }
 }
@@ -319,36 +372,90 @@ private fun promptFor(source: BriefSnapshot): String {
     return "Rewrite and order these cards. Keep each id unchanged. Return objects with exactly id, title, and body: $input"
 }
 
-private fun applyGeneratedCards(
-    source: BriefSnapshot,
-    raw: String,
-    provider: BriefProviderUsed,
-): BriefSnapshot? {
-    val start = raw.indexOf('[')
-    val end = raw.lastIndexOf(']')
-    if (start < 0 || end <= start) return null
-    val array = runCatching { JSONArray(raw.substring(start, end + 1)) }.getOrNull() ?: return null
-    val originals = source.cards.associateBy(BriefCard::id)
-    val seen = mutableSetOf<String>()
-    val rewritten = buildList {
-        for (index in 0 until array.length()) {
-            val item = array.optJSONObject(index) ?: continue
-            val id = item.optString("id")
-            val original = originals[id] ?: continue
-            if (!seen.add(id)) continue
-            val title = item.optString("title").trim().takeIf { it.length in 1..60 } ?: original.title
-            val body = item.optString("body").trim().takeIf { it.length in 1..180 } ?: original.body
-            val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
-            add(if (factual) original.copy(title = title, body = body) else original)
+private fun localPromptFor(source: BriefSnapshot): String {
+    val outputCount = minOf(3, source.cards.size)
+    val input = JSONArray().apply {
+        source.cards.forEach { card ->
+            put(JSONObject().apply {
+                put("i", card.id)
+                put("t", card.title)
+                put("b", card.body)
+                put("p", card.score)
+            })
         }
-        source.cards.filterNot { it.id in seen }.forEach(::add)
     }
-    if (rewritten.isEmpty()) return null
-    return source.copy(
-        generatedAt = System.currentTimeMillis(),
-        cards = rewritten,
-        providerUsed = provider,
+    return """
+        ## TASK
+        Rank the cards and rewrite only the best $outputCount.
+        ## RULES
+        Keep every id and numeric fact unchanged. Title max 32 characters. Body max 80 characters.
+        ## OUTPUT
+        JSON array only, using exactly these keys: [{"i":"id","t":"title","b":"body"}]
+        ## CARDS
+        $input
+    """.trimIndent()
+}
+
+internal object BriefAiCardResponse {
+    data class Result(
+        val snapshot: BriefSnapshot?,
+        val appliedCards: Int,
+        val failure: String? = null,
     )
+
+    fun apply(source: BriefSnapshot, raw: String, provider: BriefProviderUsed): Result {
+        val start = raw.indexOf('[')
+        val end = raw.lastIndexOf(']')
+        if (start < 0 || end <= start) return Result(null, 0, "Response did not contain a complete JSON array")
+        val array = runCatching { JSONArray(raw.substring(start, end + 1)) }.getOrNull()
+            ?: return Result(null, 0, "Response JSON was malformed")
+        val originals = source.cards.associateBy(BriefCard::id)
+        val seen = mutableSetOf<String>()
+        var applied = 0
+        val rewritten = buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val id = item.optString("id").ifBlank { item.optString("i") }
+                val original = originals[id] ?: continue
+                if (!seen.add(id)) continue
+                val title = item.optString("title").ifBlank { item.optString("t") }
+                    .trim().takeIf { it.length in 1..60 } ?: original.title
+                val body = item.optString("body").ifBlank { item.optString("b") }
+                    .trim().takeIf { it.length in 1..180 } ?: original.body
+                val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
+                add(if (factual) original.copy(title = title, body = body) else original)
+                applied++
+            }
+            source.cards.filterNot { it.id in seen }.forEach(::add)
+        }
+        if (applied == 0) return Result(null, 0, "Response contained no recognised card ids")
+        return Result(
+            snapshot = source.copy(
+                generatedAt = System.currentTimeMillis(),
+                cards = rewritten,
+                providerUsed = provider,
+            ),
+            appliedCards = applied,
+        )
+    }
+}
+
+private fun finishReasonName(reason: Int?): String = when (reason) {
+    Candidate.FinishReason.STOP -> "STOP"
+    Candidate.FinishReason.MAX_TOKENS -> "MAX_TOKENS"
+    Candidate.FinishReason.OTHER -> "OTHER"
+    null -> "UNKNOWN"
+    else -> reason.toString()
+}
+
+private fun describeLocalError(error: Throwable): String = buildString {
+    append(error.javaClass.simpleName)
+    if (error is GenAiException) append(" code=${error.errorCode}")
+    error.message?.takeIf(String::isNotBlank)?.let { append(": $it") }
+    error.cause?.takeIf { it !== error }?.let { cause ->
+        append("; caused by ${cause.javaClass.simpleName}")
+        cause.message?.takeIf(String::isNotBlank)?.let { append(": $it") }
+    }
 }
 
 private fun numericFacts(value: String): List<String> =

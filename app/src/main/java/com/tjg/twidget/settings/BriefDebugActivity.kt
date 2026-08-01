@@ -108,6 +108,9 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 buildString {
                     append("Mode ${it.mode} · feature ${it.localStatus}")
                     append("\nML Kit runtime ${if (it.runtimePresent) "present" else "missing"} · cloud key ${if (it.cloudConfigured) "configured" else "missing"}")
+                    if (it.localModelName != null || it.localTokenLimit != null) {
+                        append("\nModel ${it.localModelName ?: "unknown"} · context ${it.localTokenLimit?.let { limit -> "$limit tokens" } ?: "unknown"}")
+                    }
                     append("\nSaved Brief provider ${it.savedProvider}")
                     it.statusError?.let { error -> append("\nStatus error: $error") }
                 }
@@ -122,6 +125,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                     append(it.lastAttemptedProvider ?: "No provider attempt recorded")
                     if (it.lastAttemptAt > 0L) append(" · ${SimpleDateFormat("MMM d, HH:mm:ss", Locale.US).format(Date(it.lastAttemptAt))}")
                     it.lastOutcome?.let { outcome -> append("\nOutcome: $outcome") }
+                    it.lastLocalDetail?.let { detail -> append("\nLocal detail: $detail") }
                     it.lastLocalFailure?.let { failure -> append("\nLocal failure: $failure") }
                 }
             } ?: getString(R.string.brief_debug_nano_no_attempt)

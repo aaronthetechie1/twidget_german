@@ -32,7 +32,12 @@ internal object StreakCardPolicy {
 }
 
 internal object StreakCardFactory {
-    fun create(context: Context, snapshot: StreakSnapshot): LinearLayout {
+    fun create(
+        context: Context,
+        snapshot: StreakSnapshot,
+        titleOverride: String? = null,
+        detailOverride: String? = null,
+    ): LinearLayout {
         val state = StreakCardPolicy.state(snapshot)
         val colors = when (state) {
             StreakCardState.SAFE -> intArrayOf(Color.rgb(144, 255, 199), Color.rgb(205, 255, 230))
@@ -40,14 +45,15 @@ internal object StreakCardFactory {
             StreakCardState.EXPIRING -> intArrayOf(Color.rgb(255, 157, 157), Color.rgb(233, 190, 190))
             StreakCardState.REVIVE -> intArrayOf(Color.rgb(180, 218, 255), Color.WHITE)
         }
-        val detail = when (state) {
+        val detail = detailOverride ?: when (state) {
             StreakCardState.SAFE -> context.getString(R.string.streak_safe_until_tomorrow)
             StreakCardState.NEEDS_ACTIVITY -> context.getString(R.string.streak_post_to_continue)
             StreakCardState.EXPIRING -> context.getString(R.string.streak_expiring_soon)
             StreakCardState.REVIVE -> context.getString(R.string.streak_revive)
         }
         val dayCount = snapshot.streak.coerceAtLeast(0)
-        val title = context.resources.getQuantityString(R.plurals.streak_days, dayCount, dayCount)
+        val title = titleOverride
+            ?: context.resources.getQuantityString(R.plurals.streak_days, dayCount, dayCount)
 
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL

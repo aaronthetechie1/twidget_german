@@ -2,28 +2,43 @@ package com.tjg.twidget.brief
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.lifecycleScope
 import com.airbnb.lottie.LottieAnimationView
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
+import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.AccountAverageSeries
+import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistoryRange
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollowersStore
+import com.tjg.twidget.main.MilestoneArcView
+import com.tjg.twidget.main.MilestoneCardBackgroundDrawable
+import com.tjg.twidget.main.MilestoneGoalActivity
+import com.tjg.twidget.main.MilestoneGoalStore
+import com.tjg.twidget.main.MilestoneMetricResolver
+import com.tjg.twidget.main.MilestonePerformanceState
+import com.tjg.twidget.main.MilestonePolicy
+import com.tjg.twidget.main.StreakCardFactory
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.MetricChartView
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -41,6 +56,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var renderedSnapshot: BriefSnapshot? = null
     private var localStatus = BriefLocalStatus.UNAVAILABLE
     private var debugScenario: BriefDebugScenario = BriefDebugScenario.REAL
+    private val milestoneEditor = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { loadBrief(force = true) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,12 +78,16 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
+        loadBrief()
+    }
+
+    private fun loadBrief(force: Boolean = false) {
         setLoading(true)
         lifecycleScope.launch {
             try {
                 val source = withContext(Dispatchers.IO) {
                     debugScenario.snapshot(
-                        BriefEngine.rebuild(this@TwidgetBriefActivity, username),
+                        BriefEngine.rebuild(this@TwidgetBriefActivity, username, force),
                     )
                 }
                 val result = if (debugScenario == BriefDebugScenario.REAL) {
@@ -73,9 +95,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 } else {
                     BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
                 }
-                bindFollowerChart()
-                bindPost()
-                bindTopFollowers()
                 render(result.snapshot)
                 localStatus = result.localStatus
             } finally {
@@ -106,44 +125,41 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             imageTintList = tint
             setOnClickListener { showProviderInfo() }
         }
-        findViewById<ImageView>(R.id.brief_followers_icon).apply {
-            setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_community))
-            imageTintList = tint
-        }
-        findViewById<ImageView>(R.id.brief_refresh_icon).apply {
-            setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_refresh))
-            imageTintList = tint
-        }
     }
 
-    private fun bindFollowerChart() {
-        val stats = TwidgetStore.currentStats(this, username)
-        findViewById<TextView>(R.id.brief_followers_value).text = format(stats.followersCount)
-        findViewById<TextView>(R.id.brief_followers_delta).apply {
+    private fun followerChartCard(card: BriefCard): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundResource(R.drawable.brief_card_background)
+        setPadding(0, dp(16), 0, 0)
+        addView(primaryText(card.body, 14f).apply {
+            setPadding(dp(19), 0, dp(19), 0)
+        })
+
+        val stats = TwidgetStore.currentStats(this@TwidgetBriefActivity, username)
+        addView(LinearLayout(this@TwidgetBriefActivity).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(20), dp(12), dp(20), 0)
+            addView(ImageView(this@TwidgetBriefActivity).apply {
+                setImageDrawable(AppCompatResources.getDrawable(this@TwidgetBriefActivity, OneUiIconR.drawable.ic_oui_community))
+                imageTintList = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            addView(primaryText(format(stats.followersCount), 22f, true).apply {
+                setPadding(dp(20), 0, 0, 0)
+            })
             val delta = TwidgetStore.followersDelta(this@TwidgetBriefActivity, username)
-            text = if (delta == 0L) "" else TwidgetStore.signedNumber(delta)
-            visibility = if (delta == 0L) View.GONE else View.VISIBLE
-            setTextColor(getColor(if (delta < 0) R.color.metric_red else R.color.metric_green))
-        }
-        val full = TwidgetStore.fullHistory(this, username).filter { it.followersKnown }
-        val visible = TwidgetStore.chartHistory(this, username, HistoryRange.WEEK)
+            if (delta != 0L) addView(primaryText(TwidgetStore.signedNumber(delta), 18f).apply {
+                setPadding(dp(6), 0, 0, 0)
+                setTextColor(getColor(if (delta < 0) R.color.metric_red else R.color.metric_green))
+            })
+        })
+        val full = TwidgetStore.fullHistory(this@TwidgetBriefActivity, username).filter { it.followersKnown }
+        val visible = TwidgetStore.chartHistory(this@TwidgetBriefActivity, username, HistoryRange.WEEK)
             .filter { it.followersKnown }
-        findViewById<MetricChartView>(R.id.brief_chart).apply {
+        addView(MetricChartView(this@TwidgetBriefActivity).apply {
             setData(visible, { it.followers })
             setAverageSeries(AccountAverageSeries.values(full, visible, { it.followers }))
-        }
-    }
-
-    private fun bindPost() {
-        val post = AnalyticsClient.cached(this, username)?.best ?: return
-        val section = findViewById<LinearLayout>(R.id.brief_post_section)
-        section.visibility = View.VISIBLE
-        section.removeAllViews()
-        section.addView(sectionLabel(getString(R.string.brief_post_love)))
-        section.addView(postCard(post), LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(10) })
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(194)))
     }
 
     private fun postCard(post: PostSummary): View = LinearLayout(this).apply {
@@ -162,7 +178,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             addView(ImageView(context).apply {
                 ProfileImageLoader.loadInto(context, this, post.authorAvatar)
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
-            addView(LinearLayout(context).apply {
+            addView(LinearLayout(this@TwidgetBriefActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(10), 0, 0, 0)
                 addView(primaryText(post.authorName.ifBlank { TwidgetStore.currentStats(context, username).fullName }, 14f, true))
@@ -209,18 +225,21 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
     }
 
-    private fun bindTopFollowers() {
-        val container = findViewById<LinearLayout>(R.id.brief_top_followers)
-        container.removeAllViews()
-        val followers = TopFollowersStore.read(this, username).top.take(3)
+    private fun topFollowersCard(card: BriefCard): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundResource(R.drawable.brief_card_background)
+        addView(primaryText(card.body, 14f).apply {
+            setPadding(dp(20), dp(16), dp(20), dp(10))
+        })
+        val followers = TopFollowersStore.read(this@TwidgetBriefActivity, username).top.take(3)
         if (followers.isEmpty()) {
-            container.addView(supportingText(getString(R.string.brief_top_followers_empty), 14f).apply {
+            addView(supportingText(getString(R.string.brief_top_followers_empty), 14f).apply {
                 setPadding(dp(20), dp(12), dp(20), dp(18))
             })
-            return
+            return@apply
         }
         followers.forEachIndexed { index, follower ->
-            container.addView(LinearLayout(this).apply {
+            addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(20), dp(10), dp(20), dp(10))
@@ -253,7 +272,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     setPadding(dp(4), 0, 0, 0)
                 })
             })
-            if (index < followers.lastIndex) container.addView(View(this).apply {
+            if (index < followers.lastIndex) addView(View(this@TwidgetBriefActivity).apply {
                 setBackgroundColor(getColor(R.color.brief_divider))
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
                 marginStart = dp(16)
@@ -264,36 +283,108 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun render(snapshot: BriefSnapshot) {
         renderedSnapshot = snapshot
-        val hero = snapshot.cards.first()
-        findViewById<TextView>(R.id.brief_hero_title).text = hero.title
-        findViewById<TextView>(R.id.brief_hero_body).text = hero.body
-        findViewById<TextView>(R.id.brief_growth_label).text = when {
-            snapshot.followersWeek > 0 -> getString(R.string.brief_weekly_growth, format(snapshot.followersWeek))
-            snapshot.followersWeek < 0 -> getString(R.string.brief_weekly_decline, format(-snapshot.followersWeek))
-            else -> getString(R.string.brief_weekly_steady)
-        }
-        findViewById<TextView>(R.id.brief_followers_label).text = if (
-            snapshot.cards.any { it.type == BriefCardType.TOP_FOLLOWER }
-        ) getString(R.string.brief_new_top_follower) else getString(R.string.brief_top_followers_now)
-
         val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
-        snapshot.cards.drop(1)
-            .filterNot {
-                it.type == BriefCardType.GROWTH ||
-                    it.type == BriefCardType.POST ||
-                    it.type == BriefCardType.TOP_FOLLOWER
-            }
-            .forEach { card ->
-                container.addView(sectionLabel(card.title), matchWrap(top = 20))
-                container.addView(LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(19), dp(16), dp(19), dp(16))
-                    setBackgroundResource(R.drawable.brief_card_background)
-                    addView(primaryText(card.body, 14f))
-                }, matchWrap(top = 10))
-            }
+        snapshot.cards.forEach { card ->
+            container.addView(cardSection(card), matchWrap(top = 20))
+        }
     }
+
+    private fun cardSection(card: BriefCard): View = when (card.type) {
+        BriefCardType.MILESTONE -> milestoneCard(card)
+        BriefCardType.STREAK -> StreakCardFactory.create(
+            this,
+            DailyStreakStore.snapshot(this, username),
+            titleOverride = card.title,
+            detailOverride = card.body,
+        )
+        else -> LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(sectionLabel(card.title))
+            val content = when (card.type) {
+                BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard(card)
+                BriefCardType.POST -> AnalyticsClient.cached(context, username)?.best?.let(::postCard)
+                    ?: genericCard(card)
+                BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
+                BriefCardType.INACTIVITY -> genericCard(card, warm = true)
+                else -> genericCard(card)
+            }
+            addView(content, matchWrap(top = 10))
+        }
+    }
+
+    private fun genericCard(card: BriefCard, warm: Boolean = false): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(19), dp(16), dp(19), dp(16))
+        background = if (warm) radialCard(
+            Color.rgb(255, 189, 157),
+            getColor(R.color.oneui_card_bg),
+        ) else AppCompatResources.getDrawable(context, R.drawable.brief_card_background)
+        addView(primaryText(card.body, 14f))
+    }
+
+    private fun milestoneCard(card: BriefCard): View {
+        val root = LayoutInflater.from(this).inflate(R.layout.milestone_card, null, false)
+        val settings = MilestoneGoalStore.read(this, username)
+        val stats = TwidgetStore.currentStats(this, username)
+        val metric = MilestoneMetricResolver.resolve(
+            context = this,
+            account = username,
+            metric = settings.metric,
+            stats = stats,
+            history = TwidgetStore.fullHistory(this, username),
+            analytics = AnalyticsClient.cached(this, username),
+            imported = ImportedAnalyticsStore.all(this, username),
+        )
+        val progress = MilestonePolicy.progress(metric.value, settings.target) ?: 0
+        val state = MilestonePolicy.performanceState(metric.history)
+        val accent = when (state) {
+            MilestonePerformanceState.ACCELERATING -> Color.rgb(15, 207, 110)
+            MilestonePerformanceState.DECELERATING -> Color.rgb(255, 103, 31)
+            MilestonePerformanceState.NEUTRAL -> Color.rgb(24, 129, 255)
+        }
+        val glow = when (state) {
+            MilestonePerformanceState.ACCELERATING -> Color.rgb(173, 255, 213)
+            MilestonePerformanceState.DECELERATING -> Color.rgb(255, 196, 168)
+            MilestonePerformanceState.NEUTRAL -> Color.rgb(141, 204, 255)
+        }
+        root.background = MilestoneCardBackgroundDrawable(
+            glowColor = if (isNight()) darken(glow) else glow,
+            surfaceColor = getColor(R.color.oneui_card_bg),
+            radiusPx = dp(28).toFloat(),
+        )
+        root.findViewById<MilestoneArcView>(R.id.milestone_arc).apply {
+            this.progress = progress
+            progressColor = accent
+        }
+        root.findViewById<TextView>(R.id.milestone_title).text = card.title
+        root.findViewById<TextView>(R.id.milestone_message).text = card.body
+        val openEditor = View.OnClickListener {
+            milestoneEditor.launch(MilestoneGoalActivity.intent(this, username))
+        }
+        root.setOnClickListener(openEditor)
+        root.findViewById<ImageButton>(R.id.milestone_edit).setOnClickListener(openEditor)
+        root.contentDescription = "${card.title}. ${card.body}"
+        return root
+    }
+
+    private fun radialCard(start: Int, end: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        gradientType = GradientDrawable.RADIAL_GRADIENT
+        gradientRadius = dp(320).toFloat()
+        setGradientCenter(0f, .5f)
+        cornerRadius = dp(28).toFloat()
+        colors = intArrayOf(start, end)
+    }
+
+    private fun isNight(): Boolean = resources.configuration.uiMode and
+        Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+    private fun darken(color: Int): Int = Color.rgb(
+        (Color.red(color) * .3f).toInt(),
+        (Color.green(color) * .3f).toInt(),
+        (Color.blue(color) * .3f).toInt(),
+    )
 
     private fun showProviderInfo() {
         val snapshot = renderedSnapshot ?: return
