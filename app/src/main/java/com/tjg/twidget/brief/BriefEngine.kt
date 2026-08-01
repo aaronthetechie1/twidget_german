@@ -23,6 +23,7 @@ import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
 import com.tjg.twidget.schedule.ScheduleStore
+import com.tjg.twidget.schedule.ScheduledPost
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -338,10 +339,10 @@ object BriefEngine {
     }
 
     private fun upcomingTweets(context: Context, username: String): List<BriefUpcomingTweet> {
-        val eligible = setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED)
+        val now = System.currentTimeMillis()
         return ScheduleStore(context).listForAccount(username)
             .asSequence()
-            .filter { it.status in eligible }
+            .filter { BriefSchedulePolicy.isRelevant(it, now) }
             .sortedWith(compareBy({ scheduleUrgency(it.status) }, { it.scheduledAt ?: Long.MAX_VALUE }))
             .take(3)
             .map { post ->
@@ -409,8 +410,9 @@ object BriefEngine {
     private fun contextFingerprint(context: Context, username: String): String {
         val goal = MilestoneGoalStore.read(context, username)
         val streak = DailyStreakStore.snapshot(context, username)
+        val now = System.currentTimeMillis()
         val schedule = ScheduleStore(context).listForAccount(username)
-            .filter { it.status in setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED) }
+            .filter { BriefSchedulePolicy.isRelevant(it, now) }
             .joinToString(";") { "${it.id}:${it.status}:${it.scheduledAt}:${it.updatedAt}" }
         return listOf(
             goal.configured,
@@ -441,6 +443,15 @@ object BriefEngine {
     }
 
     private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+}
+
+internal object BriefSchedulePolicy {
+    fun isRelevant(post: ScheduledPost, now: Long = System.currentTimeMillis()): Boolean =
+        when (post.status) {
+            ScheduleStatus.SCHEDULED -> post.scheduledAt?.let { it > now } == true
+            ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED -> true
+            else -> false
+        }
 }
 
 internal object BriefRankingPolicy {

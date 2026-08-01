@@ -41,6 +41,7 @@ import com.tjg.twidget.main.MilestoneMetricResolver
 import com.tjg.twidget.main.MilestonePerformanceState
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.StreakCardFactory
+import com.tjg.twidget.schedule.BufferScheduleSync
 import com.tjg.twidget.schedule.LocalUriMedia
 import com.tjg.twidget.schedule.PublicUrlMedia
 import com.tjg.twidget.schedule.ScheduleComposeActivity
@@ -103,6 +104,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             try {
                 val source = withContext(Dispatchers.IO) {
                     if (forceAi) {
+                        // A full regeneration must refresh Buffer first; otherwise
+                        // the engine can faithfully rebuild from a stale local queue.
+                        runCatching {
+                            BufferScheduleSync(this@TwidgetBriefActivity).sync(userInitiated = true)
+                        }
                         BriefStore.resetAi(this@TwidgetBriefActivity, username)
                     }
                     debugScenario.snapshot(
