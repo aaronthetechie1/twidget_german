@@ -174,8 +174,8 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
 
     /**
      * Samsung's switch-screen layout starts its icon at the leading edge of a
-     * 56dp slot, while the regular switch layout centres a 24dp icon in that
-     * same slot. Apply the missing half-gap so both row types share one axis.
+     * 56dp slot with 16dp end padding. The regular switch layout centres its
+     * 24dp icon in the remaining 40dp, so apply the missing 8dp half-gap.
      */
     private class AlignedSwitchPreferenceScreen(context: Context) :
         SeslSwitchPreferenceScreen(context) {
@@ -194,6 +194,6 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
 
     companion object {
         private const val ICON_SIZE_DP = 24f
-        private const val NAVIGABLE_ICON_OFFSET_DP = 16f
+        private const val NAVIGABLE_ICON_OFFSET_DP = 8f
     }
 }
