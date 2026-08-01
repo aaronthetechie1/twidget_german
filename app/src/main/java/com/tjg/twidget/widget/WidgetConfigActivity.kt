@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.appcompat.widget.SeslSeekBar
 import androidx.appcompat.widget.SwitchCompat
 import com.tjg.twidget.R
+import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.EdgeToEdgeActivity
@@ -44,6 +45,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private var currentLevel = 2
     private var isLockWidget = false
     private var isLockWide = false
+    private var isBriefWidget = false
     private val accountRadios = mutableListOf<Pair<String, RadioButton>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +59,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         isLockWide = intent?.getBooleanExtra(EXTRA_LOCKSCREEN_WIDE, false) == true
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(appWidgetId)?.provider?.className.orEmpty()
+        isBriefWidget = providerClass == TwidgetBriefWidget::class.java.name
         if (providerClass.startsWith("com.tjg.twidget.LockScreenFollower")) {
             isLockWidget = true
             isLockWide = providerClass == com.tjg.twidget.LockScreenFollowerWideWidget::class.java.name
@@ -73,6 +76,19 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             listOf(R.id.opacity_block, R.id.tint_row, R.id.font_row, R.id.tap_separator, R.id.tap_action_card)
                 .forEach { findViewById<View>(it).visibility = View.GONE }
             findViewById<CardItemView>(R.id.logo_row).showTopDivider = false
+        } else if (isBriefWidget) {
+            // Brief chooses its account, copy, icon and tap destination from the
+            // current dynamic card. Only the shared glass appearance is user
+            // configurable.
+            listOf(
+                R.id.account_separator,
+                R.id.account_group,
+                R.id.font_row,
+                R.id.logo_row,
+                R.id.delta_row,
+                R.id.tap_separator,
+                R.id.tap_action_card,
+            ).forEach { findViewById<View>(it).visibility = View.GONE }
         }
         val settings = TwidgetStore.widgetSettings(this, appWidgetId)
         tintAlpha = settings.tintAlpha
@@ -85,8 +101,9 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         colorMode = settings.colorMode
         fontFamily = settings.fontFamily
         showDelta = settings.showDelta
+        if (isBriefWidget) accountUsername = ""
         bindControls()
-        buildAccountRows()
+        if (!isBriefWidget) buildAccountRows()
         render()
     }
 
@@ -275,6 +292,35 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             return
         }
 
+        if (isBriefWidget) {
+            val widthDp = 300
+            val heightDp = 149
+            val darkPreview = isDarkPreview()
+            val previewBase = if (darkPreview) 16 else 255
+            preview.background = GradientDrawable().apply {
+                cornerRadius = resources.displayMetrics.density * 26f
+                setColor(Color.argb(tintAlpha, previewBase, previewBase, previewBase))
+            }
+            preview.layoutParams = preview.layoutParams.apply {
+                width = dp(widthDp)
+                height = dp(heightDp)
+            }
+            preview.addView(ImageView(this).apply {
+                scaleType = ImageView.ScaleType.FIT_XY
+                setImageBitmap(
+                    BriefWidgetArtworkRenderer.render(
+                        context = this@WidgetConfigActivity,
+                        widthPx = dp(widthDp),
+                        heightPx = dp(heightDp),
+                        account = selectedAccount,
+                        snapshot = BriefStore.read(this@WidgetConfigActivity, selectedAccount),
+                        dark = darkPreview,
+                    ),
+                )
+            }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            return
+        }
+
         val stats = TwidgetStore.currentStats(this, selectedAccount)
         val previewSpec = homePreviewSpec()
         // Match the live widget's resolved color mode. The old tint-color
@@ -386,7 +432,11 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                     if (isLockWide) R.layout.lockscreen_message_2x1 else R.layout.lockscreen_message_1x1,
                 )
             } else {
-                TwidgetWidget.updateWidget(this, manager, appWidgetId)
+                if (isBriefWidget) {
+                    TwidgetBriefWidget.updateWidget(this, manager, appWidgetId)
+                } else {
+                    TwidgetWidget.updateWidget(this, manager, appWidgetId)
+                }
             }
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
         } else if (isLockWidget) {

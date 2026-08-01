@@ -690,6 +690,8 @@
     <string name="brief_widget_description">A changing message based on your latest account activity</string>
     <string name="brief_widget_empty_title">Your brief is getting ready</string>
     <string name="brief_widget_empty_body">Open Twidget Brief to set it up.</string>
+    <string name="brief_preview_title">Getting attention</string>
+    <string name="brief_preview_body">Your latest post is reaching more people. You’re on a roll.</string>
     <string name="back">Back</string>
     <string name="info">Information</string>
 </resources>

@@ -245,6 +245,9 @@
             <meta-data
                 android:name="com.sec.android.appwidget.widgetinfo"
                 android:resource="@xml/widget_supported_cell_size_info" />
+            <meta-data
+                android:name="android.appwidget.provider.semConfigureActivity"
+                android:value="com.tjg.twidget.widget.WidgetConfigActivity" />
         </receiver>
 
         <receiver

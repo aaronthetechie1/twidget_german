@@ -28,11 +28,11 @@ import com.tjg.twidget.ui.TwidgetFonts
 class TwidgetBriefWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         BriefSettingsStore.setEnabled(context, true)
-        ids.forEach { update(context, manager, it) }
+        ids.forEach { updateWidget(context, manager, it) }
     }
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
-        update(context, manager, id)
+        updateWidget(context, manager, id)
     }
 
     companion object {
@@ -41,16 +41,16 @@ class TwidgetBriefWidget : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             manager.getAppWidgetIds(ComponentName(context, TwidgetBriefWidget::class.java))
-                .forEach { update(context, manager, it) }
+                .forEach { updateWidget(context, manager, it) }
         }
 
-        private fun update(context: Context, manager: AppWidgetManager, id: Int) {
+        fun updateWidget(context: Context, manager: AppWidgetManager, id: Int) {
             val account = TwidgetStore.settings(context).username
             val snapshot = BriefStore.read(context, account)
                 ?: if (account.isNotBlank()) BriefEngine.rebuild(context, account) else null
             val options = manager.getAppWidgetOptions(id)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 352)
-            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 76)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 175)
             val landscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             val width = if (!TwidgetFonts.hasSystemOneUiSans && landscape) {
                 options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth)
@@ -106,18 +106,24 @@ class TwidgetBriefWidget : AppWidgetProvider() {
         ): RemoteViews {
             val oneRow = height <= 110
             val card = snapshot?.cards?.firstOrNull()
+            val settings = TwidgetStore.widgetSettings(context, id)
+            val dark = isDark(context, settings.colorMode)
+            val base = if (dark) 16 else 255
+            val backgroundColor = Color.argb(settings.tintAlpha, base, base, base)
             return RemoteViews(
                 context.packageName,
                 if (oneRow) R.layout.widget_brief_pill else R.layout.widget_brief_card,
             ).apply {
-                // This is deliberately identical to the Followers widget's
-                // host-surface tint path. Artwork stays completely transparent.
+                // Keep this identical to Followers: tint the existing rounded
+                // drawable because One UI owns the blur behind that surface.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     setColorStateList(
                         android.R.id.background,
                         "setBackgroundTintList",
-                        ColorStateList.valueOf(Color.argb(178, 255, 255, 255)),
+                        ColorStateList.valueOf(backgroundColor),
                     )
+                } else {
+                    setInt(android.R.id.background, "setBackgroundColor", backgroundColor)
                 }
                 setImageViewBitmap(
                     R.id.brief_widget_artwork,
@@ -127,6 +133,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                         heightPx = dp(context, height),
                         account = account,
                         snapshot = snapshot,
+                        dark = dark,
                     ),
                 )
                 setContentDescription(
@@ -150,7 +157,6 @@ class TwidgetBriefWidget : AppWidgetProvider() {
 
         private fun warmAvatars(context: Context, manager: AppWidgetManager, id: Int, account: String) {
             val urls = listOf(
-                TwidgetStore.currentStats(context, account).profileImage,
                 TopFollowersStore.read(context, account).top.firstOrNull()?.avatarUrl.orEmpty(),
             ).filter(String::isNotBlank).distinct()
             val missing = urls.filter { ProfileImageLoader.cachedBitmap(context, it) == null }
@@ -158,7 +164,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
             AppExecutors.execute {
                 var changed = false
                 missing.forEach { changed = ProfileImageLoader.downloadToCache(context, it) != null || changed }
-                if (changed) update(context, manager, id)
+                if (changed) updateWidget(context, manager, id)
             }
         }
 
@@ -170,5 +176,13 @@ class TwidgetBriefWidget : AppWidgetProvider() {
 
         private fun dp(context: Context, value: Int): Int =
             (value * context.resources.displayMetrics.density).toInt()
+
+        private fun isDark(context: Context, colorMode: String): Boolean =
+            when (colorMode) {
+                TwidgetStore.COLOR_MODE_DARK -> true
+                TwidgetStore.COLOR_MODE_LIGHT -> false
+                else -> context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                    Configuration.UI_MODE_NIGHT_YES
+            }
     }
 }
