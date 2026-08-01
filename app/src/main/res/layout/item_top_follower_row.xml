@@ -19,10 +19,12 @@
 
         <TextView
             android:id="@+id/top_follower_row_rank"
-            android:layout_width="30dp"
-            android:layout_height="wrap_content"
-            android:fontFamily="sans-serif-thin"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:fontFeatureSettings="tnum"
             android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
             android:textColor="@color/oneui_text_primary"
             android:textSize="30sp" />
 
@@ -79,6 +81,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:maxLines="1"
                 android:textColor="@color/oneui_text_secondary"
                 android:textSize="14sp" />
         </LinearLayout>

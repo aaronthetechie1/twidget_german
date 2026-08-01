@@ -152,7 +152,10 @@ private object GeminiNanoBriefProvider {
                 ) {
                     temperature = 0.25f
                     topK = 3
-                    maxOutputTokens = 600
+                    // ML Kit's Gemini Nano prompt API currently accepts at most
+                    // 256 output tokens. Larger values pass compilation but are
+                    // rejected by AICore when the request is executed.
+                    maxOutputTokens = 256
                 }
                 val response = model.generateContent(request)
                 applyGeneratedCards(

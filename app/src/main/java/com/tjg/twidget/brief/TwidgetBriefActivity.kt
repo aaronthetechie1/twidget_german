@@ -16,6 +16,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.lifecycleScope
+import com.airbnb.lottie.LottieAnimationView
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.PostSummary
@@ -31,7 +32,9 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TwidgetBriefActivity : FoldablePopOverActivity() {
     private lateinit var username: String
@@ -57,18 +60,37 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
-        bindFollowerChart()
-        bindPost()
-        bindTopFollowers()
-
-        val source = debugScenario.snapshot(BriefEngine.rebuild(this, username))
-        render(source)
-        if (debugScenario != BriefDebugScenario.REAL) return
+        setLoading(true)
         lifecycleScope.launch {
-            val result = BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source)
-            render(result.snapshot)
-            localStatus = result.localStatus
+            try {
+                val source = withContext(Dispatchers.IO) {
+                    debugScenario.snapshot(
+                        BriefEngine.rebuild(this@TwidgetBriefActivity, username),
+                    )
+                }
+                val result = if (debugScenario == BriefDebugScenario.REAL) {
+                    BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source)
+                } else {
+                    BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
+                }
+                bindFollowerChart()
+                bindPost()
+                bindTopFollowers()
+                render(result.snapshot)
+                localStatus = result.localStatus
+            } finally {
+                setLoading(false)
+            }
         }
+    }
+
+    private fun setLoading(loading: Boolean) {
+        findViewById<View>(R.id.brief_scroll).visibility = if (loading) View.GONE else View.VISIBLE
+        findViewById<LottieAnimationView>(R.id.brief_loading).apply {
+            visibility = if (loading) View.VISIBLE else View.GONE
+            if (loading) playAnimation() else cancelAnimation()
+        }
+        findViewById<ImageButton>(R.id.brief_info).isEnabled = !loading
     }
 
     private fun bindChrome() {
@@ -289,16 +311,21 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun downloadLocalModel() {
         lifecycleScope.launch {
-            localStatus = BriefLocalStatus.DOWNLOADING
-            val downloaded = BriefAiCoordinator.downloadLocalModel { }
-            if (!downloaded) {
-                localStatus = BriefLocalStatus.DOWNLOADABLE
-                return@launch
+            setLoading(true)
+            try {
+                localStatus = BriefLocalStatus.DOWNLOADING
+                val downloaded = BriefAiCoordinator.downloadLocalModel { }
+                if (!downloaded) {
+                    localStatus = BriefLocalStatus.DOWNLOADABLE
+                    return@launch
+                }
+                val source = BriefStore.read(this@TwidgetBriefActivity, username) ?: return@launch
+                val result = BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source, force = true)
+                localStatus = result.localStatus
+                render(result.snapshot)
+            } finally {
+                setLoading(false)
             }
-            val source = BriefStore.read(this@TwidgetBriefActivity, username) ?: return@launch
-            val result = BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source, force = true)
-            localStatus = result.localStatus
-            render(result.snapshot)
         }
     }
 

@@ -207,6 +207,7 @@ configurations.configureEach {
 
 dependencies {
     implementation("io.github.tribalfs:oneui-design:0.9.13+oneui8")
+    implementation("com.airbnb.android:lottie:6.6.2")
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
@@ -11,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.SearchView
+import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
@@ -19,6 +21,7 @@ import com.tjg.twidget.R
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.ProfileImageLoader
+import com.tjg.twidget.ui.TwidgetFonts
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import dev.oneuiproject.oneui.R as OneUiIconR
 
@@ -167,17 +170,28 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             private var boundFollower: TopFollower? = null
             private var requestedIdentity: String? = null
 
+            init {
+                // RecyclerView rows are inflated after the activity's initial font pass.
+                // Apply the app typeface before first draw so recycled/new rows never
+                // fall back to Roboto while waiting for another global layout.
+                rank.typeface = TwidgetFonts.oneUiSans(itemView.context, 200)
+                name.typeface = TwidgetFonts.oneUiSans(itemView.context, 700)
+                handle.typeface = TwidgetFonts.oneUiSans(itemView.context, 400)
+                count.typeface = TwidgetFonts.oneUiSans(itemView.context, 400)
+                TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    rank,
+                    12,
+                    30,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP,
+                )
+            }
+
             fun bind(ranked: RankedTopFollower, showDivider: Boolean) {
                 clearAvatar()
                 val follower = ranked.follower
                 boundFollower = follower
                 rank.text = ranked.rank.toString()
-                rank.textSize = when (ranked.rank.toString().length) {
-                    1 -> 30f
-                    2 -> 26f
-                    3 -> 22f
-                    else -> 18f
-                }
                 name.text = follower.name
                 handle.text = "@${follower.username}"
                 count.text = TwidgetStore.compactNumber(follower.followers)
