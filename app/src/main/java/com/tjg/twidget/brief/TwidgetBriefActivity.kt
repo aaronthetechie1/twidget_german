@@ -45,7 +45,6 @@ import com.tjg.twidget.schedule.LocalUriMedia
 import com.tjg.twidget.schedule.PublicUrlMedia
 import com.tjg.twidget.schedule.ScheduleComposeActivity
 import com.tjg.twidget.schedule.ScheduleProvider
-import com.tjg.twidget.schedule.ScheduleStatus
 import com.tjg.twidget.schedule.ScheduleStore
 import com.tjg.twidget.settings.BriefSettingsActivity
 import com.tjg.twidget.ui.FoldablePopOverActivity
@@ -354,10 +353,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         container.removeAllViews()
         container.visibility = if (tweets.isEmpty()) View.GONE else View.VISIBLE
         if (tweets.isEmpty()) return
-        container.addView(sectionLabel("Upcoming tweets"), matchWrap(top = 24))
+        container.addView(sectionLabel("Upcoming scheduled tweets"), matchWrap(top = 24))
         tweets.forEachIndexed { index, tweet ->
-            container.addView(sectionLabel(upcomingSubheading(tweet)), matchWrap(top = if (index == 0) 10 else 20))
-            container.addView(scheduledPostCard(tweet), matchWrap(top = 10))
+            container.addView(scheduledPostCard(tweet), matchWrap(top = if (index == 0) 10 else 20))
         }
     }
 
@@ -423,19 +421,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             add(if (tweet.provider == ScheduleProvider.BUFFER) "Buffer" else "Local reminder")
         }.joinToString(" · ")
         addView(supportingText(details, 12f), matchWrap(top = 10))
-    }
-
-    private fun upcomingSubheading(tweet: BriefUpcomingTweet): String = buildList {
-        add(upcomingStatus(tweet))
-        tweet.errorMessage.takeIf(String::isNotBlank)?.let(::add)
-    }.joinToString(" · ")
-
-    private fun upcomingStatus(tweet: BriefUpcomingTweet): String = when {
-        tweet.status == ScheduleStatus.FAILED -> "Needs attention"
-        tweet.status == ScheduleStatus.NEEDS_ACTION && tweet.provider == ScheduleProvider.LOCAL_REMINDER -> "Ready to post"
-        tweet.status == ScheduleStatus.NEEDS_ACTION -> "Buffer needs attention"
-        tweet.provider == ScheduleProvider.BUFFER -> "Publishing automatically"
-        else -> "Upcoming"
     }
 
     private fun scheduleDate(timestamp: Long): String = if (timestamp > 0L) {
