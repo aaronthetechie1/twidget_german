@@ -1,15 +1,18 @@
 package com.tjg.twidget.settings
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceViewHolder
 import androidx.preference.SeslSwitchPreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import com.tjg.twidget.R
@@ -81,7 +84,7 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         category: BriefContentCategory,
         titleRes: Int,
         onOpen: () -> Unit,
-    ) = SeslSwitchPreferenceScreen(requireContext()).apply {
+    ) = AlignedSwitchPreferenceScreen(requireContext()).apply {
         configureCategory(this, category, titleRes)
         setOnPreferenceClickListener {
             onOpen()
@@ -114,7 +117,7 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
             ?.mutate()
             ?.also { DrawableCompat.setTint(it, context.getColor(iconColor(category))) }
             ?: return null
-        return SizedDrawable(tinted, (24f * context.resources.displayMetrics.density).toInt())
+        return SizedDrawable(tinted, (ICON_SIZE_DP * context.resources.displayMetrics.density).toInt())
     }
 
     private fun iconColor(category: BriefContentCategory): Int = when (category) {
@@ -167,5 +170,30 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         override fun isStateful(): Boolean = delegate.isStateful
 
         override fun onStateChange(state: IntArray): Boolean = delegate.setState(state)
+    }
+
+    /**
+     * Samsung's switch-screen layout starts its icon at the leading edge of a
+     * 56dp slot, while the regular switch layout centres a 24dp icon in that
+     * same slot. Apply the missing half-gap so both row types share one axis.
+     */
+    private class AlignedSwitchPreferenceScreen(context: Context) :
+        SeslSwitchPreferenceScreen(context) {
+        override fun onBindViewHolder(holder: PreferenceViewHolder) {
+            super.onBindViewHolder(holder)
+            holder.findViewById(android.R.id.icon)?.let { icon ->
+                val offset = NAVIGABLE_ICON_OFFSET_DP * icon.resources.displayMetrics.density
+                icon.translationX = if (icon.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                    -offset
+                } else {
+                    offset
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val ICON_SIZE_DP = 24f
+        private const val NAVIGABLE_ICON_OFFSET_DP = 16f
     }
 }
