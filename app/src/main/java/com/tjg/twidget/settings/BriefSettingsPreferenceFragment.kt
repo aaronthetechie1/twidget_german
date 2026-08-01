@@ -16,6 +16,7 @@ import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import com.tjg.twidget.ui.startSettingsSubActivity
+import com.tjg.twidget.ui.startRightSidePopOverActivity
 import dev.oneuiproject.oneui.preference.SwitchBarPreference
 
 class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
@@ -44,9 +45,26 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
 
         screen.addPreference(spacerCategory())
         screen.addPreference(UncontainedPreference(context).apply {
+            key = "brief_preview"
+            layoutResource = R.layout.preference_brief_preview
+            isSelectable = false
+        })
+        screen.addPreference(UncontainedPreference(context).apply {
             key = "brief_intro"
             layoutResource = R.layout.preference_brief_intro
             isSelectable = false
+        })
+
+        screen.addPreference(spacerCategory())
+        screen.addPreference(Preference(context).apply {
+            key = "brief_content_pref"
+            title = getString(R.string.brief_manage_content)
+            setOnPreferenceClickListener {
+                requireActivity().startRightSidePopOverActivity(
+                    Intent(context, BriefContentSettingsActivity::class.java),
+                )
+                true
+            }
         })
 
         screen.addPreference(spacerCategory())
@@ -127,8 +145,10 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
     private class UncontainedPreference(context: Context) : Preference(context) {
         override fun onBindViewHolder(holder: PreferenceViewHolder) {
             super.onBindViewHolder(holder)
-            holder.itemView.background = null
+            holder.itemView.setBackgroundColor(context.getColor(R.color.oneui_bg))
             holder.itemView.foreground = null
+            holder.itemView.clipToOutline = false
+            holder.itemView.outlineProvider = null
         }
     }
 }

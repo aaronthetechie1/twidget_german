@@ -47,4 +47,5 @@
     <color name="brief_card_surface">#9917171A</color>
     <color name="brief_text_supporting">#A7A7AB</color>
     <color name="brief_divider">#33FFFFFF</color>
+    <color name="brief_icon_top_tweet">#FFAA58</color>
 </resources>

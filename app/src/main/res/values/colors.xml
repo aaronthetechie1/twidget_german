@@ -52,4 +52,5 @@
     <color name="brief_card_surface">#99FFFFFF</color>
     <color name="brief_text_supporting">#848487</color>
     <color name="brief_divider">#1F000000</color>
+    <color name="brief_icon_top_tweet">#F28C38</color>
 </resources>

@@ -28,6 +28,35 @@ enum class BriefCardType {
     STREAK,
 }
 
+enum class BriefContentCategory(val storageId: String) {
+    TOP_TWEET("top_tweet"),
+    WORST_TWEET("worst_tweet"),
+    FOLLOWERS("followers"),
+    TOP_FOLLOWERS("top_followers"),
+    TWEET_ACTIVITY("tweet_activity"),
+    SCHEDULED_TWEETS("scheduled_tweets"),
+    ACCOUNT_GOALS("account_goals");
+
+    fun includes(type: BriefCardType): Boolean = when (this) {
+        TOP_TWEET -> type == BriefCardType.POST
+        WORST_TWEET -> type == BriefCardType.WORST_POST
+        FOLLOWERS -> type in setOf(
+            BriefCardType.SUMMARY,
+            BriefCardType.GROWTH,
+            BriefCardType.SLOWDOWN,
+        )
+        TOP_FOLLOWERS -> type == BriefCardType.TOP_FOLLOWER
+        TWEET_ACTIVITY -> type in setOf(BriefCardType.INACTIVITY, BriefCardType.STREAK)
+        SCHEDULED_TWEETS -> false
+        ACCOUNT_GOALS -> type == BriefCardType.MILESTONE
+    }
+
+    companion object {
+        fun forCard(type: BriefCardType): BriefContentCategory? =
+            entries.firstOrNull { it.includes(type) }
+    }
+}
+
 data class BriefCard(
     val id: String,
     val type: BriefCardType,

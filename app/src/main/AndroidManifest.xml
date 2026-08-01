@@ -168,6 +168,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".settings.BriefContentSettingsActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".followers.TopFollowersBrowseActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />

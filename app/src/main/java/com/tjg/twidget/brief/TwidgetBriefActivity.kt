@@ -320,14 +320,19 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val summary = BriefEditorialSummary.from(snapshot.cards)
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
         findViewById<TextView>(R.id.brief_summary_body).text = summary.body
-        renderUpcoming(snapshot.upcomingTweets)
         val columns = configureResponsiveLayout()
         val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
+        val sections = buildList {
+            if (snapshot.upcomingTweets.isNotEmpty()) {
+                add(upcomingSection(snapshot.upcomingTweets) to 24)
+            }
+            snapshot.cards.forEach { card -> add(cardSection(card) to 20) }
+        }
         if (columns == 1) {
             container.orientation = LinearLayout.VERTICAL
-            snapshot.cards.forEach { card ->
-                container.addView(cardSection(card), matchWrap(top = 20))
+            sections.forEach { (section, topMargin) ->
+                container.addView(section, matchWrap(top = topMargin))
             }
         } else {
             container.orientation = LinearLayout.HORIZONTAL
@@ -342,20 +347,18 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     )
                 }
             }
-            snapshot.cards.forEachIndexed { index, card ->
-                masonryColumns[index % columns].addView(cardSection(card), matchWrap(top = 20))
+            sections.forEachIndexed { index, (section, topMargin) ->
+                masonryColumns[index % columns].addView(section, matchWrap(top = topMargin))
             }
         }
     }
 
-    private fun renderUpcoming(tweets: List<BriefUpcomingTweet>) {
-        val container = findViewById<LinearLayout>(R.id.brief_upcoming)
-        container.removeAllViews()
-        container.visibility = if (tweets.isEmpty()) View.GONE else View.VISIBLE
-        if (tweets.isEmpty()) return
-        container.addView(sectionLabel("Upcoming scheduled tweets"), matchWrap(top = 24))
+    // Scheduled copy is rendered locally and never enters an AI prompt.
+    private fun upcomingSection(tweets: List<BriefUpcomingTweet>): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(sectionLabel("Upcoming scheduled tweets"))
         tweets.forEachIndexed { index, tweet ->
-            container.addView(scheduledPostCard(tweet), matchWrap(top = if (index == 0) 10 else 20))
+            addView(scheduledPostCard(tweet), matchWrap(top = if (index == 0) 10 else 20))
         }
     }
 

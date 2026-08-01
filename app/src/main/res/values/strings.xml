@@ -670,6 +670,16 @@
     <string name="brief_settings_preview_description">Preview of a personalised Twidget Brief</string>
     <string name="brief_settings_intro">Get a personalised briefing based on your profile analytics. These dynamically change throughout the day. It appears in your dashboard, and as a widget on your home screen.</string>
     <string name="brief_settings_ai_intro">It uses a data aggregation engine, as well as your choice of local or cloud powered models. Local uses Gemini Nano on supported devices, while cloud uses the Google AI Studio API for use with Gemini models.</string>
+    <string name="brief_manage_content">Manage content to include</string>
+    <string name="brief_content_top_tweet">Top tweet this week</string>
+    <string name="brief_content_worst_tweet">Worst tweet this week</string>
+    <string name="brief_content_followers">Followers</string>
+    <string name="brief_content_top_followers">Top followers</string>
+    <string name="brief_content_tweet_activity">Tweet activity</string>
+    <string name="brief_content_scheduled_tweets">Scheduled tweets</string>
+    <string name="brief_content_account_goals">Account goals</string>
+    <string name="brief_tweet_activity_explainer">Tweet activity tracks original tweets only—replies do not count. If Twidget detects no original tweet for more than three days, the Brief suggests starting a streak. Once you post, it follows your daily posting streak from then on.</string>
+    <string name="brief_categories_empty_body">Choose the updates you want to see in Brief settings.</string>
     <string name="brief_ai_studio_key">AI Studio API key</string>
     <string name="brief_provider_auto_short">Auto</string>
     <string name="brief_settings_debug">Debug</string>

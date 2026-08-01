@@ -56,13 +56,6 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- Scheduled copy is rendered locally and never enters an AI prompt. -->
-            <LinearLayout
-                android:id="@+id/brief_upcoming"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-
             <!-- The engine owns this sequence. On large screens, cards are
                  distributed into independent columns so unequal heights tile
                  without creating shared-row gaps. -->

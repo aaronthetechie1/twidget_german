@@ -345,7 +345,13 @@ internal class MainDashboardBinder(
     private fun createBriefCard(stats: ProfileStats, account: String): View {
         val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
         val snapshot = BriefEngine.rebuild(activity, account)
-        val hero = snapshot.cards.first()
+        val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
+            id = "empty",
+            type = BriefCardType.SUMMARY,
+            title = activity.getString(R.string.brief_widget_empty_title),
+            body = activity.getString(R.string.brief_categories_empty_body),
+            score = 0,
+        )
         val iconRes = when (hero.type) {
             BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
             BriefCardType.STREAK -> R.drawable.ic_streak_fire

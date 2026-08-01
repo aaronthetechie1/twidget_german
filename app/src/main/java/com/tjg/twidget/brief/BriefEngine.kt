@@ -33,14 +33,19 @@ import kotlin.math.abs
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 5
+    private const val ENGINE_VERSION = 6
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
         val stats = TwidgetStore.currentStats(context, clean)
         val analytics = AnalyticsClient.cached(context, clean)
         val followerState = TopFollowersStore.read(context, clean)
-        val upcomingTweets = upcomingTweets(context, clean)
+        val content = BriefSettingsStore.enabledContent(context)
+        val upcomingTweets = if (BriefContentCategory.SCHEDULED_TWEETS in content) {
+            upcomingTweets(context, clean)
+        } else {
+            emptyList()
+        }
         val previous = BriefStore.read(context, clean)
         val fingerprint = contextFingerprint(context, clean)
         if (!force && previous != null &&
@@ -85,6 +90,7 @@ object BriefEngine {
 
     fun inspect(context: Context, username: String): BriefEngineReport {
         val clean = username.trim().trimStart('@')
+        val content = BriefSettingsStore.enabledContent(context)
         return evaluate(
             context = context,
             username = clean,
@@ -92,7 +98,11 @@ object BriefEngine {
             analytics = AnalyticsClient.cached(context, clean),
             followerState = TopFollowersStore.read(context, clean),
             previous = BriefStore.read(context, clean),
-            upcomingTweets = upcomingTweets(context, clean),
+            upcomingTweets = if (BriefContentCategory.SCHEDULED_TWEETS in content) {
+                upcomingTweets(context, clean)
+            } else {
+                emptyList()
+            },
         ).report
     }
 
@@ -120,17 +130,30 @@ object BriefEngine {
             followerKey(follower) to index + 1
         }.toMap()
         val activity = DailyStreakStore.snapshot(context, username)
+        val content = BriefSettingsStore.enabledContent(context)
         val candidates = mutableListOf<BriefCard>()
 
-        growthCard(stats.followersCount, todayDelta, weekDelta)?.let(candidates::add)
-        postCard(analytics?.best, analytics, stats.followersCount)?.let(candidates::add)
-        worstPostCard(analytics)?.let(candidates::add)
-        slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
-        milestoneCard(context, username, stats, history, analytics)?.let(candidates::add)
-        activityCard(context, username, upcomingTweets)?.let(candidates::add)
-        topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
+        if (BriefContentCategory.FOLLOWERS in content) {
+            growthCard(stats.followersCount, todayDelta, weekDelta)?.let(candidates::add)
+            slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
+        }
+        if (BriefContentCategory.TOP_TWEET in content) {
+            postCard(analytics?.best, analytics, stats.followersCount)?.let(candidates::add)
+        }
+        if (BriefContentCategory.WORST_TWEET in content) {
+            worstPostCard(analytics)?.let(candidates::add)
+        }
+        if (BriefContentCategory.ACCOUNT_GOALS in content) {
+            milestoneCard(context, username, stats, history, analytics)?.let(candidates::add)
+        }
+        if (BriefContentCategory.TWEET_ACTIVITY in content) {
+            activityCard(context, username, upcomingTweets)?.let(candidates::add)
+        }
+        if (BriefContentCategory.TOP_FOLLOWERS in content) {
+            topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
+        }
 
-        if (candidates.isEmpty()) {
+        if (candidates.isEmpty() && BriefContentCategory.FOLLOWERS in content) {
             candidates += BriefCard(
                 id = "summary-steady",
                 type = BriefCardType.SUMMARY,
@@ -399,6 +422,7 @@ object BriefEngine {
             streak.lastActiveDay,
             streak.activityCheckedAt,
             schedule,
+            BriefSettingsStore.contentFingerprint(context),
         ).joinToString("|")
     }
 

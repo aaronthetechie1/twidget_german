@@ -7,6 +7,7 @@ object BriefSettingsStore {
     private const val PREFS = "twidget_brief_settings"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_PROVIDER = "provider"
+    private const val KEY_CONTENT_PREFIX = "content_"
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
 
@@ -19,6 +20,26 @@ object BriefSettingsStore {
 
     fun setProvider(context: Context, provider: BriefProviderMode) {
         prefs(context).edit().putString(KEY_PROVIDER, provider.storageId).apply()
+    }
+
+    fun contentEnabled(context: Context, category: BriefContentCategory): Boolean =
+        prefs(context).getBoolean(KEY_CONTENT_PREFIX + category.storageId, true)
+
+    fun setContentEnabled(
+        context: Context,
+        category: BriefContentCategory,
+        enabled: Boolean,
+    ) {
+        prefs(context).edit()
+            .putBoolean(KEY_CONTENT_PREFIX + category.storageId, enabled)
+            .apply()
+    }
+
+    fun enabledContent(context: Context): Set<BriefContentCategory> =
+        BriefContentCategory.entries.filterTo(linkedSetOf()) { contentEnabled(context, it) }
+
+    fun contentFingerprint(context: Context): String = BriefContentCategory.entries.joinToString(",") {
+        "${it.storageId}:${contentEnabled(context, it)}"
     }
 
     fun cloudApiKey(context: Context): String =
