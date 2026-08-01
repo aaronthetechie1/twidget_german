@@ -56,16 +56,14 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- The engine owns this sequence. Each child is inserted in the
-                 exact order of BriefSnapshot.cards. -->
-            <GridLayout
+            <!-- The engine owns this sequence. On large screens, cards are
+                 distributed into independent columns so unequal heights tile
+                 without creating shared-row gaps. -->
+            <LinearLayout
                 android:id="@+id/brief_cards"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:alignmentMode="alignBounds"
-                android:columnCount="1"
-                android:orientation="horizontal"
-                android:useDefaultMargins="false" />
+                android:orientation="vertical" />
 
             <LinearLayout
                 android:id="@+id/brief_footer"

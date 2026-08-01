@@ -16,7 +16,6 @@ import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.FrameLayout
-import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -299,12 +298,29 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
         findViewById<TextView>(R.id.brief_summary_body).text = summary.body
         val columns = configureResponsiveLayout()
-        val container = findViewById<GridLayout>(R.id.brief_cards).apply {
-            columnCount = columns
-        }
+        val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
-        snapshot.cards.forEachIndexed { index, card ->
-            container.addView(cardSection(card), gridCell(index, columns))
+        if (columns == 1) {
+            container.orientation = LinearLayout.VERTICAL
+            snapshot.cards.forEach { card ->
+                container.addView(cardSection(card), matchWrap(top = 20))
+            }
+        } else {
+            container.orientation = LinearLayout.HORIZONTAL
+            val masonryColumns = List(columns) { columnIndex ->
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    container.addView(
+                        this,
+                        LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            if (columnIndex == 0) rightMargin = dp(10) else leftMargin = dp(10)
+                        },
+                    )
+                }
+            }
+            snapshot.cards.forEachIndexed { index, card ->
+                masonryColumns[index % columns].addView(cardSection(card), matchWrap(top = 20))
+            }
         }
     }
 
@@ -337,17 +353,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
         return columns
-    }
-
-    private fun gridCell(index: Int, columns: Int) = GridLayout.LayoutParams().apply {
-        width = 0
-        height = GridLayout.LayoutParams.WRAP_CONTENT
-        rowSpec = GridLayout.spec(index / columns)
-        columnSpec = GridLayout.spec(index % columns, 1, 1f)
-        topMargin = dp(20)
-        if (columns > 1) {
-            if (index % columns == 0) rightMargin = dp(10) else leftMargin = dp(10)
-        }
     }
 
     private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
