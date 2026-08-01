@@ -21,6 +21,19 @@ data class BriefAiResult(
     val localStatus: BriefLocalStatus,
 )
 
+data class BriefAiDiagnostics(
+    val mode: BriefProviderMode,
+    val runtimePresent: Boolean,
+    val localStatus: BriefLocalStatus,
+    val statusError: String?,
+    val savedProvider: BriefProviderUsed,
+    val lastAttemptAt: Long,
+    val lastAttemptedProvider: String?,
+    val lastOutcome: String?,
+    val lastLocalFailure: String?,
+    val cloudConfigured: Boolean,
+)
+
 object BriefAiCoordinator {
     suspend fun enrich(
         context: Context,
@@ -28,7 +41,8 @@ object BriefAiCoordinator {
         force: Boolean = false,
     ): BriefAiResult = withContext(Dispatchers.IO) {
         val mode = BriefSettingsStore.provider(context)
-        val localStatus = GeminiNanoBriefProvider.status()
+        val localProbe = GeminiNanoBriefProvider.probe(context)
+        val localStatus = localProbe.status
         val resultMatchesMode = when (mode) {
             BriefProviderMode.LOCAL -> source.providerUsed == BriefProviderUsed.LOCAL
             BriefProviderMode.CLOUD -> source.providerUsed == BriefProviderUsed.CLOUD
@@ -43,22 +57,31 @@ object BriefAiCoordinator {
 
         val generated = when (mode) {
             BriefProviderMode.LOCAL -> {
-                GeminiNanoBriefProvider.generate(source)?.copy(
+                BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
+                GeminiNanoBriefProvider.generate(context, source)?.copy(
                     providerMessage = "Written privately with Gemini Nano on this device",
                 )
             }
-            BriefProviderMode.CLOUD -> GeminiCloudBriefProvider.generate(context, source)?.copy(
-                providerMessage = "Written with Gemini Cloud using your API key",
-            )
-            BriefProviderMode.AUTO -> {
-                GeminiNanoBriefProvider.generate(source)?.copy(
-                    providerMessage = "Written privately with Gemini Nano on this device",
-                ) ?: GeminiCloudBriefProvider.generate(context, source)?.copy(
-                    providerMessage = "Gemini Nano wasn’t available; used Gemini Cloud with your API key",
+            BriefProviderMode.CLOUD -> {
+                BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
+                GeminiCloudBriefProvider.generate(context, source)?.copy(
+                    providerMessage = "Written with Gemini Cloud using your API key",
                 )
+            }
+            BriefProviderMode.AUTO -> {
+                BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
+                GeminiNanoBriefProvider.generate(context, source)?.copy(
+                    providerMessage = "Written privately with Gemini Nano on this device",
+                ) ?: run {
+                    BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
+                    GeminiCloudBriefProvider.generate(context, source)?.copy(
+                        providerMessage = "Gemini Nano wasn’t available; used Gemini Cloud with your API key",
+                    )
+                }
             }
         } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context))
 
+        BriefAiDiagnosticsStore.outcome(context, generated.providerUsed, generated.providerMessage)
         BriefStore.write(context, generated)
         TwidgetBriefWidget.updateAll(context)
         BriefAiResult(generated, localStatus)
@@ -66,6 +89,12 @@ object BriefAiCoordinator {
 
     suspend fun downloadLocalModel(onStatus: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
         GeminiNanoBriefProvider.download(onStatus)
+    }
+
+    suspend fun diagnostics(context: Context, username: String): BriefAiDiagnostics = withContext(Dispatchers.IO) {
+        val probe = GeminiNanoBriefProvider.probe(context)
+        val saved = BriefStore.read(context, username)?.providerUsed ?: BriefProviderUsed.TEMPLATE
+        BriefAiDiagnosticsStore.read(context, BriefSettingsStore.provider(context), probe, saved)
     }
 
     private fun fallbackMessage(
@@ -88,23 +117,33 @@ object BriefAiCoordinator {
     }
 }
 
+private data class NanoProbe(val status: BriefLocalStatus, val error: String?)
+
 private object GeminiNanoBriefProvider {
-    suspend fun status(): BriefLocalStatus = runCatching {
+    suspend fun probe(context: Context): NanoProbe = runCatching {
         val model = Generation.getClient()
         try {
-            when (model.checkStatus()) {
+            NanoProbe(when (model.checkStatus()) {
                 FeatureStatus.AVAILABLE -> BriefLocalStatus.AVAILABLE
                 FeatureStatus.DOWNLOADABLE -> BriefLocalStatus.DOWNLOADABLE
                 FeatureStatus.DOWNLOADING -> BriefLocalStatus.DOWNLOADING
                 else -> BriefLocalStatus.UNAVAILABLE
-            }
+            }, null)
         } finally {
             model.close()
         }
-    }.getOrDefault(BriefLocalStatus.UNAVAILABLE)
+    }.getOrElse { error ->
+        val reason = "${error.javaClass.simpleName}: ${error.message.orEmpty()}".trim()
+        BriefAiDiagnosticsStore.localFailure(context, reason)
+        NanoProbe(BriefLocalStatus.UNAVAILABLE, reason)
+    }
 
-    suspend fun generate(source: BriefSnapshot): BriefSnapshot? {
-        if (status() != BriefLocalStatus.AVAILABLE) return null
+    suspend fun generate(context: Context, source: BriefSnapshot): BriefSnapshot? {
+        val probe = probe(context)
+        if (probe.status != BriefLocalStatus.AVAILABLE) {
+            BriefAiDiagnosticsStore.localFailure(context, "Feature status: ${probe.status}")
+            return null
+        }
         return runCatching {
             val model = Generation.getClient()
             try {
@@ -124,6 +163,11 @@ private object GeminiNanoBriefProvider {
             } finally {
                 model.close()
             }
+        }.onFailure { error ->
+            BriefAiDiagnosticsStore.localFailure(
+                context,
+                "${error.javaClass.simpleName}: ${error.message.orEmpty()}".trim(),
+            )
         }.getOrNull()
     }
 
@@ -157,6 +201,56 @@ private object GeminiNanoBriefProvider {
         onStatus("The on-device model isn’t available")
         false
     }
+}
+
+private object BriefAiDiagnosticsStore {
+    private const val PREFS = "brief_ai_diagnostics"
+    private const val KEY_ATTEMPT_AT = "attempt_at"
+    private const val KEY_ATTEMPTED = "attempted"
+    private const val KEY_OUTCOME = "outcome"
+    private const val KEY_LOCAL_FAILURE = "local_failure"
+
+    fun attempt(context: Context, provider: String) {
+        prefs(context).edit()
+            .putLong(KEY_ATTEMPT_AT, System.currentTimeMillis())
+            .putString(KEY_ATTEMPTED, provider)
+            .apply()
+    }
+
+    fun outcome(context: Context, provider: BriefProviderUsed, message: String) {
+        prefs(context).edit().apply {
+            putString(KEY_OUTCOME, "$provider · $message")
+            if (provider == BriefProviderUsed.LOCAL) remove(KEY_LOCAL_FAILURE)
+        }.apply()
+    }
+
+    fun localFailure(context: Context, reason: String) {
+        prefs(context).edit().putString(KEY_LOCAL_FAILURE, reason).apply()
+    }
+
+    fun read(
+        context: Context,
+        mode: BriefProviderMode,
+        probe: NanoProbe,
+        savedProvider: BriefProviderUsed,
+    ): BriefAiDiagnostics {
+        val prefs = prefs(context)
+        return BriefAiDiagnostics(
+            mode = mode,
+            runtimePresent = runCatching { Class.forName("com.google.mlkit.genai.prompt.Generation") }.isSuccess,
+            localStatus = probe.status,
+            statusError = probe.error,
+            savedProvider = savedProvider,
+            lastAttemptAt = prefs.getLong(KEY_ATTEMPT_AT, 0L),
+            lastAttemptedProvider = prefs.getString(KEY_ATTEMPTED, null),
+            lastOutcome = prefs.getString(KEY_OUTCOME, null),
+            lastLocalFailure = prefs.getString(KEY_LOCAL_FAILURE, null),
+            cloudConfigured = BriefSettingsStore.cloudApiKey(context).isNotBlank(),
+        )
+    }
+
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
 
 private object GeminiCloudBriefProvider {

@@ -17,10 +17,6 @@ import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import com.tjg.twidget.R
-import com.tjg.twidget.brief.BriefEngine
-import com.tjg.twidget.brief.BriefSettingsStore
-import com.tjg.twidget.brief.BriefStore
-import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.TwidgetStore
@@ -59,7 +55,6 @@ open class TwidgetWidget : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context)
             listOf(
                 com.tjg.twidget.TwidgetWidget::class.java,
-                com.tjg.twidget.MilestoneWidget::class.java,
             ).flatMap { provider ->
                 manager.getAppWidgetIds(ComponentName(context, provider)).asIterable()
             }.forEach { updateWidget(context, manager, it) }
@@ -88,16 +83,7 @@ open class TwidgetWidget : AppWidgetProvider() {
                 layoutModeForAosp(artworkWidth, artworkHeight)
             }
             val widgetSettings = TwidgetStore.widgetSettings(context, appWidgetId)
-            val milestoneWidget = appWidgetManager.getAppWidgetInfo(appWidgetId)
-                ?.provider?.className == com.tjg.twidget.MilestoneWidget::class.java.name
-            if (milestoneWidget) BriefSettingsStore.setEnabled(context, true)
-            // The retired Milestones provider remains as a compatibility shell
-            // for widgets already placed on home screens. Brief is default-only.
-            val account = if (milestoneWidget) {
-                TwidgetStore.settings(context).username
-            } else {
-                widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
-            }
+            val account = widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
             val stats = TwidgetStore.currentStats(context, account)
             val delta = TwidgetStore.followersDelta(context, account)
 
@@ -121,7 +107,6 @@ open class TwidgetWidget : AppWidgetProvider() {
                         stats = stats,
                         delta = delta,
                         drawArtworkBackground = false,
-                        milestoneWidget = milestoneWidget,
                     )
                     totalBitmapBytes = totalBitmapBytes - replacedBytes + bitmapBytes
                     responsiveBitmapBytes[key] = bitmapBytes
@@ -175,7 +160,6 @@ open class TwidgetWidget : AppWidgetProvider() {
                     stats = stats,
                     delta = delta,
                     drawArtworkBackground = !TwidgetFonts.hasSystemOneUiSans,
-                    milestoneWidget = milestoneWidget,
                 )
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -192,7 +176,6 @@ open class TwidgetWidget : AppWidgetProvider() {
             stats: ProfileStats,
             delta: Long,
             drawArtworkBackground: Boolean,
-            milestoneWidget: Boolean,
         ): RemoteViews {
             // Launchers can replace RemoteViews font families—even Samsung's
             // own `sec` family—so every size renders its text as artwork.
@@ -223,50 +206,21 @@ open class TwidgetWidget : AppWidgetProvider() {
                 setViewVisibility(R.id.widget_loading, View.GONE)
                 setImageViewBitmap(
                     R.id.widget_artwork,
-                    if (milestoneWidget) {
-                        val snapshot = BriefStore.read(context, account)
-                            ?: if (account.isNotBlank() && BriefSettingsStore.enabled(context)) {
-                                BriefEngine.rebuild(context, account)
-                            } else null
-                        BriefWidgetArtworkRenderer.render(
-                            context = context,
-                            widthPx = dp(context, width),
-                            heightPx = dp(context, height),
-                            settings = widgetSettings,
-                            account = account,
-                            snapshot = snapshot,
-                            dark = dark,
-                            drawBackground = drawArtworkBackground,
-                        )
-                    } else {
-                        WidgetArtworkRenderer.render(
-                            context = context,
-                            widthPx = dp(context, width),
-                            heightPx = dp(context, height),
-                            stats = stats,
-                            settings = widgetSettings,
-                            mode = mode,
-                            dark = dark,
-                            delta = delta,
-                            drawBackground = drawArtworkBackground,
-                        )
-                    },
+                    WidgetArtworkRenderer.render(
+                        context = context,
+                        widthPx = dp(context, width),
+                        heightPx = dp(context, height),
+                        stats = stats,
+                        settings = widgetSettings,
+                        mode = mode,
+                        dark = dark,
+                        delta = delta,
+                        drawBackground = drawArtworkBackground,
+                    ),
                 )
-                setOnClickPendingIntent(
-                    android.R.id.background,
-                    if (milestoneWidget) briefTapIntent(context, appWidgetId, account)
-                    else tapIntent(context, appWidgetId, widgetSettings.tapAction, account),
-                )
+                setOnClickPendingIntent(android.R.id.background, tapIntent(context, appWidgetId, widgetSettings.tapAction, account))
             }
         }
-
-        private fun briefTapIntent(context: Context, appWidgetId: Int, account: String): PendingIntent =
-            PendingIntent.getActivity(
-                context,
-                4000 + appWidgetId,
-                TwidgetBriefActivity.intent(context, account),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
 
         data class ResponsiveSpec(
             val minWidth: Int,

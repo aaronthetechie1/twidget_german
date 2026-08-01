@@ -413,6 +413,17 @@
     <string name="brief_debug_full_report_summary">Inspect or copy the inputs, scores, ordering, and selection result</string>
     <string name="brief_debug_log_category">Recent engine log</string>
     <string name="brief_debug_log_empty">No engine evaluations logged yet</string>
+    <string name="brief_debug_nano_category">Gemini Nano diagnostics</string>
+    <string name="brief_debug_nano_checking">Checking Gemini Nano…</string>
+    <string name="brief_debug_nano_checking_summary">Querying ML Kit GenAI and Android AICore</string>
+    <string name="brief_debug_nano_in_use">Gemini Nano is in use</string>
+    <string name="brief_debug_nano_not_in_use">Gemini Nano is not in use</string>
+    <string name="brief_debug_nano_last_attempt">Last AI attempt</string>
+    <string name="brief_debug_nano_no_attempt">No provider attempt recorded</string>
+    <string name="brief_debug_nano_refresh">Refresh Nano status</string>
+    <string name="brief_debug_nano_refresh_summary">Query the on-device feature and model state again</string>
+    <string name="brief_debug_nano_test">Run provider test</string>
+    <string name="brief_debug_nano_test_summary">Rebuild the Brief and run the configured local/cloud selection now</string>
     <string name="schedule_title">Scheduled tweets</string>
     <string name="schedule_new">New scheduled tweet</string>
     <string name="schedule_queue_for">Schedule · %1$s</string>

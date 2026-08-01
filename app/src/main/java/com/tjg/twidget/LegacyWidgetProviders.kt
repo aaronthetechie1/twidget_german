@@ -7,8 +7,6 @@ package com.tjg.twidget
 // pointing at these stubs.
 class TwidgetWidget : com.tjg.twidget.widget.TwidgetWidget()
 
-class MilestoneWidget : com.tjg.twidget.widget.TwidgetWidget()
-
 class LockScreenFollowerSmallWidget : com.tjg.twidget.widget.LockScreenFollowerSmallWidget()
 
 class LockScreenFollowerWideWidget : com.tjg.twidget.widget.LockScreenFollowerWideWidget()

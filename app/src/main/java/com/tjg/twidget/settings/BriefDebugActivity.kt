@@ -16,6 +16,8 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import com.tjg.twidget.R
+import com.tjg.twidget.brief.BriefAiCoordinator
+import com.tjg.twidget.brief.BriefAiDiagnostics
 import com.tjg.twidget.brief.BriefDebugLog
 import com.tjg.twidget.brief.BriefDebugScenario
 import com.tjg.twidget.brief.BriefEngine
@@ -23,10 +25,12 @@ import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.InsetPreferenceFragment
+import androidx.lifecycle.lifecycleScope
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 class BriefDebugActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +50,9 @@ class BriefDebugActivity : FoldablePopOverActivity() {
 }
 
 class BriefDebugFragment : InsetPreferenceFragment() {
+    private var aiDiagnostics: BriefAiDiagnostics? = null
+    private var probeRunning = false
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = TwidgetStore.PREFS
         buildScreen()
@@ -54,6 +61,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
     override fun onResume() {
         super.onResume()
         buildScreen()
+        refreshAiDiagnostics()
     }
 
     private fun buildScreen() {
@@ -82,6 +90,60 @@ class BriefDebugFragment : InsetPreferenceFragment() {
             summary = getString(R.string.brief_debug_open_preview_summary, scenario.label)
             setOnPreferenceClickListener {
                 startActivity(TwidgetBriefActivity.debugIntent(context, username, selectedScenario()))
+                true
+            }
+        })
+
+        screen.addPreference(category(R.string.brief_debug_nano_category))
+        val diagnostics = aiDiagnostics
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_nano_status"
+            title = when {
+                diagnostics == null -> getString(R.string.brief_debug_nano_checking)
+                diagnostics.savedProvider == com.tjg.twidget.brief.BriefProviderUsed.LOCAL ->
+                    getString(R.string.brief_debug_nano_in_use)
+                else -> getString(R.string.brief_debug_nano_not_in_use)
+            }
+            summary = diagnostics?.let {
+                buildString {
+                    append("Mode ${it.mode} · feature ${it.localStatus}")
+                    append("\nML Kit runtime ${if (it.runtimePresent) "present" else "missing"} · cloud key ${if (it.cloudConfigured) "configured" else "missing"}")
+                    append("\nSaved Brief provider ${it.savedProvider}")
+                    it.statusError?.let { error -> append("\nStatus error: $error") }
+                }
+            } ?: getString(R.string.brief_debug_nano_checking_summary)
+            isSelectable = false
+        })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_nano_last_attempt"
+            title = getString(R.string.brief_debug_nano_last_attempt)
+            summary = diagnostics?.let {
+                buildString {
+                    append(it.lastAttemptedProvider ?: "No provider attempt recorded")
+                    if (it.lastAttemptAt > 0L) append(" · ${SimpleDateFormat("MMM d, HH:mm:ss", Locale.US).format(Date(it.lastAttemptAt))}")
+                    it.lastOutcome?.let { outcome -> append("\nOutcome: $outcome") }
+                    it.lastLocalFailure?.let { failure -> append("\nLocal failure: $failure") }
+                }
+            } ?: getString(R.string.brief_debug_nano_no_attempt)
+            isSelectable = false
+        })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_nano_refresh"
+            title = getString(R.string.brief_debug_nano_refresh)
+            summary = getString(R.string.brief_debug_nano_refresh_summary)
+            isEnabled = !probeRunning
+            setOnPreferenceClickListener {
+                refreshAiDiagnostics(force = true)
+                true
+            }
+        })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_nano_test"
+            title = getString(R.string.brief_debug_nano_test)
+            summary = getString(R.string.brief_debug_nano_test_summary)
+            isEnabled = !probeRunning && username.isNotBlank()
+            setOnPreferenceClickListener {
+                runProviderTest(username)
                 true
             }
         })
@@ -199,6 +261,33 @@ class BriefDebugFragment : InsetPreferenceFragment() {
     private fun selectedScenario(): BriefDebugScenario = BriefDebugScenario.fromStorageId(
         preferenceManager.sharedPreferences?.getString(KEY_SCENARIO, null),
     )
+
+    private fun refreshAiDiagnostics(force: Boolean = false) {
+        if (probeRunning || (!force && aiDiagnostics != null)) return
+        probeRunning = true
+        buildScreen()
+        viewLifecycleOwner.lifecycleScope.launch {
+            aiDiagnostics = BriefAiCoordinator.diagnostics(
+                requireContext(),
+                TwidgetStore.settings(requireContext()).username,
+            )
+            probeRunning = false
+            buildScreen()
+        }
+    }
+
+    private fun runProviderTest(username: String) {
+        if (probeRunning) return
+        probeRunning = true
+        buildScreen()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val source = BriefEngine.rebuild(requireContext(), username, force = true)
+            BriefAiCoordinator.enrich(requireContext(), source, force = true)
+            aiDiagnostics = BriefAiCoordinator.diagnostics(requireContext(), username)
+            probeRunning = false
+            buildScreen()
+        }
+    }
 
     private fun category(titleRes: Int) = PreferenceCategory(requireContext()).apply {
         title = getString(titleRes)

@@ -54,7 +54,6 @@
             </dev.oneuiproject.oneui.widget.RoundedFrameLayout>
 
             <dev.oneuiproject.oneui.widget.Separator
-                android:id="@+id/account_separator"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/account" />

@@ -44,7 +44,6 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private var currentLevel = 2
     private var isLockWidget = false
     private var isLockWide = false
-    private var isMilestoneWidget = false
     private val accountRadios = mutableListOf<Pair<String, RadioButton>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +57,6 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         isLockWide = intent?.getBooleanExtra(EXTRA_LOCKSCREEN_WIDE, false) == true
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(appWidgetId)?.provider?.className.orEmpty()
-        isMilestoneWidget = providerClass == com.tjg.twidget.MilestoneWidget::class.java.name
         if (providerClass.startsWith("com.tjg.twidget.LockScreenFollower")) {
             isLockWidget = true
             isLockWide = providerClass == com.tjg.twidget.LockScreenFollowerWideWidget::class.java.name
@@ -76,36 +74,14 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                 .forEach { findViewById<View>(it).visibility = View.GONE }
             findViewById<CardItemView>(R.id.logo_row).showTopDivider = false
         }
-        if (isMilestoneWidget) {
-            // Brief belongs to the default profile and always opens its Brief;
-            // don't offer legacy Milestones controls that no longer apply.
-            listOf(
-                R.id.account_separator,
-                R.id.account_group,
-                R.id.logo_row,
-                R.id.delta_row,
-                R.id.tap_separator,
-                R.id.tap_action_card,
-            ).forEach { findViewById<View>(it).visibility = View.GONE }
-            accountUsername = ""
-        }
-
         val settings = TwidgetStore.widgetSettings(this, appWidgetId)
         tintAlpha = settings.tintAlpha
         currentLevel = closestOpacityLevel(tintAlpha)
         tintAlpha = OPACITY_PRESETS[currentLevel]
         tintColor = settings.tintColor
-        logo = if (isMilestoneWidget) {
-            if (settings.logo == TwidgetStore.LOGO_TWITTER) {
-                TwidgetStore.LOGO_TWITTER
-            } else {
-                TwidgetStore.LOGO_X
-            }
-        } else {
-            settings.logo
-        }
+        logo = settings.logo
         tapAction = settings.tapAction
-        accountUsername = if (isMilestoneWidget) "" else settings.accountUsername
+        accountUsername = settings.accountUsername
         colorMode = settings.colorMode
         fontFamily = settings.fontFamily
         showDelta = settings.showDelta
@@ -282,8 +258,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         preview.removeAllViews()
         preview.setPadding(0, 0, 0, 0)
 
-        val defaultAccount = TwidgetStore.settings(this).username
-        val selectedAccount = if (isMilestoneWidget) defaultAccount else accountUsername.ifBlank { defaultAccount }
+        val selectedAccount = accountUsername.ifBlank { TwidgetStore.settings(this).username }
         val previewSettings = TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, selectedAccount, colorMode, fontFamily, showDelta)
 
         if (isLockWidget) {
@@ -318,30 +293,16 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         preview.addView(ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_XY
             setImageBitmap(
-                if (isMilestoneWidget) {
-                    val snapshot = com.tjg.twidget.brief.BriefStore.read(this@WidgetConfigActivity, selectedAccount)
-                    BriefWidgetArtworkRenderer.render(
-                        context = this@WidgetConfigActivity,
-                        widthPx = dp(previewSpec.widthDp),
-                        heightPx = dp(previewSpec.heightDp),
-                        settings = previewSettings,
-                        account = selectedAccount,
-                        snapshot = snapshot,
-                        dark = darkPreview,
-                        drawBackground = false,
-                    )
-                } else {
-                    WidgetArtworkRenderer.render(
-                        context = this@WidgetConfigActivity,
-                        widthPx = dp(previewSpec.widthDp),
-                        heightPx = dp(previewSpec.heightDp),
-                        stats = stats,
-                        settings = previewSettings,
-                        mode = previewSpec.mode,
-                        dark = darkPreview,
-                        delta = TwidgetStore.followersDelta(this@WidgetConfigActivity, selectedAccount),
-                    )
-                }
+                WidgetArtworkRenderer.render(
+                    context = this@WidgetConfigActivity,
+                    widthPx = dp(previewSpec.widthDp),
+                    heightPx = dp(previewSpec.heightDp),
+                    stats = stats,
+                    settings = previewSettings,
+                    mode = previewSpec.mode,
+                    dark = darkPreview,
+                    delta = TwidgetStore.followersDelta(this@WidgetConfigActivity, selectedAccount),
+                )
             )
         }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
     }

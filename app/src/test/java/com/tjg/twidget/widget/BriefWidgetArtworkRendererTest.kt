@@ -3,36 +3,36 @@ package com.tjg.twidget.widget
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class MilestoneWidgetArtworkRendererTest {
+class BriefWidgetArtworkRendererTest {
     @Test
-    fun `figma 4 by 1 uses wide strip layout`() {
+    fun mapsEachFigmaWidgetSizeToItsDedicatedComposition() {
+        assertEquals(
+            BriefWidgetArtworkRenderer.Layout.COMPACT_STRIP,
+            BriefWidgetArtworkRenderer.layout(162f, 76f),
+        )
         assertEquals(
             BriefWidgetArtworkRenderer.Layout.WIDE_STRIP,
             BriefWidgetArtworkRenderer.layout(352f, 76f),
         )
-    }
-
-    @Test
-    fun `figma 2 by 2 uses square layout`() {
         assertEquals(
             BriefWidgetArtworkRenderer.Layout.SQUARE,
             BriefWidgetArtworkRenderer.layout(162f, 176f),
         )
-    }
-
-    @Test
-    fun `figma 4 by 2 uses wide tall layout`() {
         assertEquals(
             BriefWidgetArtworkRenderer.Layout.WIDE_TALL,
-            BriefWidgetArtworkRenderer.layout(352f, 175.33f),
+            BriefWidgetArtworkRenderer.layout(352f, 175f),
         )
     }
 
     @Test
-    fun `short two column launcher allocation still uses strip layout`() {
+    fun layoutSelectionToleratesLauncherSizeVariation() {
         assertEquals(
             BriefWidgetArtworkRenderer.Layout.COMPACT_STRIP,
-            BriefWidgetArtworkRenderer.layout(179f, 72f),
+            BriefWidgetArtworkRenderer.layout(170f, 80f),
+        )
+        assertEquals(
+            BriefWidgetArtworkRenderer.Layout.WIDE_TALL,
+            BriefWidgetArtworkRenderer.layout(340f, 168f),
         )
     }
 }
