@@ -1,14 +1,14 @@
 package com.tjg.twidget.settings
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
-import android.view.LayoutInflater
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
-import androidx.preference.SwitchPreferenceCompat
+import androidx.preference.PreferenceViewHolder
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefProviderMode
 import com.tjg.twidget.brief.BriefSettingsStore
@@ -16,7 +16,7 @@ import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import com.tjg.twidget.ui.startSettingsSubActivity
-import dev.oneuiproject.oneui.preference.LayoutPreference
+import dev.oneuiproject.oneui.preference.SwitchBarPreference
 
 class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -33,24 +33,19 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         val account = TwidgetStore.settings(context).username
         val screen = preferenceManager.createPreferenceScreen(context)
 
-        screen.addPreference(SwitchPreferenceCompat(context).apply {
+        screen.addPreference(SwitchBarPreference(context).apply {
             key = "brief_enabled_pref"
-            title = enabledTitle(BriefSettingsStore.enabled(context))
             isChecked = BriefSettingsStore.enabled(context)
-            setOnPreferenceChangeListener { preference, value ->
-                val enabled = value as Boolean
-                BriefSettingsStore.setEnabled(context, enabled)
-                preference.title = enabledTitle(enabled)
+            setOnPreferenceChangeListener { _, value ->
+                BriefSettingsStore.setEnabled(context, value as Boolean)
                 true
             }
         })
 
         screen.addPreference(spacerCategory())
-        screen.addPreference(LayoutPreference(
-            context,
-            LayoutInflater.from(context).inflate(R.layout.preference_brief_intro, null, false),
-        ).apply {
+        screen.addPreference(UncontainedPreference(context).apply {
             key = "brief_intro"
+            layoutResource = R.layout.preference_brief_intro
             isSelectable = false
         })
 
@@ -117,10 +112,6 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         preferenceScreen = screen
     }
 
-    private fun enabledTitle(enabled: Boolean): String = getString(
-        if (enabled) R.string.brief_settings_on else R.string.brief_settings_off,
-    )
-
     private fun providerLabel(provider: BriefProviderMode): String = getString(
         when (provider) {
             BriefProviderMode.AUTO -> R.string.brief_provider_auto_short
@@ -131,5 +122,12 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
 
     private fun spacerCategory() = PreferenceCategory(requireContext()).apply {
         isIconSpaceReserved = false
+    }
+
+    private class UncontainedPreference(context: Context) : Preference(context) {
+        override fun onBindViewHolder(holder: PreferenceViewHolder) {
+            super.onBindViewHolder(holder)
+            holder.itemView.background = null
+        }
     }
 }

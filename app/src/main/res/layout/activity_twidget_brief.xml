@@ -15,6 +15,7 @@
         android:visibility="gone">
 
         <LinearLayout
+            android:id="@+id/brief_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -57,11 +58,14 @@
 
             <!-- The engine owns this sequence. Each child is inserted in the
                  exact order of BriefSnapshot.cards. -->
-            <LinearLayout
+            <GridLayout
                 android:id="@+id/brief_cards"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:alignmentMode="alignBounds"
+                android:columnCount="1"
+                android:orientation="horizontal"
+                android:useDefaultMargins="false" />
 
             <LinearLayout
                 android:id="@+id/brief_footer"

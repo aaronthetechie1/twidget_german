@@ -53,6 +53,14 @@ data class BriefEditorialSummary(
     }
 }
 
+internal object BriefLayoutPolicy {
+    const val LARGE_SCREEN_MIN_WIDTH_DP = 600
+    const val MAX_CONTENT_WIDTH_DP = 1200
+
+    fun columnCount(screenWidthDp: Int): Int =
+        if (screenWidthDp >= LARGE_SCREEN_MIN_WIDTH_DP) 2 else 1
+}
+
 data class BriefSnapshot(
     val username: String,
     val generatedAt: Long,

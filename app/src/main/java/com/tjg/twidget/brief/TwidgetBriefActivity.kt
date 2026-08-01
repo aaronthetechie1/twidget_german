@@ -15,6 +15,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.FrameLayout
+import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -296,10 +298,55 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val summary = BriefEditorialSummary.from(snapshot.cards)
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
         findViewById<TextView>(R.id.brief_summary_body).text = summary.body
-        val container = findViewById<LinearLayout>(R.id.brief_cards)
+        val columns = configureResponsiveLayout()
+        val container = findViewById<GridLayout>(R.id.brief_cards).apply {
+            columnCount = columns
+        }
         container.removeAllViews()
-        snapshot.cards.forEach { card ->
-            container.addView(cardSection(card), matchWrap(top = 20))
+        snapshot.cards.forEachIndexed { index, card ->
+            container.addView(cardSection(card), gridCell(index, columns))
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        renderedSnapshot?.let(::render) ?: configureResponsiveLayout()
+    }
+
+    private fun configureResponsiveLayout(): Int {
+        val columns = BriefLayoutPolicy.columnCount(resources.configuration.screenWidthDp)
+        findViewById<LinearLayout>(R.id.brief_content).layoutParams =
+            (findViewById<LinearLayout>(R.id.brief_content).layoutParams as FrameLayout.LayoutParams).apply {
+                width = if (columns == 1) {
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                } else {
+                    minOf(
+                        resources.displayMetrics.widthPixels - dp(20),
+                        dp(BriefLayoutPolicy.MAX_CONTENT_WIDTH_DP),
+                    )
+                }
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        findViewById<LinearLayout>(R.id.brief_footer).layoutParams =
+            (findViewById<LinearLayout>(R.id.brief_footer).layoutParams as LinearLayout.LayoutParams).apply {
+                width = if (columns == 1) {
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                } else {
+                    dp(488)
+                }
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        return columns
+    }
+
+    private fun gridCell(index: Int, columns: Int) = GridLayout.LayoutParams().apply {
+        width = 0
+        height = GridLayout.LayoutParams.WRAP_CONTENT
+        rowSpec = GridLayout.spec(index / columns)
+        columnSpec = GridLayout.spec(index % columns, 1, 1f)
+        topMargin = dp(20)
+        if (columns > 1) {
+            if (index % columns == 0) rightMargin = dp(10) else leftMargin = dp(10)
         }
     }
 
