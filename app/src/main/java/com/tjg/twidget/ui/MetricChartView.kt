@@ -103,6 +103,7 @@ class MetricChartView @JvmOverloads constructor(
     private var downX = 0f
     private var downY = 0f
     private var touchMoved = false
+    var onChartTapListener: (() -> Unit)? = null
 
     init {
         // Paint shadows on custom shapes require software rendering. The view
@@ -328,11 +329,16 @@ class MetricChartView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP -> {
                 removeCallbacks(longPressRunnable)
-                performClick()
                 if (!touchMoved) {
-                    updateActiveBar(event.x, event.y)
-                    postDelayed(hideTooltipRunnable, TOUCH_TOOLTIP_TIMEOUT_MS)
+                    val hitBar = barHitBounds.any { it.contains(event.x, event.y) }
+                    if (hitBar) {
+                        updateActiveBar(event.x, event.y)
+                        postDelayed(hideTooltipRunnable, TOUCH_TOOLTIP_TIMEOUT_MS)
+                    } else {
+                        onChartTapListener?.invoke()
+                    }
                 }
+                performClick()
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {

@@ -79,6 +79,7 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
                     return fail(username, runId, "TwitterAPIs pagination stopped unexpectedly", state)
                 }
                 val top = rankedTopFollowers(state.top + page.users, TOP_LIMIT)
+                TopFollowersArchiveStore.append(applicationContext, username, page.users, state.pages + 1)
                 state = state.copy(
                     top = top,
                     cursor = page.nextCursor,

@@ -193,10 +193,18 @@ object TwitterApisClient {
                             "profile_image",
                         ).map(user::optString).firstOrNull { it.isNotBlank() }.orEmpty(),
                     ),
+                    mutual = parseMutual(user),
                 ))
             }
         }
         return TopFollowersPage(users, root.optString("next_cursor"))
+    }
+
+    internal fun parseMutual(user: org.json.JSONObject): Boolean? = when {
+        user.has("following") && !user.isNull("following") -> user.optBoolean("following")
+        user.has("is_following") && !user.isNull("is_following") -> user.optBoolean("is_following")
+        user.has("follows_back") && !user.isNull("follows_back") -> user.optBoolean("follows_back")
+        else -> null
     }
 
     private fun encode(value: String): String =

@@ -126,19 +126,36 @@ internal class TopFollowersCardBinder(
             (getChildAt(1).layoutParams as LinearLayout.LayoutParams).height = dp(40)
         }
 
-    private fun resultsCard(account: String, state: TopFollowersState): View =
-        LinearLayout(activity).apply {
+    private fun resultsCard(account: String, state: TopFollowersState): View {
+        TopFollowersArchiveStore.seedFromTop(activity, account, state.top)
+        val canBrowse = state.complete && state.top.isNotEmpty()
+        return LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             minimumHeight = dp(384)
             background = rounded(cardColor, 28f)
             clipToOutline = true
+            isClickable = canBrowse
+            isFocusable = canBrowse
+            if (canBrowse) {
+                setOnClickListener { openBrowse(account) }
+            }
             addView(header(activity.getString(R.string.top_followers_results_title), account, refreshEnabled = true),
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
             state.top.take(5).forEachIndexed { index, follower ->
                 addView(resultRow(index + 1, follower, index < 4),
                     LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(68)))
             }
+            if (canBrowse) {
+                addView(label(activity.getString(R.string.top_followers_view_all), 14f, accentColor, 700).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, dp(12))
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { openBrowse(account) }
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            }
         }
+    }
 
     private fun header(
         title: String,
@@ -314,6 +331,13 @@ internal class TopFollowersCardBinder(
 
     private fun openXProfile(username: String) {
         activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://x.com/${Uri.encode(username)}")))
+    }
+
+    private fun openBrowse(account: String) {
+        activity.startActivity(
+            Intent(activity, TopFollowersBrowseActivity::class.java)
+                .putExtra(TopFollowersBrowseActivity.EXTRA_USERNAME, account),
+        )
     }
 
     private fun label(textValue: String, size: Float, color: Int, weight: Int) = TextView(activity).apply {

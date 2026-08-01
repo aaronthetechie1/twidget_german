@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/milestone_setup_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/onboarding_gradient_bg">
+
+    <LinearLayout
+        android:id="@+id/milestone_setup_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true"
+        android:orientation="vertical">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:minHeight="640dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp">
+
+                <LinearLayout
+                    android:id="@+id/milestone_metric_step"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:layout_width="70dp"
+                        android:layout_height="70dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="56dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_milestone_goals"
+                        app:tint="@color/oneui_text_primary" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="sec"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="@string/milestone_setup_title"
+                        android:textColor="@color/oneui_text_primary"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:fontFamily="sec"
+                        android:gravity="center"
+                        android:text="@string/milestone_choose_metric"
+                        android:textColor="@color/oneui_text_secondary"
+                        android:textSize="15sp" />
+
+                    <LinearLayout
+                        android:id="@+id/milestone_metric_rows"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/milestone_target_step"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="70dp"
+                        android:layout_height="70dp"
+                        android:layout_marginTop="56dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_milestone_goals"
+                        app:tint="@color/oneui_text_primary" />
+
+                    <TextView
+                        android:id="@+id/milestone_target_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="sec"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/oneui_text_primary"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+
+                    <NumberPicker
+                        android:id="@+id/milestone_number_picker"
+                        android:layout_width="match_parent"
+                        android:layout_height="230dp"
+                        android:layout_marginTop="32dp"
+                        android:descendantFocusability="blocksDescendants" />
+
+                    <LinearLayout
+                        android:id="@+id/milestone_auto_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="104dp"
+                        android:layout_marginTop="28dp"
+                        android:background="?android:attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sec"
+                                android:text="@string/milestone_auto_adjust"
+                                android:textColor="@color/oneui_text_primary"
+                                android:textSize="18sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:fontFamily="sec"
+                                android:lineSpacingExtra="2dp"
+                                android:text="@string/milestone_auto_adjust_summary"
+                                android:textColor="@color/oneui_text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <androidx.appcompat.widget.SwitchCompat
+                            android:id="@+id/milestone_auto_switch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </ScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="24dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/milestone_cancel"
+                style="@style/OneUI.ContainedButton"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:fontFamily="sec"
+                android:text="@string/cancel"
+                android:textAllCaps="false"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:theme="@style/OneUI.ContainedButtonTheme" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/milestone_continue"
+                style="@style/OneUI.ContainedButton"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginStart="5dp"
+                android:layout_weight="1"
+                android:fontFamily="sec"
+                android:text="@string/milestone_continue"
+                android:textAllCaps="false"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:theme="@style/OneUI.ContainedPrimaryColorButtonTheme" />
+        </LinearLayout>
+    </LinearLayout>
+</dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout>

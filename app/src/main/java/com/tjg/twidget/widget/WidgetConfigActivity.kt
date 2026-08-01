@@ -44,6 +44,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private var currentLevel = 2
     private var isLockWidget = false
     private var isLockWide = false
+    private var isMilestoneWidget = false
     private val accountRadios = mutableListOf<Pair<String, RadioButton>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +58,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         isLockWide = intent?.getBooleanExtra(EXTRA_LOCKSCREEN_WIDE, false) == true
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(appWidgetId)?.provider?.className.orEmpty()
+        isMilestoneWidget = providerClass == com.tjg.twidget.MilestoneWidget::class.java.name
         if (providerClass.startsWith("com.tjg.twidget.LockScreenFollower")) {
             isLockWidget = true
             isLockWide = providerClass == com.tjg.twidget.LockScreenFollowerWideWidget::class.java.name
@@ -80,7 +82,15 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         currentLevel = closestOpacityLevel(tintAlpha)
         tintAlpha = OPACITY_PRESETS[currentLevel]
         tintColor = settings.tintColor
-        logo = settings.logo
+        logo = if (isMilestoneWidget) {
+            if (settings.logo == TwidgetStore.LOGO_TWITTER) {
+                TwidgetStore.LOGO_TWITTER
+            } else {
+                TwidgetStore.LOGO_X
+            }
+        } else {
+            settings.logo
+        }
         tapAction = settings.tapAction
         accountUsername = settings.accountUsername
         colorMode = settings.colorMode
@@ -240,9 +250,17 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         findViewById<CardItemView>(R.id.tint_row).summary = colorModeLabel(colorMode)
         findViewById<CardItemView>(R.id.font_row).summary = fontLabel(fontFamily)
         findViewById<CardItemView>(R.id.logo_row).apply {
-            summary = if (logo == TwidgetStore.LOGO_TWITTER) getString(R.string.widget_logo_twitter) else getString(R.string.widget_logo_x)
+            summary = when (logo) {
+                TwidgetStore.LOGO_TWITTER -> getString(R.string.widget_logo_twitter)
+                else -> getString(R.string.widget_logo_x)
+            }
             findViewById<ImageView>(OneUiR.id.end_view)?.apply {
-                setImageResource(if (logo == TwidgetStore.LOGO_TWITTER) R.drawable.ic_logo_twitter else R.drawable.ic_logo_x)
+                setImageResource(
+                    when (logo) {
+                        TwidgetStore.LOGO_TWITTER -> R.drawable.ic_logo_twitter
+                        else -> R.drawable.ic_logo_x
+                    },
+                )
                 imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
             }
         }
@@ -286,16 +304,28 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         preview.addView(ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_XY
             setImageBitmap(
-                WidgetArtworkRenderer.render(
-                    context = this@WidgetConfigActivity,
-                    widthPx = dp(previewSpec.widthDp),
-                    heightPx = dp(previewSpec.heightDp),
-                    stats = stats,
-                    settings = previewSettings,
-                    mode = previewSpec.mode,
-                    dark = darkPreview,
-                    delta = TwidgetStore.followersDelta(this@WidgetConfigActivity, selectedAccount),
-                )
+                if (isMilestoneWidget) {
+                    MilestoneWidgetArtworkRenderer.render(
+                        context = this@WidgetConfigActivity,
+                        widthPx = dp(previewSpec.widthDp),
+                        heightPx = dp(previewSpec.heightDp),
+                        settings = previewSettings,
+                        account = selectedAccount,
+                        dark = darkPreview,
+                        drawBackground = false,
+                    )
+                } else {
+                    WidgetArtworkRenderer.render(
+                        context = this@WidgetConfigActivity,
+                        widthPx = dp(previewSpec.widthDp),
+                        heightPx = dp(previewSpec.heightDp),
+                        stats = stats,
+                        settings = previewSettings,
+                        mode = previewSpec.mode,
+                        dark = darkPreview,
+                        delta = TwidgetStore.followersDelta(this@WidgetConfigActivity, selectedAccount),
+                    )
+                }
             )
         }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
     }
@@ -319,7 +349,13 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
 
     private fun pickLogo(anchor: View) {
         val values = arrayOf(TwidgetStore.LOGO_X, TwidgetStore.LOGO_TWITTER)
-        showDropDown(anchor, listOf(getString(R.string.widget_logo_x), getString(R.string.widget_logo_twitter)), values.indexOf(logo).coerceAtLeast(0)) { which ->
+        val labels = values.map {
+            when (it) {
+                TwidgetStore.LOGO_TWITTER -> getString(R.string.widget_logo_twitter)
+                else -> getString(R.string.widget_logo_x)
+            }
+        }
+        showDropDown(anchor, labels, values.indexOf(logo).coerceAtLeast(0)) { which ->
             logo = values[which]
             render()
         }

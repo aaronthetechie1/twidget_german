@@ -11,7 +11,7 @@
     <!-- Used only by the launcher activity. Android displays this window
          before MainActivity can draw its dashboard skeleton. -->
     <style name="Theme.Twidget.Launcher" parent="Theme.Twidget">
-        <item name="android:windowBackground">@color/oneui_bg</item>
+        <item name="android:windowBackground">@drawable/launch_splash_window</item>
     </style>
 
     <style name="WidgetPresetButton">

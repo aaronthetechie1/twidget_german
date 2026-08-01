@@ -53,8 +53,12 @@ open class TwidgetWidget : AppWidgetProvider() {
 
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, com.tjg.twidget.TwidgetWidget::class.java))
-            ids.forEach { updateWidget(context, manager, it) }
+            listOf(
+                com.tjg.twidget.TwidgetWidget::class.java,
+                com.tjg.twidget.MilestoneWidget::class.java,
+            ).flatMap { provider ->
+                manager.getAppWidgetIds(ComponentName(context, provider)).asIterable()
+            }.forEach { updateWidget(context, manager, it) }
             LockScreenFollowerViews.updateAll(context)
         }
 
@@ -83,6 +87,8 @@ open class TwidgetWidget : AppWidgetProvider() {
             val account = widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
             val stats = TwidgetStore.currentStats(context, account)
             val delta = TwidgetStore.followersDelta(context, account)
+            val milestoneWidget = appWidgetManager.getAppWidgetInfo(appWidgetId)
+                ?.provider?.className == com.tjg.twidget.MilestoneWidget::class.java.name
 
             val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !TwidgetFonts.hasSystemOneUiSans) {
                 val responsiveViews = linkedMapOf<SizeF, RemoteViews>()
@@ -104,6 +110,7 @@ open class TwidgetWidget : AppWidgetProvider() {
                         stats = stats,
                         delta = delta,
                         drawArtworkBackground = false,
+                        milestoneWidget = milestoneWidget,
                     )
                     totalBitmapBytes = totalBitmapBytes - replacedBytes + bitmapBytes
                     responsiveBitmapBytes[key] = bitmapBytes
@@ -157,6 +164,7 @@ open class TwidgetWidget : AppWidgetProvider() {
                     stats = stats,
                     delta = delta,
                     drawArtworkBackground = !TwidgetFonts.hasSystemOneUiSans,
+                    milestoneWidget = milestoneWidget,
                 )
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -173,6 +181,7 @@ open class TwidgetWidget : AppWidgetProvider() {
             stats: ProfileStats,
             delta: Long,
             drawArtworkBackground: Boolean,
+            milestoneWidget: Boolean,
         ): RemoteViews {
             // Launchers can replace RemoteViews font families—even Samsung's
             // own `sec` family—so every size renders its text as artwork.
@@ -203,17 +212,29 @@ open class TwidgetWidget : AppWidgetProvider() {
                 setViewVisibility(R.id.widget_loading, View.GONE)
                 setImageViewBitmap(
                     R.id.widget_artwork,
-                    WidgetArtworkRenderer.render(
-                        context = context,
-                        widthPx = dp(context, width),
-                        heightPx = dp(context, height),
-                        stats = stats,
-                        settings = widgetSettings,
-                        mode = mode,
-                        dark = dark,
-                        delta = delta,
-                        drawBackground = drawArtworkBackground,
-                    ),
+                    if (milestoneWidget) {
+                        MilestoneWidgetArtworkRenderer.render(
+                            context = context,
+                            widthPx = dp(context, width),
+                            heightPx = dp(context, height),
+                            settings = widgetSettings,
+                            account = account,
+                            dark = dark,
+                            drawBackground = drawArtworkBackground,
+                        )
+                    } else {
+                        WidgetArtworkRenderer.render(
+                            context = context,
+                            widthPx = dp(context, width),
+                            heightPx = dp(context, height),
+                            stats = stats,
+                            settings = widgetSettings,
+                            mode = mode,
+                            dark = dark,
+                            delta = delta,
+                            drawBackground = drawArtworkBackground,
+                        )
+                    },
                 )
                 setOnClickPendingIntent(android.R.id.background, tapIntent(context, appWidgetId, widgetSettings.tapAction, account))
             }

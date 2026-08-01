@@ -66,6 +66,7 @@ class TwitterApisClientTest {
                 "followers_count": 1234567,
                 "following_count": 12,
                 "is_blue_verified": true,
+                "following": true,
                 "profile_image_url": "https://pbs.twimg.com/profile_images/42/avatar_normal.jpg"
               }],
               "next_cursor": "cursor-value"
@@ -77,7 +78,14 @@ class TwitterApisClientTest {
         assertEquals("famous", page.users.single().username)
         assertEquals(1_234_567L, page.users.single().followers)
         assertTrue(page.users.single().verified)
+        assertEquals(true, page.users.single().mutual)
         assertTrue(page.users.single().avatarUrl.contains("_400x400."))
+    }
+
+    @Test
+    fun parseMutualReturnsNullWhenFieldMissing() {
+        val mutual = TwitterApisClient.parseMutual(org.json.JSONObject("""{"username":"x"}"""))
+        assertEquals(null, mutual)
     }
 
     @Test

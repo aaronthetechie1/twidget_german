@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="top_followers_browser_title">Top followers</string>
+    <string name="top_followers_browser_search">Search followers</string>
+    <string name="top_followers_browser_search_hint">Search</string>
+    <string name="top_followers_browser_empty">No followers saved yet. Run a scan first.</string>
+    <string name="top_followers_browser_no_results">No followers match your search.</string>
+</resources>

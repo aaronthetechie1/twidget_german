@@ -32,6 +32,7 @@ import com.tjg.twidget.analytics.AnalyticsImportActivity
 import com.tjg.twidget.data.TwidgetSettings
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.AboutActivity
+import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleSettingsStore
 import com.tjg.twidget.ui.InsetPreferenceFragment
@@ -41,6 +42,8 @@ import com.tjg.twidget.ui.startAddAccountActivity
 import com.tjg.twidget.ui.startSettingsSubActivity
 import com.tjg.twidget.widget.RefreshWorker
 import com.tjg.twidget.widget.TwidgetWidget
+import java.text.NumberFormat
+import java.util.Locale
 import dev.oneuiproject.oneui.R as IconR
 import dev.oneuiproject.oneui.preference.LayoutPreference
 import dev.oneuiproject.oneui.preference.SuggestionCardPreference
@@ -169,6 +172,81 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
             title = getString(R.string.advanced_options)
             setOnPreferenceClickListener {
                 requireActivity().startSettingsSubActivity(Intent(context, SettingsAdvancedActivity::class.java))
+                true
+            }
+        })
+
+        val milestoneAccount = settings.username
+        val milestoneSettings = TwidgetStore.milestoneSettings(context, milestoneAccount)
+        val milestoneStats = TwidgetStore.currentStats(context, milestoneAccount)
+        screen.addPreference(category(R.string.milestone_section))
+        screen.addPreference(EditTextPreference(context).apply {
+            key = "milestone_target_pref"
+            title = getString(R.string.milestone_target)
+            dialogTitle = getString(R.string.milestone_target)
+            text = milestoneSettings.labelRaw
+            summary = milestoneTargetSummary(milestoneSettings, milestoneStats)
+            setOnBindEditTextListener { editor ->
+                editor.hint = getString(R.string.milestone_target_hint)
+                editor.setSelectAllOnFocus(true)
+            }
+            setOnPreferenceChangeListener { pref, value ->
+                val raw = (value as String).trim()
+                if (raw.isBlank()) {
+                    TwidgetStore.clearMilestoneSettings(context, milestoneAccount)
+                    (pref as EditTextPreference).summary = getString(R.string.milestone_target_cleared)
+                    TwidgetWidget.updateAll(context)
+                    return@setOnPreferenceChangeListener true
+                }
+                val parsed = MilestonePolicy.parseInput(raw)
+                if (!parsed.valid || parsed.target == null) {
+                    Toast.makeText(context, R.string.milestone_invalid_target, Toast.LENGTH_SHORT).show()
+                    return@setOnPreferenceChangeListener false
+                }
+                if (!MilestonePolicy.isTargetAboveFollowers(
+                        parsed.target,
+                        milestoneStats.followersCount,
+                        milestoneStats.followersKnown,
+                    )
+                ) {
+                    Toast.makeText(
+                        context,
+                        getString(
+                            R.string.milestone_target_below_followers,
+                            NumberFormat.getIntegerInstance(Locale.US).format(milestoneStats.followersCount),
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return@setOnPreferenceChangeListener false
+                }
+                val current = TwidgetStore.milestoneSettings(context, milestoneAccount)
+                TwidgetStore.saveMilestoneSettings(
+                    context,
+                    milestoneAccount,
+                    current.copy(target = parsed.target, labelRaw = parsed.labelRaw),
+                )
+                val stats = TwidgetStore.currentStats(context, milestoneAccount)
+                (pref as EditTextPreference).summary = milestoneTargetSummary(
+                    TwidgetStore.milestoneSettings(context, milestoneAccount),
+                    stats,
+                )
+                TwidgetWidget.updateAll(context)
+                true
+            }
+        })
+        screen.addPreference(SwitchPreferenceCompat(context).apply {
+            key = "milestone_show_percent_pref"
+            title = getString(R.string.milestone_show_percent)
+            summary = getString(R.string.milestone_show_percent_summary)
+            isChecked = milestoneSettings.showPercent
+            setOnPreferenceChangeListener { _, value ->
+                val current = TwidgetStore.milestoneSettings(context, milestoneAccount)
+                TwidgetStore.saveMilestoneSettings(
+                    context,
+                    milestoneAccount,
+                    current.copy(showPercent = value as Boolean),
+                )
+                TwidgetWidget.updateAll(context)
                 true
             }
         })
@@ -500,6 +578,23 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
             R.string.schedule_provider_local
         }
     )
+
+    private fun milestoneTargetSummary(
+        milestone: com.tjg.twidget.main.MilestoneSettings,
+        stats: com.tjg.twidget.data.ProfileStats,
+    ): String {
+        val target = milestone.target ?: return getString(R.string.milestone_target_cleared)
+        val display = MilestonePolicy.formatDisplay(
+            target,
+            milestone.labelRaw,
+            TwidgetStore::compactNumber,
+        )
+        return getString(
+            R.string.milestone_target_summary,
+            TwidgetStore.compactNumber(stats.followersCount.coerceAtMost(target)),
+            display,
+        )
+    }
 }
 
 internal enum class AccountPopupAction {

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="splash_blue">#8DCCFF</color>
     <color name="oneui_bg">#f1f1f3</color>
     <color name="oneui_card_bg">#fcfcff</color>
     <color name="oneui_drawer_bg">#fcfcff</color>
