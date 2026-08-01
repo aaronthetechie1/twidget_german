@@ -1,6 +1,8 @@
 package com.tjg.twidget.brief
 
 import android.content.Context
+import com.tjg.twidget.schedule.ScheduleProvider
+import com.tjg.twidget.schedule.ScheduleStatus
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -57,6 +59,20 @@ object BriefStore {
                 })
             }
         })
+        put("upcomingTweets", JSONArray().apply {
+            snapshot.upcomingTweets.forEach { tweet ->
+                put(JSONObject().apply {
+                    put("id", tweet.id)
+                    put("provider", tweet.provider.name)
+                    put("status", tweet.status.name)
+                    put("scheduledAt", tweet.scheduledAt)
+                    put("preview", tweet.preview)
+                    put("threadCount", tweet.threadCount)
+                    put("mediaCount", tweet.mediaCount)
+                    put("errorMessage", tweet.errorMessage)
+                })
+            }
+        })
         put("topFollowerRanks", JSONObject().apply {
             snapshot.topFollowerRanks.forEach { (id, rank) -> put(id, rank) }
         })
@@ -65,6 +81,7 @@ object BriefStore {
     private fun decode(root: JSONObject): BriefSnapshot {
         val cardsJson = root.optJSONArray("cards") ?: JSONArray()
         val ranksJson = root.optJSONObject("topFollowerRanks") ?: JSONObject()
+        val upcomingJson = root.optJSONArray("upcomingTweets") ?: JSONArray()
         return BriefSnapshot(
             username = root.optString("username"),
             generatedAt = root.optLong("generatedAt"),
@@ -86,6 +103,23 @@ object BriefStore {
                         title = card.optString("title"),
                         body = card.optString("body"),
                         score = card.optInt("score"),
+                    ))
+                }
+            },
+            upcomingTweets = buildList {
+                for (index in 0 until upcomingJson.length()) {
+                    val tweet = upcomingJson.getJSONObject(index)
+                    add(BriefUpcomingTweet(
+                        id = tweet.optString("id"),
+                        provider = runCatching { ScheduleProvider.valueOf(tweet.optString("provider")) }
+                            .getOrDefault(ScheduleProvider.LOCAL_REMINDER),
+                        status = runCatching { ScheduleStatus.valueOf(tweet.optString("status")) }
+                            .getOrDefault(ScheduleStatus.SCHEDULED),
+                        scheduledAt = tweet.optLong("scheduledAt"),
+                        preview = tweet.optString("preview"),
+                        threadCount = tweet.optInt("threadCount"),
+                        mediaCount = tweet.optInt("mediaCount"),
+                        errorMessage = tweet.optString("errorMessage"),
                     ))
                 }
             },

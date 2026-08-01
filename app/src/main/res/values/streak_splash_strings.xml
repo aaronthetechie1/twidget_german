@@ -5,7 +5,7 @@
         <item quantity="other">%1$d days</item>
     </plurals>
     <string name="streak_safe_until_tomorrow">Your streak is safe until tomorrow</string>
-    <string name="streak_post_to_continue">Post or reply to keep your streak going</string>
-    <string name="streak_expiring_soon">Post or reply within 10 minutes before your streak runs out</string>
-    <string name="streak_revive">Post 3 times or reply to revive your streak</string>
+    <string name="streak_post_to_continue">Tweet today to keep your streak going</string>
+    <string name="streak_expiring_soon">Tweet within 10 minutes before your streak runs out</string>
+    <string name="streak_revive">Tweet today to start a posting streak</string>
 </resources>

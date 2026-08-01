@@ -390,7 +390,7 @@ private const val SYSTEM_INSTRUCTION =
         "Never add numbers, names, causes, predictions, or claims. Keep titles under 45 characters and bodies " +
         "under 150 characters. Be warm and direct, never shaming. Return only a JSON array."
 
-private fun promptFor(source: BriefSnapshot): String {
+internal fun promptFor(source: BriefSnapshot): String {
     val input = JSONArray().apply {
         source.cards.forEach { card ->
             put(JSONObject().apply {
@@ -404,7 +404,7 @@ private fun promptFor(source: BriefSnapshot): String {
     return "Rewrite and order these cards. Keep each id unchanged. Return objects with exactly id, title, and body: $input"
 }
 
-private fun localPromptFor(source: BriefSnapshot): String {
+internal fun localPromptFor(source: BriefSnapshot): String {
     val outputCount = minOf(3, source.cards.size)
     val input = JSONArray().apply {
         source.cards.forEach { card ->

@@ -112,9 +112,9 @@
     <string name="milestone_unknown_followers">Follower count unavailable</string>
     <string name="daily_streak">Daily streak</string>
     <string name="daily_streak_active_today">Active today</string>
-    <string name="daily_streak_keep_going">Post or reply on X to keep your streak</string>
+    <string name="daily_streak_keep_going">Tweet on X to keep your streak</string>
     <string name="daily_streak_last_active">Last active %1$s</string>
-    <string name="daily_streak_detail">Counts posts and replies detected on X. Likes do not count.</string>
+    <string name="daily_streak_detail">Counts original tweets detected on X. Replies, reposts and likes do not count.</string>
     <string name="daily_streak_days">%1$d days</string>
     <string name="daily_streak_none">No streak yet</string>
     <string name="per_range">%1$s / range</string>

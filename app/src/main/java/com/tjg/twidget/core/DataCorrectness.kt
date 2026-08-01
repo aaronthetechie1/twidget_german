@@ -58,7 +58,7 @@ internal object FxPostPolicy {
 }
 
 internal object ActivityPostPolicy {
-    fun isOwnPostOrReplyInWindow(
+    fun isOwnOriginalInWindow(
         status: FxStatusCandidate,
         requestedUsername: String,
         windowStart: Long,
@@ -67,10 +67,11 @@ internal object ActivityPostPolicy {
         val username = requestedUsername.trim().trimStart('@').lowercase(Locale.US)
         if (status.type != "status") return false
         if (status.authorUsername.lowercase(Locale.US) != username) return false
-        if (status.isRepost) return false
+        if (status.isRepost || status.isReply) return false
         if (!status.url.lowercase(Locale.US).contains("/$username/status/")) return false
         if (status.timestamp !in windowStart..(now + 5 * 60 * 1000L)) return false
-        return true
+        return status.conversationId.isBlank() || status.id.isBlank() ||
+            status.conversationId == status.id
     }
 }
 

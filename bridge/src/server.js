@@ -551,15 +551,20 @@ app.get("/analytics/:username", async (req, res) => {
 async function computeAnalytics(username) {
   const profile = await fetchFxProfile(username);
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const posts = await fetchFxWeeklyPosts(username, weekAgo);
+  const activity = await fetchFxWeeklyPosts(username, weekAgo);
+  const posts = activity.posts;
 
   const postCount = posts.length;
   const views = posts.map((post) => post.views);
   const engagements = posts.map((post) => post.engagements);
+  const likes = posts.map((post) => post.likes);
+  const replies = posts.map((post) => post.replies);
+  const shares = posts.map((post) => post.reposts + post.quotes);
   const totalViews = sum(views);
   const totalEngagements = sum(engagements);
   const best = maxBy(posts, (post) => post.engagements);
-  const worst = minBy(posts, (post) => post.engagements);
+  const maturePosts = posts.filter((post) => post.ts > 0 && Date.now() - post.ts >= 24 * 60 * 60 * 1000);
+  const worst = minBy(maturePosts, (post) => post.engagements);
 
   return {
     userName: username,
@@ -579,9 +584,17 @@ async function computeAnalytics(username) {
       avgEngagementsPerFollower: profile.followersCount > 0 && postCount > 0 ? totalEngagements / postCount / profile.followersCount : 0,
       engagementRate: totalViews > 0 ? totalEngagements / totalViews : 0,
     },
-    // With only one post, best and worst would be identical — show just the one.
+    benchmarks: {
+      medianLikes: median(likes),
+      medianReplies: median(replies),
+      medianShares: median(shares),
+    },
+    // Require two posts with a full day of exposure before naming a quietest one.
     best: posts.length ? best : null,
-    worst: posts.length >= 2 ? worst : null,
+    worst: maturePosts.length >= 2 ? worst : null,
+    // Original-post timestamps let clients build streaks without counting replies.
+    activityTimestamps: posts.map((post) => post.ts),
+    activityComplete: activity.complete,
     cachedAt: Date.now(),
   };
 }
@@ -703,7 +716,7 @@ function publicBangerState(state) {
 }
 
 async function fetchFxWeeklyPosts(username, weekAgo) {
-  if (process.env.TEST_MOCK_UPSTREAM === "1") return [];
+  if (process.env.TEST_MOCK_UPSTREAM === "1") return { posts: [], complete: true };
   const url = new URL(`https://api.fxtwitter.com/2/profile/${encodeURIComponent(username)}/statuses`);
   url.searchParams.set("count", String(analyticsPostCount));
   url.searchParams.set("since", String(weekAgo));
@@ -711,16 +724,18 @@ async function fetchFxWeeklyPosts(username, weekAgo) {
     headers: { Accept: "application/json", "User-Agent": "TwidgetBridge/0.1" },
     signal: AbortSignal.timeout(15000),
   });
-  if (response.status === 204) return [];
+  if (response.status === 204) return { posts: [], complete: true };
   const json = await response.json().catch(() => ({}));
   if (!response.ok || numberValue(json.code) >= 400) {
     throw new Error(`FxTwitter statuses ${response.status}: ${stringValue(json.message) || "request failed"}`);
   }
   const requested = username.toLowerCase();
-  return (Array.isArray(json.results) ? json.results : [])
+  const results = Array.isArray(json.results) ? json.results : [];
+  const posts = results
     .filter((status) => isWeeklyOwnPost(status, requested, weekAgo))
     .map(normalizeFxStatus)
     .sort((a, b) => b.ts - a.ts);
+  return { posts, complete: results.length < analyticsPostCount };
 }
 
 function normalizeFxStatus(status) {

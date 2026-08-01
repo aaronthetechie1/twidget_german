@@ -20,6 +20,10 @@ data class BriefEngineReport(
     val historySamples: Int,
     val analyticsCachedAt: Long,
     val standoutPostViews: Long?,
+    val quietPostViews: Long?,
+    val postingStreak: Int,
+    val originalActivityComplete: Boolean,
+    val upcomingTweets: Int,
     val followerScanCompletedAt: Long,
     val followersScanned: Int,
     val rankedCandidates: List<BriefCard>,
@@ -39,6 +43,10 @@ data class BriefEngineReport(
         appendLine("historySamples=$historySamples")
         appendLine("analyticsCachedAt=${dateOrMissing(analyticsCachedAt)}")
         appendLine("standoutPostViews=${standoutPostViews?.let(::number) ?: "none"}")
+        appendLine("quietPostViews=${quietPostViews?.let(::number) ?: "none"}")
+        appendLine("postingStreak=$postingStreak")
+        appendLine("originalActivityComplete=$originalActivityComplete")
+        appendLine("upcomingTweets=$upcomingTweets")
         appendLine("followerScanCompletedAt=${dateOrMissing(followerScanCompletedAt)}")
         appendLine("followersScanned=$followersScanned")
         appendLine()
@@ -122,23 +130,25 @@ object BriefDebugLog {
 enum class BriefDebugScenario(val storageId: String, val label: String) {
     REAL("real", "Real account data"),
     POST("post", "Getting attention"),
+    WORST_POST("worst_post", "Quietest tweet"),
     GROWTH("growth", "Growth surge"),
     SLOWDOWN("slowdown", "Growth slowdown"),
     MILESTONE("milestone", "Milestone reached"),
     TOP_FOLLOWER("top_follower", "New top follower"),
-    INACTIVITY("inactivity", "Posting break"),
+    INACTIVITY("inactivity", "Start a streak"),
     STREAK("streak", "Posting streak"),
     STEADY("steady", "Everything steady");
 
     fun snapshot(base: BriefSnapshot): BriefSnapshot = when (this) {
         REAL -> base
-        POST -> fixture(base, BriefCard("debug-post", BriefCardType.POST, "Getting attention", "Your last post got over 100K impressions and almost 2K likes.", 98))
+        POST -> fixture(base, BriefCard("debug-post", BriefCardType.POST, "Why this tweet worked", "It reached substantially more people than your typical tweet this week.", 98))
+        WORST_POST -> fixture(base, BriefCard("debug-worst-post", BriefCardType.WORST_POST, "What may have limited it", "It reached fewer people than your typical tweet this week.", 86))
         GROWTH -> fixture(base, BriefCard("debug-growth", BriefCardType.GROWTH, "Your audience is taking off", "You gained 84 followers today and 679 over the last week.", 95), today = 84, week = 679)
         SLOWDOWN -> fixture(base, BriefCard("debug-slowdown", BriefCardType.SLOWDOWN, "Growth has slowed down", "Your recent pace is behind the previous few days. A fresh post could help restart it.", 82), today = -8, week = 3)
         MILESTONE -> fixture(base, BriefCard("debug-milestone", BriefCardType.MILESTONE, "Milestone reached!", "You made it to ${number(base.followers)} followers. That deserves a victory lap.", 100))
         TOP_FOLLOWER -> fixture(base, BriefCard("debug-top-follower", BriefCardType.TOP_FOLLOWER, "A new top follower", "@JohnCena is now your #2 most popular follower.", 92))
-        INACTIVITY -> fixture(base, BriefCard("debug-inactivity", BriefCardType.INACTIVITY, "Ready for your next post?", "It’s been five days since Twidget saw new activity. Even a quick update keeps your rhythm alive.", 88))
-        STREAK -> fixture(base, BriefCard("debug-streak", BriefCardType.STREAK, "14-day posting streak", "Post today to keep your 14-day rhythm going.", 84))
+        INACTIVITY -> fixture(base, BriefCard("debug-inactivity", BriefCardType.STREAK, "Start a posting streak", "Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin.", 84))
+        STREAK -> fixture(base, BriefCard("debug-streak", BriefCardType.STREAK, "14-day posting streak", "Tweet today to keep your 14-day rhythm going.", 84))
         STEADY -> fixture(base, BriefCard("debug-steady", BriefCardType.SUMMARY, "Everything looks steady", "Keep showing up and Twidget will watch for the next meaningful change.", 50), today = 0, week = 0)
     }
 

@@ -38,7 +38,7 @@ internal object BriefWidgetArtworkRenderer {
         BriefCardType.SLOWDOWN -> OneUiIconR.drawable.ic_oui_time_outline
         BriefCardType.INACTIVITY -> OneUiIconR.drawable.ic_oui_compose_edit
         BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
-        BriefCardType.POST -> OneUiIconR.drawable.ic_oui_equalizer_2
+        BriefCardType.POST, BriefCardType.WORST_POST -> OneUiIconR.drawable.ic_oui_equalizer_2
         BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community
         BriefCardType.STREAK -> R.drawable.ic_streak_fire
     }
@@ -243,6 +243,7 @@ internal object BriefWidgetArtworkRenderer {
         BriefCardType.INACTIVITY -> Color.rgb(139, 92, 246) to Color.rgb(77, 162, 255)
         BriefCardType.MILESTONE -> Color.rgb(255, 193, 7) to Color.rgb(255, 111, 97)
         BriefCardType.POST -> Color.rgb(56, 122, 255) to Color.rgb(44, 201, 188)
+        BriefCardType.WORST_POST -> Color.rgb(255, 177, 66) to Color.rgb(139, 92, 246)
         BriefCardType.TOP_FOLLOWER -> Color.rgb(69, 188, 255) to Color.rgb(75, 207, 122)
         BriefCardType.STREAK -> Color.rgb(255, 155, 60) to Color.rgb(238, 73, 92)
         BriefCardType.SUMMARY -> Color.rgb(77, 162, 255) to Color.rgb(139, 92, 246)

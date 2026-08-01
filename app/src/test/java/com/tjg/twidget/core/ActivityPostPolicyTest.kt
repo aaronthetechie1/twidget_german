@@ -6,7 +6,29 @@ import org.junit.Test
 
 class ActivityPostPolicyTest {
     @Test
-    fun acceptsOwnReplyInWindow() {
+    fun acceptsOwnOriginalTweetInWindow() {
+        val status = FxStatusCandidate(
+            type = "status",
+            authorUsername = "person",
+            url = "https://x.com/person/status/1",
+            timestamp = 1_700_000_000_000L,
+            id = "1",
+            conversationId = "1",
+            isRepost = false,
+            isReply = false,
+        )
+        assertTrue(
+            ActivityPostPolicy.isOwnOriginalInWindow(
+                status,
+                "person",
+                windowStart = 1_699_000_000_000L,
+                now = 1_700_000_000_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun rejectsOwnReplyInWindow() {
         val status = FxStatusCandidate(
             type = "status",
             authorUsername = "person",
@@ -17,8 +39,8 @@ class ActivityPostPolicyTest {
             isRepost = false,
             isReply = true,
         )
-        assertTrue(
-            ActivityPostPolicy.isOwnPostOrReplyInWindow(
+        assertFalse(
+            ActivityPostPolicy.isOwnOriginalInWindow(
                 status,
                 "person",
                 windowStart = 1_699_000_000_000L,
@@ -40,7 +62,7 @@ class ActivityPostPolicyTest {
             isReply = false,
         )
         assertFalse(
-            ActivityPostPolicy.isOwnPostOrReplyInWindow(
+            ActivityPostPolicy.isOwnOriginalInWindow(
                 status,
                 "person",
                 windowStart = 1_699_000_000_000L,

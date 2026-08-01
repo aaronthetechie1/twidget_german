@@ -131,6 +131,7 @@ internal object NetworkResponseParsers {
     fun parseBridgeAnalytics(json: JSONObject): PostAnalytics {
         val reach = json.optJSONObject("reach") ?: JSONObject()
         val engagement = json.optJSONObject("engagement") ?: JSONObject()
+        val benchmarks = json.optJSONObject("benchmarks") ?: JSONObject()
         return PostAnalytics(
             userName = json.optString("userName"),
             followers = json.optLong("followers"),
@@ -153,6 +154,9 @@ internal object NetworkResponseParsers {
             bangerComplete = json.optBoolean("bangerComplete", false),
             bangerPostsScanned = json.optInt("bangerPostsScanned", 0),
             cachedAt = json.optLong("cachedAt", System.currentTimeMillis()),
+            medianLikes = benchmarks.optDouble("medianLikes", 0.0),
+            medianReplies = benchmarks.optDouble("medianReplies", 0.0),
+            medianShares = benchmarks.optDouble("medianShares", 0.0),
         )
     }
 

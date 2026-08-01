@@ -1,5 +1,8 @@
 package com.tjg.twidget.brief
 
+import com.tjg.twidget.schedule.ScheduleProvider
+import com.tjg.twidget.schedule.ScheduleStatus
+
 enum class BriefProviderMode(val storageId: String) {
     AUTO("auto"),
     LOCAL("local"),
@@ -20,6 +23,7 @@ enum class BriefCardType {
     INACTIVITY,
     MILESTONE,
     POST,
+    WORST_POST,
     TOP_FOLLOWER,
     STREAK,
 }
@@ -30,6 +34,17 @@ data class BriefCard(
     val title: String,
     val body: String,
     val score: Int,
+)
+
+data class BriefUpcomingTweet(
+    val id: String,
+    val provider: ScheduleProvider,
+    val status: ScheduleStatus,
+    val scheduledAt: Long,
+    val preview: String,
+    val threadCount: Int,
+    val mediaCount: Int,
+    val errorMessage: String = "",
 )
 
 data class BriefEditorialSummary(
@@ -73,6 +88,7 @@ data class BriefSnapshot(
     val followersToday: Long,
     val followersWeek: Long,
     val cards: List<BriefCard>,
+    val upcomingTweets: List<BriefUpcomingTweet> = emptyList(),
     val topFollowerRanks: Map<String, Int>,
     val engineVersion: Int = 0,
     val contextFingerprint: String = "",

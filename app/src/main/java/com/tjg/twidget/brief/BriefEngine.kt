@@ -5,6 +5,8 @@ import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
+import com.tjg.twidget.analytics.TweetPerformanceDirection
+import com.tjg.twidget.analytics.TweetPerformanceExplainer
 import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistorySample
 import com.tjg.twidget.data.ProfileStats
@@ -18,6 +20,13 @@ import com.tjg.twidget.main.MilestoneMetric
 import com.tjg.twidget.main.MilestoneMetricResolver
 import com.tjg.twidget.main.MilestonePerformanceState
 import com.tjg.twidget.main.MilestonePolicy
+import com.tjg.twidget.schedule.ScheduleProvider
+import com.tjg.twidget.schedule.ScheduleStatus
+import com.tjg.twidget.schedule.ScheduleStore
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
@@ -25,13 +34,14 @@ import kotlin.math.abs
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
     private const val MAX_CARDS = 5
-    private const val ENGINE_VERSION = 3
+    private const val ENGINE_VERSION = 4
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
         val stats = TwidgetStore.currentStats(context, clean)
         val analytics = AnalyticsClient.cached(context, clean)
         val followerState = TopFollowersStore.read(context, clean)
+        val upcomingTweets = upcomingTweets(context, clean)
         val previous = BriefStore.read(context, clean)
         val fingerprint = contextFingerprint(context, clean)
         if (!force && previous != null &&
@@ -49,7 +59,7 @@ object BriefEngine {
             return previous
         }
 
-        val evaluation = evaluate(context, clean, stats, analytics, followerState, previous)
+        val evaluation = evaluate(context, clean, stats, analytics, followerState, previous, upcomingTweets)
 
         val rebuilt = BriefSnapshot(
             username = clean,
@@ -63,6 +73,7 @@ object BriefEngine {
             followersToday = evaluation.report.followersToday,
             followersWeek = evaluation.report.followersWeek,
             cards = evaluation.selected,
+            upcomingTweets = upcomingTweets,
             topFollowerRanks = evaluation.currentRanks,
             engineVersion = ENGINE_VERSION,
             contextFingerprint = fingerprint,
@@ -82,6 +93,7 @@ object BriefEngine {
             analytics = AnalyticsClient.cached(context, clean),
             followerState = TopFollowersStore.read(context, clean),
             previous = BriefStore.read(context, clean),
+            upcomingTweets = upcomingTweets(context, clean),
         ).report
     }
 
@@ -98,6 +110,7 @@ object BriefEngine {
         analytics: PostAnalytics?,
         followerState: TopFollowersState,
         previous: BriefSnapshot?,
+        upcomingTweets: List<BriefUpcomingTweet>,
     ): Evaluation {
         val history = TwidgetStore.fullHistory(context, username)
             .filterNot { it.estimated }
@@ -107,14 +120,15 @@ object BriefEngine {
         val currentRanks = followerState.top.take(100).mapIndexed { index, follower ->
             followerKey(follower) to index + 1
         }.toMap()
+        val activity = DailyStreakStore.snapshot(context, username)
         val candidates = mutableListOf<BriefCard>()
 
         growthCard(stats.followersCount, todayDelta, weekDelta)?.let(candidates::add)
-        postCard(analytics?.best, stats.followersCount)?.let(candidates::add)
+        postCard(analytics?.best, analytics, stats.followersCount)?.let(candidates::add)
+        worstPostCard(analytics)?.let(candidates::add)
         slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
-        inactivityCard(history, stats.statusesCount)?.let(candidates::add)
         milestoneCard(context, username, stats, history, analytics)?.let(candidates::add)
-        streakCard(context, username)?.let(candidates::add)
+        activityCard(context, username, upcomingTweets)?.let(candidates::add)
         topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
 
         if (candidates.isEmpty()) {
@@ -127,7 +141,7 @@ object BriefEngine {
             )
         }
         val ranked = BriefRankingPolicy.order(candidates)
-        val selected = ranked.take(MAX_CARDS)
+        val selected = selectCards(ranked)
         return Evaluation(
             report = BriefEngineReport(
                 username = username,
@@ -140,6 +154,10 @@ object BriefEngine {
                 historySamples = history.size,
                 analyticsCachedAt = analytics?.cachedAt ?: 0L,
                 standoutPostViews = analytics?.best?.views,
+                quietPostViews = analytics?.worst?.views,
+                postingStreak = activity.streak,
+                originalActivityComplete = activity.activityComplete,
+                upcomingTweets = upcomingTweets.size,
                 followerScanCompletedAt = followerState.completedAt,
                 followersScanned = followerState.scanned,
                 rankedCandidates = ranked,
@@ -166,17 +184,32 @@ object BriefEngine {
         return BriefCard("growth", BriefCardType.GROWTH, headline, body, score)
     }
 
-    private fun postCard(post: PostSummary?, followers: Long): BriefCard? {
+    private fun postCard(post: PostSummary?, analytics: PostAnalytics?, followers: Long): BriefCard? {
         post ?: return null
+        analytics ?: return null
         val attentionByViews = post.views >= maxOf(10_000L, followers * 2)
         val attentionByLikes = post.likes >= maxOf(100L, followers / 50)
         if (!attentionByViews && !attentionByLikes) return null
         return BriefCard(
             id = "post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
             type = BriefCardType.POST,
-            title = "Getting attention",
-            body = standoutPostBody(post),
+            title = "Why this tweet worked",
+            body = "${standoutPostBody(post)} ${TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.STRONG).body}",
             score = BriefRankingPolicy.post(post, followers),
+        )
+    }
+
+    private fun worstPostCard(analytics: PostAnalytics?): BriefCard? {
+        analytics ?: return null
+        val post = analytics.worst ?: return null
+        if (!TweetPerformanceExplainer.quietTweetEligible(post, analytics)) return null
+        val explanation = TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.QUIET)
+        return BriefCard(
+            id = "worst-post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
+            type = BriefCardType.WORST_POST,
+            title = explanation.title,
+            body = explanation.body,
+            score = BriefRankingPolicy.worstPost(post, analytics),
         )
     }
 
@@ -184,9 +217,9 @@ object BriefEngine {
         val views = TwidgetStore.compactNumber(post.views)
         val likes = TwidgetStore.compactNumber(post.likes)
         return when {
-            post.views > 0 && post.likes > 0 -> "Your last post got $views views and $likes likes."
-            post.views > 0 -> "Your last post got $views views."
-            else -> "Your last post got $likes likes."
+            post.views > 0 && post.likes > 0 -> "This tweet got $views views and $likes likes."
+            post.views > 0 -> "This tweet got $views views."
+            else -> "This tweet got $likes likes."
         }
     }
 
@@ -201,23 +234,6 @@ object BriefEngine {
             "Growth has slowed down",
             "Your recent pace is ${format(abs(prior - recent))} followers behind the previous few days. A fresh post could help restart it.",
             BriefRankingPolicy.slowdown(recent, prior, today),
-        )
-    }
-
-    private fun inactivityCard(history: List<HistorySample>, posts: Long): BriefCard? {
-        val lastPostChange = history.zipWithNext()
-            .lastOrNull { (before, after) -> after.postsKnown && before.postsKnown && after.posts > before.posts }
-            ?.second?.timestamp
-            ?: history.lastOrNull { it.postsKnown && it.posts < posts }?.timestamp
-            ?: return null
-        val days = ((System.currentTimeMillis() - lastPostChange) / DAY_MS).toInt()
-        if (days < 3) return null
-        return BriefCard(
-            "inactivity",
-            BriefCardType.INACTIVITY,
-            "Ready for your next post?",
-            "It’s been about $days days since Twidget saw new activity. Even a quick update keeps your rhythm alive.",
-            (72 + days).coerceAtMost(88),
         )
     }
 
@@ -260,17 +276,79 @@ object BriefEngine {
         )
     }
 
-    private fun streakCard(context: Context, username: String): BriefCard? {
+    private fun activityCard(
+        context: Context,
+        username: String,
+        upcomingTweets: List<BriefUpcomingTweet>,
+    ): BriefCard? {
         val streak = DailyStreakStore.snapshot(context, username)
-        if (streak.streak < 3) return null
+        val scheduledToday = upcomingTweets.firstOrNull(::isScheduledToday)
+        if (streak.streak <= 0 && !BriefActivityPolicy.shouldStart(streak)) return null
+        if (streak.streak <= 0) {
+            val body = when {
+                scheduledToday?.provider == ScheduleProvider.BUFFER && scheduledToday.status == ScheduleStatus.SCHEDULED ->
+                    "A tweet is scheduled to publish today and can start a new daily rhythm."
+                scheduledToday?.provider == ScheduleProvider.LOCAL_REMINDER && scheduledToday.status == ScheduleStatus.NEEDS_ACTION ->
+                    "A tweet is ready to post now. Publish it to start a new daily rhythm."
+                scheduledToday != null ->
+                    "You have a tweet queued today. Post it to start a new daily rhythm."
+                else -> "Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin."
+            }
+            return BriefCard("start-streak", BriefCardType.STREAK, "Start a posting streak", body, 84)
+        }
         return BriefCard(
             "streak",
             BriefCardType.STREAK,
             "${streak.streak}-day posting streak",
-            if (streak.activeToday) "You’ve already kept the streak alive today. Nice work."
-            else "Post today to keep your ${streak.streak}-day rhythm going.",
+            when {
+                streak.activeToday -> "You’ve already kept the streak alive today. Nice work."
+                scheduledToday?.provider == ScheduleProvider.BUFFER && scheduledToday.status == ScheduleStatus.SCHEDULED ->
+                    "A tweet is scheduled to publish today and keep your ${streak.streak}-day rhythm going."
+                scheduledToday?.provider == ScheduleProvider.LOCAL_REMINDER && scheduledToday.status == ScheduleStatus.NEEDS_ACTION ->
+                    "Your next tweet is ready now. Post it to keep your ${streak.streak}-day rhythm going."
+                scheduledToday != null -> "You have a tweet queued today. Post it to keep your ${streak.streak}-day rhythm going."
+                else -> "Tweet today to keep your ${streak.streak}-day rhythm going."
+            },
             BriefRankingPolicy.streak(streak.streak, streak.activeToday),
         )
+    }
+
+    private fun upcomingTweets(context: Context, username: String): List<BriefUpcomingTweet> {
+        val eligible = setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED)
+        return ScheduleStore(context).listForAccount(username)
+            .asSequence()
+            .filter { it.status in eligible }
+            .sortedWith(compareBy({ scheduleUrgency(it.status) }, { it.scheduledAt ?: Long.MAX_VALUE }))
+            .take(3)
+            .map { post ->
+                BriefUpcomingTweet(
+                    id = post.id,
+                    provider = post.provider,
+                    status = post.status,
+                    scheduledAt = post.scheduledAt ?: 0L,
+                    preview = post.thread.firstOrNull()?.text.orEmpty().replace(Regex("\\s+"), " ").trim().take(140),
+                    threadCount = post.thread.size,
+                    mediaCount = post.thread.sumOf { it.media.size },
+                    errorMessage = post.errorMessage.orEmpty().take(120),
+                )
+            }
+            .toList()
+    }
+
+    private fun scheduleUrgency(status: ScheduleStatus): Int = when (status) {
+        ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED -> 0
+        ScheduleStatus.SCHEDULED -> 1
+        else -> 2
+    }
+
+    private fun isScheduledToday(tweet: BriefUpcomingTweet): Boolean = tweet.scheduledAt > 0L &&
+        Instant.ofEpochMilli(tweet.scheduledAt).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now()
+
+    private fun selectCards(ranked: List<BriefCard>): List<BriefCard> {
+        val required = ranked.firstOrNull { it.type == BriefCardType.WORST_POST }
+        if (required == null || ranked.take(MAX_CARDS).contains(required)) return ranked.take(MAX_CARDS)
+        val ids = (ranked.take(MAX_CARDS - 1) + required).mapTo(mutableSetOf(), BriefCard::id)
+        return ranked.filter { it.id in ids }
     }
 
     private fun topFollowerCard(
@@ -314,6 +392,9 @@ object BriefEngine {
     private fun contextFingerprint(context: Context, username: String): String {
         val goal = MilestoneGoalStore.read(context, username)
         val streak = DailyStreakStore.snapshot(context, username)
+        val schedule = ScheduleStore(context).listForAccount(username)
+            .filter { it.status in setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED) }
+            .joinToString(";") { "${it.id}:${it.status}:${it.scheduledAt}:${it.updatedAt}" }
         return listOf(
             goal.configured,
             goal.metric.storageId,
@@ -322,6 +403,8 @@ object BriefEngine {
             streak.streak,
             streak.activeToday,
             streak.lastActiveDay,
+            streak.activityCheckedAt,
+            schedule,
         ).joinToString("|")
     }
 
@@ -360,6 +443,14 @@ internal object BriefRankingPolicy {
         return (72 + maxOf(views, likes) * 6).toInt().coerceAtMost(98)
     }
 
+    fun worstPost(post: PostSummary, analytics: PostAnalytics): Int {
+        val viewBaseline = analytics.medianViews.coerceAtLeast(1.0)
+        val engagementBaseline = analytics.medianEngagements.coerceAtLeast(1.0)
+        val viewGap = (1.0 - post.views / viewBaseline).coerceIn(0.0, 1.0)
+        val engagementGap = (1.0 - post.engagements / engagementBaseline).coerceIn(0.0, 1.0)
+        return (78 + maxOf(viewGap, engagementGap) * 10).toInt().coerceAtMost(88)
+    }
+
     fun slowdown(recent: Long, prior: Long, today: Long): Int {
         val lostPace = (prior - recent).coerceAtLeast(0)
         return (68 + lostPace.coerceAtMost(20) + if (today < 0) 8 else 0)
@@ -378,4 +469,19 @@ internal object BriefRankingPolicy {
 
     fun streak(days: Int, activeToday: Boolean): Int =
         (if (activeToday) 58 else 76) + days.coerceAtMost(20) / 2
+}
+
+internal object BriefActivityPolicy {
+    fun shouldStart(
+        snapshot: com.tjg.twidget.data.StreakSnapshot,
+        today: LocalDate = LocalDate.now(),
+    ): Boolean {
+        if (snapshot.streak > 0) return false
+        val lastDay = snapshot.lastActiveDay?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+        if (lastDay != null) return ChronoUnit.DAYS.between(lastDay, today) > 3
+        if (!snapshot.activityComplete || snapshot.activityCheckedAt <= 0L || snapshot.activityWindowStartAt <= 0L) return false
+        val windowStart = Instant.ofEpochMilli(snapshot.activityWindowStartAt)
+            .atZone(ZoneId.systemDefault()).toLocalDate()
+        return ChronoUnit.DAYS.between(windowStart, today) > 3
+    }
 }

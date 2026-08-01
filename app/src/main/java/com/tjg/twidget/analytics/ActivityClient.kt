@@ -17,7 +17,7 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Detects post/reply activity days for streak tracking. */
+/** Detects original-tweet activity days for streak tracking. */
 object ActivityClient {
     private const val PREFS = "twidget_activity_refresh"
     private const val STALE_MS = 60 * 60 * 1000L
@@ -29,9 +29,19 @@ object ActivityClient {
 
     fun refresh(context: Context, username: String): StreakSnapshot {
         val clean = username.trim().trimStart('@')
-        val days = runCatching { fetchActiveDays(context, clean) }.getOrDefault(emptySet())
-        DailyStreakStore.mergeDays(context, clean, days)
-        prefs(context).edit().putLong(refreshKey(clean), System.currentTimeMillis()).apply()
+        val now = System.currentTimeMillis()
+        val activity = runCatching { fetchActivity(context, clean, now) }.getOrElse {
+            OriginalActivity(emptySet(), now - WEEK_MS, now, complete = false)
+        }
+        DailyStreakStore.mergeOriginalActivity(
+            context = context,
+            username = clean,
+            timestamps = activity.timestamps,
+            windowStartAt = activity.windowStartAt,
+            checkedAt = activity.checkedAt,
+            complete = activity.complete,
+        )
+        prefs(context).edit().putLong(refreshKey(clean), now).apply()
         return DailyStreakStore.snapshot(context, clean)
     }
 
@@ -49,51 +59,70 @@ object ActivityClient {
     fun snapshot(context: Context, username: String): StreakSnapshot =
         DailyStreakStore.snapshot(context, username.trim().trimStart('@'))
 
-    private fun fetchActiveDays(context: Context, username: String): Set<String> {
+    private data class OriginalActivity(
+        val timestamps: Set<Long>,
+        val windowStartAt: Long,
+        val checkedAt: Long,
+        val complete: Boolean,
+    )
+
+    private fun fetchActivity(context: Context, username: String, now: Long): OriginalActivity {
         val settings = TwidgetStore.settings(context)
         val endpoint = TwidgetStore.bridgeEndpoint(settings)
         return when (settings.dataSource) {
             TwidgetStore.DATA_SOURCE_FXTWITTER -> ProviderFallback.directThenOptionalFallback(
-                direct = { fetchFxTwitterDays(username) },
-                fallback = if (settings.shareHistory) ({ fetchBridgeDays(context, username, endpoint) }) else null,
+                direct = { fetchFxTwitterActivity(username, now) },
+                fallback = if (settings.shareHistory) ({ fetchBridgeActivity(context, username, endpoint, now) }) else null,
             )
             TwidgetStore.DATA_SOURCE_TWITTERAPIS -> ProviderFallback.directThenOptionalFallback(
-                direct = { fetchTwitterApisDays(context, username) },
-                fallback = { fetchBridgeDays(context, username, endpoint) },
+                direct = { fetchTwitterApisActivity(context, username, now) },
+                fallback = { fetchBridgeActivity(context, username, endpoint, now) },
             )
-            else -> fetchBridgeDays(context, username, endpoint)
+            else -> fetchBridgeActivity(context, username, endpoint, now)
         }
     }
 
-    private fun fetchBridgeDays(context: Context, username: String, endpoint: BridgeEndpoint): Set<String> {
+    private fun fetchBridgeActivity(
+        context: Context,
+        username: String,
+        endpoint: BridgeEndpoint,
+        now: Long,
+    ): OriginalActivity {
         val encoded = URLEncoder.encode(username, StandardCharsets.UTF_8.name())
         val body = read("${endpoint.url}/analytics/$encoded", endpoint.token)
         val analytics = JSONObject(body)
-        val days = mutableSetOf<String>()
-        val now = System.currentTimeMillis()
         val weekAgo = now - WEEK_MS
-        analytics.optJSONObject("best")?.optLong("ts")?.takeIf { it in weekAgo..now }?.let {
-            days += DailyStreakStore.localDayKey(it)
+        val timestamps = buildSet {
+            val activity = analytics.optJSONArray("activityTimestamps")
+            if (activity != null) {
+                for (index in 0 until activity.length()) {
+                    activity.optLong(index).takeIf { it in weekAgo..now }?.let(::add)
+                }
+            } else {
+                analytics.optJSONObject("best")?.optLong("ts")?.takeIf { it in weekAgo..now }?.let(::add)
+                analytics.optJSONObject("worst")?.optLong("ts")?.takeIf { it in weekAgo..now }?.let(::add)
+            }
         }
-        analytics.optJSONObject("worst")?.optLong("ts")?.takeIf { it in weekAgo..now }?.let {
-            days += DailyStreakStore.localDayKey(it)
-        }
-        return days
+        return OriginalActivity(
+            timestamps,
+            weekAgo,
+            now,
+            complete = analytics.has("activityTimestamps") && analytics.optBoolean("activityComplete", true),
+        )
     }
 
-    private fun fetchTwitterApisDays(context: Context, username: String): Set<String> {
-        val now = System.currentTimeMillis()
+    private fun fetchTwitterApisActivity(context: Context, username: String, now: Long): OriginalActivity {
         val weekAgo = now - WEEK_MS
         val timeline = AnalyticsClient.collectTwitterApisTimeline(weekAgo) { cursor ->
             TwitterApisClient.fetchTimelinePage(context, username, cursor)
         }
-        return timeline.tweets.mapNotNull { tweet ->
-            parseTwitterApisActivityDay(tweet, username, weekAgo, now)
+        val timestamps = timeline.tweets.mapNotNull { tweet ->
+            AnalyticsClient.parseTwitterApisPost(tweet, username, weekAgo, now)?.timestamp
         }.toSet()
+        return OriginalActivity(timestamps, weekAgo, now, complete = !timeline.incomplete)
     }
 
-    private fun fetchFxTwitterDays(username: String): Set<String> {
-        val now = System.currentTimeMillis()
+    private fun fetchFxTwitterActivity(username: String, now: Long): OriginalActivity {
         val weekAgo = now - WEEK_MS
         val encoded = URLEncoder.encode(username, StandardCharsets.UTF_8.name())
         val statuses = mutableListOf<JSONObject>()
@@ -127,22 +156,34 @@ object ActivityClient {
                 weekAgo,
             )
             val nextCursor = root.optJSONObject("cursor")?.optString("bottom").orEmpty()
-            if (reachedWindowBoundary || nextCursor.isBlank()) break
+            if (reachedWindowBoundary || nextCursor.isBlank()) {
+                cursor = ""
+                break
+            }
             if (!seenCursors.add(nextCursor)) break
             cursor = nextCursor
         }
         val requested = username.lowercase(Locale.US)
-        return statuses.mapNotNull { status ->
-            fxActivityDay(status, requested, weekAgo, now)
+        val timestamps = statuses.mapNotNull { status ->
+            fxActivityTimestamp(status, requested, weekAgo, now)
         }.toSet()
+        return OriginalActivity(
+            timestamps,
+            weekAgo,
+            now,
+            complete = cursor.isBlank() || AnalyticsPaging.reachedWindowBoundary(
+                statuses.map(AnalyticsClient::fxTimestamp),
+                weekAgo,
+            ),
+        )
     }
 
-    internal fun fxActivityDay(
+    internal fun fxActivityTimestamp(
         status: JSONObject,
         username: String,
         weekAgo: Long,
         now: Long,
-    ): String? {
+    ): Long? {
         val candidate = FxStatusCandidate(
             type = status.optString("type"),
             authorUsername = status.optJSONObject("author")?.optString("screen_name").orEmpty(),
@@ -155,44 +196,19 @@ object ActivityClient {
                 AnalyticsClient.hasValue(status, "in_reply_to_status_id") ||
                 AnalyticsClient.hasValue(status, "in_reply_to_status_id_str"),
         )
-        return if (ActivityPostPolicy.isOwnPostOrReplyInWindow(candidate, username, weekAgo, now)) {
-            DailyStreakStore.localDayKey(candidate.timestamp)
+        return if (ActivityPostPolicy.isOwnOriginalInWindow(candidate, username, weekAgo, now)) {
+            candidate.timestamp
         } else {
             null
         }
     }
 
-    internal fun parseTwitterApisActivityDay(
+    internal fun parseTwitterApisActivityTimestamp(
         tweet: JSONObject,
         requestedUsername: String,
         weekAgo: Long,
         now: Long,
-    ): String? {
-        val author = tweet.optJSONObject("author") ?: tweet.optJSONObject("user") ?: JSONObject()
-        val authorUsername = sequenceOf("userName", "username", "screen_name")
-            .map(author::optString)
-            .firstOrNull { it.isNotBlank() }
-            ?.trim()
-            ?.trimStart('@')
-            .orEmpty()
-            .ifBlank { requestedUsername.trim().trimStart('@') }
-        if (!authorUsername.equals(requestedUsername.trim().trimStart('@'), ignoreCase = true)) return null
-        val isRepost = tweetBoolean(tweet, "is_retweet", "isRetweet", "is_repost", "isRepost") ||
-            tweet.has("retweeted_tweet") || tweet.has("reposted_tweet")
-        if (isRepost) return null
-        val timestamp = AnalyticsClient.twitterApisTimestamp(tweet)
-        if (timestamp !in weekAgo..(now + 5 * 60_000L)) return null
-        return DailyStreakStore.localDayKey(timestamp)
-    }
-
-    private fun tweetBoolean(json: JSONObject, vararg names: String): Boolean = names.any { name ->
-        json.has(name) && !json.isNull(name) && when (val value = json.opt(name)) {
-            is Boolean -> value
-            is String -> value.equals("true", ignoreCase = true)
-            is Number -> value.toInt() != 0
-            else -> false
-        }
-    }
+    ): Long? = AnalyticsClient.parseTwitterApisPost(tweet, requestedUsername, weekAgo, now)?.timestamp
 
     private fun read(url: String, token: String): String {
         val headers = if (token.isBlank()) emptyMap() else mapOf("Authorization" to "Bearer $token")
