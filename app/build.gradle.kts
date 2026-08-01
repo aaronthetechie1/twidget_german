@@ -198,6 +198,9 @@ configurations.configureEach {
     exclude(group = "androidx.viewpager2", module = "viewpager2")
     exclude(group = "androidx.viewpager", module = "viewpager")
     exclude(group = "androidx.appcompat", module = "appcompat")
+    // Play Services pulls stock Fragment, but One UI Design supplies the SESL
+    // implementation under the same AndroidX package names.
+    exclude(group = "androidx.fragment", module = "fragment")
     exclude(group = "androidx.slidingpanelayout", module = "slidingpanelayout")
     exclude(group = "com.google.android.material", module = "material")
 }
@@ -205,6 +208,8 @@ configurations.configureEach {
 dependencies {
     implementation("io.github.tribalfs:oneui-design:0.9.13+oneui8")
     implementation("androidx.work:work-runtime:2.11.2")
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("io.github.oneuiproject:icons:1.1.0")
     implementation("sesl.androidx.swiperefreshlayout:swiperefreshlayout:1.2.0-alpha01+1.0.0-sesl8+rev0")
     testImplementation("junit:junit:4.13.2")

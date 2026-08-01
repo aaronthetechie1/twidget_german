@@ -12,6 +12,9 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.tjg.twidget.core.HttpTransport
+import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefSettingsStore
+import com.tjg.twidget.widget.TwidgetBriefWidget
 import com.tjg.twidget.providers.TwitterApisClient
 import com.tjg.twidget.providers.TwitterApisAccessSource
 import com.tjg.twidget.ui.TwidgetAppVisibility
@@ -143,6 +146,10 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
             TopFollowersNotificationHelper.showComplete(applicationContext, username, completed)
         }
         runCatching { TopFollowersBridgeCache.publish(applicationContext, username, completed) }
+        if (BriefSettingsStore.enabled(applicationContext)) {
+            runCatching { BriefEngine.rebuild(applicationContext, username, force = true) }
+            TwidgetBriefWidget.updateAll(applicationContext)
+        }
         return Result.success()
     }
 
@@ -177,7 +184,10 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
         private const val KEY_RUN_ID = "run_id"
         private const val KEY_PERSONAL_ACCESS_REQUIRED = "personal_access_required"
         private const val MAX_PAGES_PER_SCAN = 6250 // $5 at the documented $0.0008/read.
-        private const val TOP_LIMIT = 5
+        // Brief compares meaningful movement between daily scans. Keeping the
+        // top 100 is small enough for preferences but deep enough to spot a
+        // follower rising into the visible ranks.
+        private const val TOP_LIMIT = 100
         private const val RETRY_SLEEP_SLICE_MS = 500L
         const val ACTION_UPDATED = "com.tjg.twidget.TOP_FOLLOWERS_UPDATED"
         const val EXTRA_USERNAME = "username"
@@ -193,7 +203,12 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
             )
         }
 
-        fun enqueue(context: Context, username: String, restart: Boolean): TopFollowersScanStart {
+        fun enqueue(
+            context: Context,
+            username: String,
+            restart: Boolean,
+            dailyLimitEnabledOverride: Boolean? = null,
+        ): TopFollowersScanStart {
             val clean = username.trim().trimStart('@')
             if (clean.isBlank()) return TopFollowersScanStart.ALREADY_SCANNED_TODAY
             val access = TwitterApisClient.topFollowersAccess(context)
@@ -204,7 +219,8 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
                     context,
                     clean,
                     runId,
-                    dailyLimitEnabled = access.source == TwitterApisAccessSource.APP_DEFAULT,
+                    dailyLimitEnabled = dailyLimitEnabledOverride
+                        ?: (access.source == TwitterApisAccessSource.APP_DEFAULT),
                 )
             } else {
                 val resumed = TopFollowersStore.read(context, clean).copy(

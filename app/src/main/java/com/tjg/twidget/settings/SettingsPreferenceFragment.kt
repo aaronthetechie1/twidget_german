@@ -29,6 +29,10 @@ import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsImportActivity
+import com.tjg.twidget.brief.BriefProviderMode
+import com.tjg.twidget.brief.BriefSettingsStore
+import com.tjg.twidget.brief.BriefStore
+import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.TwidgetSettings
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.AboutActivity
@@ -125,6 +129,75 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
                 save(settings.copy(refreshIntervalMinutes = minutes))
                 RefreshWorker.schedule(requireContext())
                 (pref as EditTextPreference).summary = getString(R.string.refresh_interval_value, minutes)
+                true
+            }
+        })
+
+        screen.addPreference(category(R.string.brief_settings_section))
+        screen.addPreference(SwitchPreferenceCompat(context).apply {
+            key = "brief_enabled_pref"
+            title = getString(R.string.brief_enabled)
+            summary = getString(R.string.brief_enabled_summary)
+            isChecked = BriefSettingsStore.enabled(context)
+            setOnPreferenceChangeListener { _, value ->
+                BriefSettingsStore.setEnabled(context, value as Boolean)
+                true
+            }
+        })
+        val briefProvider = BriefSettingsStore.provider(context)
+        screen.addPreference(ListPreference(context).apply {
+            key = "brief_provider_pref"
+            title = getString(R.string.brief_provider)
+            entries = arrayOf(
+                getString(R.string.brief_provider_auto),
+                getString(R.string.brief_provider_local),
+                getString(R.string.brief_provider_cloud),
+            )
+            entryValues = BriefProviderMode.entries.map { it.storageId }.toTypedArray()
+            value = briefProvider.storageId
+            summary = briefProviderSummary(briefProvider)
+            setOnPreferenceChangeListener { preference, value ->
+                val provider = BriefProviderMode.fromStorageId(value as String)
+                BriefSettingsStore.setProvider(context, provider)
+                BriefStore.resetAi(context, settings.username)
+                preference.summary = briefProviderSummary(provider)
+                listView.post { buildScreen() }
+                true
+            }
+        })
+        screen.addPreference(EditTextPreference(context).apply {
+            key = "brief_cloud_api_key_pref"
+            title = getString(R.string.brief_cloud_key)
+            isPersistent = false
+            isVisible = briefProvider != BriefProviderMode.LOCAL
+            val current = BriefSettingsStore.cloudApiKey(context)
+            text = current
+            summary = if (current.isBlank()) {
+                getString(R.string.brief_cloud_key_summary)
+            } else {
+                getString(R.string.brief_cloud_key_configured)
+            }
+            setOnBindEditTextListener { editor ->
+                editor.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                editor.setSelectAllOnFocus(true)
+            }
+            setOnPreferenceChangeListener { preference, value ->
+                BriefSettingsStore.setCloudApiKey(context, value as String)
+                BriefStore.resetAi(context, settings.username)
+                preference.summary = if (value.isBlank()) {
+                    getString(R.string.brief_cloud_key_summary)
+                } else {
+                    getString(R.string.brief_cloud_key_configured)
+                }
+                true
+            }
+        })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_open_pref"
+            title = getString(R.string.brief_open)
+            setOnPreferenceClickListener {
+                BriefSettingsStore.setEnabled(context, true)
+                startActivity(TwidgetBriefActivity.intent(context, settings.username))
                 true
             }
         })
@@ -343,6 +416,14 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
             if (titleRes != 0) title = getString(titleRes)
             isIconSpaceReserved = false
         }
+
+    private fun briefProviderSummary(provider: BriefProviderMode): String = getString(
+        when (provider) {
+            BriefProviderMode.AUTO -> R.string.brief_provider_auto_summary
+            BriefProviderMode.LOCAL -> R.string.brief_provider_local_summary
+            BriefProviderMode.CLOUD -> R.string.brief_provider_cloud_summary
+        },
+    )
 
     companion object {
         const val ARG_SCROLL_TO_PREFERENCE = "scroll_to_preference"

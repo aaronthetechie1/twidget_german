@@ -2,7 +2,7 @@ name: Debug Build
 
 on:
   push:
-    branches: [main, staging]
+    branches: [main, staging, feat-twidgetbrief]
   pull_request:
     branches: [main, staging]
   workflow_dispatch:

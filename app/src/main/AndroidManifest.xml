@@ -178,6 +178,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".brief.TwidgetBriefActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".settings.SettingsDebugActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
@@ -238,6 +243,18 @@
             <meta-data
                 android:name="android.appwidget.provider.semConfigureActivity"
                 android:value="com.tjg.twidget.widget.WidgetConfigActivity" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TwidgetBriefWidget"
+            android:exported="true"
+            android:label="@string/brief_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_provider_brief" />
         </receiver>
 
         <receiver

@@ -632,4 +632,27 @@
     <string name="top_followers_filter_mutual_unavailable">Mutual filter unavailable for this data source</string>
     <string name="top_followers_browse_count">%1$d followers</string>
     <string name="status_configured">Configured</string>
+    <string name="brief_title">Twidget Brief</string>
+    <string name="brief_settings_section">Twidget Brief</string>
+    <string name="brief_enabled">Enable daily brief</string>
+    <string name="brief_enabled_summary">Build a private daily roundup and scan top followers once a day when access is configured</string>
+    <string name="brief_provider">AI provider</string>
+    <string name="brief_provider_auto">Auto (local, then cloud)</string>
+    <string name="brief_provider_local">Local</string>
+    <string name="brief_provider_cloud">Cloud</string>
+    <string name="brief_provider_auto_summary">Prefer Gemini Nano; fall back to Gemini Cloud when your API key is configured</string>
+    <string name="brief_provider_local_summary">Use Gemini Nano only. Account facts never leave this device.</string>
+    <string name="brief_provider_cloud_summary">Use Gemini Cloud with your own API key</string>
+    <string name="brief_cloud_key">Gemini API key</string>
+    <string name="brief_cloud_key_summary">Sent only to Google’s Gemini API and encrypted in Android Keystore</string>
+    <string name="brief_cloud_key_configured">Configured and encrypted</string>
+    <string name="brief_open">Open Twidget Brief</string>
+    <string name="brief_followers">Followers</string>
+    <string name="brief_top_followers">Top followers</string>
+    <string name="brief_top_followers_empty">No follower ranking yet. Twidget will scan once daily after TwitterAPIs access is configured.</string>
+    <string name="brief_prepare_local">Prepare local AI</string>
+    <string name="brief_widget_label">Twidget Brief</string>
+    <string name="brief_widget_description">A changing message based on your latest account activity</string>
+    <string name="brief_widget_empty_title">Your brief is getting ready</string>
+    <string name="brief_widget_empty_body">Open Twidget Brief to set it up.</string>
 </resources>
