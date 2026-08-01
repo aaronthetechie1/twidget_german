@@ -12,6 +12,8 @@ import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.widget.TwidgetBriefWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -40,12 +42,31 @@ data class BriefAiDiagnostics(
 )
 
 object BriefAiCoordinator {
+    private val generationMutex = Mutex()
+
     suspend fun enrich(
         context: Context,
         source: BriefSnapshot,
         force: Boolean = false,
     ): BriefAiResult = withContext(Dispatchers.IO) {
+        generationMutex.withLock {
         val mode = BriefSettingsStore.provider(context)
+        val cached = if (force) {
+            source
+        } else {
+            BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source)
+        }
+        if (!force && cachedProviderMatches(mode, cached.providerUsed)) {
+            if (cached !== source) BriefStore.write(context, cached)
+            return@withLock BriefAiResult(
+                cached,
+                if (cached.providerUsed == BriefProviderUsed.LOCAL) {
+                    BriefLocalStatus.AVAILABLE
+                } else {
+                    BriefLocalStatus.UNAVAILABLE
+                },
+            )
+        }
         val localProbe = GeminiNanoBriefProvider.probe(context)
         val localStatus = localProbe.status
         val resultMatchesMode = when (mode) {
@@ -57,7 +78,7 @@ object BriefAiCoordinator {
             }
         }
         if (!force && resultMatchesMode) {
-            return@withContext BriefAiResult(source, localStatus)
+            return@withLock BriefAiResult(source, localStatus)
         }
 
         val generated = when (mode) {
@@ -90,6 +111,7 @@ object BriefAiCoordinator {
         BriefStore.write(context, generated)
         TwidgetBriefWidget.updateAll(context)
         BriefAiResult(generated, localStatus)
+        }
     }
 
     suspend fun downloadLocalModel(onStatus: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
@@ -121,6 +143,16 @@ object BriefAiCoordinator {
         mode == BriefProviderMode.AUTO && BriefSettingsStore.cloudApiKey(context).isBlank() ->
             "No AI provider is ready; using private factual copy"
         else -> "AI wasn’t reachable; using private factual copy"
+    }
+
+    private fun cachedProviderMatches(
+        mode: BriefProviderMode,
+        provider: BriefProviderUsed,
+    ): Boolean = when (mode) {
+        BriefProviderMode.AUTO -> provider == BriefProviderUsed.LOCAL ||
+            provider == BriefProviderUsed.CLOUD
+        BriefProviderMode.LOCAL -> provider == BriefProviderUsed.LOCAL
+        BriefProviderMode.CLOUD -> provider == BriefProviderUsed.CLOUD
     }
 }
 
@@ -434,6 +466,7 @@ internal object BriefAiCardResponse {
                 generatedAt = System.currentTimeMillis(),
                 cards = rewritten,
                 providerUsed = provider,
+                aiGeneratedAt = System.currentTimeMillis(),
             ),
             appliedCards = applied,
         )
@@ -460,3 +493,60 @@ private fun describeLocalError(error: Throwable): String = buildString {
 
 private fun numericFacts(value: String): List<String> =
     Regex("[+-]?\\d+(?:[.,]\\d+)*%?").findAll(value).map { it.value }.sorted().toList()
+
+internal object BriefAiCachePolicy {
+    const val LOCAL_TTL_MS = 4 * 60 * 60 * 1000L
+    const val CLOUD_TTL_MS = 2 * 60 * 60 * 1000L
+
+    fun isFresh(snapshot: BriefSnapshot, now: Long = System.currentTimeMillis()): Boolean {
+        if (snapshot.providerUsed == BriefProviderUsed.TEMPLATE) return true
+        val generatedAt = snapshot.aiGeneratedAt.takeIf { it > 0L } ?: snapshot.generatedAt
+        val ttl = when (snapshot.providerUsed) {
+            BriefProviderUsed.LOCAL -> LOCAL_TTL_MS
+            BriefProviderUsed.CLOUD -> CLOUD_TTL_MS
+            BriefProviderUsed.TEMPLATE -> return true
+        }
+        return generatedAt > 0L && now >= generatedAt && now - generatedAt < ttl
+    }
+
+    fun retain(
+        previous: BriefSnapshot?,
+        refreshed: BriefSnapshot,
+        now: Long = System.currentTimeMillis(),
+    ): BriefSnapshot {
+        previous ?: return refreshed
+        if (!previous.username.equals(refreshed.username, ignoreCase = true)) return refreshed
+        if (previous.providerUsed == BriefProviderUsed.TEMPLATE || !isFresh(previous, now)) {
+            return refreshed
+        }
+
+        val currentById = refreshed.cards.associateBy(BriefCard::id)
+        val previousById = previous.cards.associateBy(BriefCard::id)
+        val orderedIds = buildList {
+            previous.cards.forEach { if (it.id in currentById) add(it.id) }
+            refreshed.cards.forEach { if (it.id !in this) add(it.id) }
+        }
+        if (orderedIds.none { it in previousById && it in currentById }) return refreshed
+
+        val mergedCards = orderedIds.mapNotNull { id ->
+            val current = currentById[id] ?: return@mapNotNull null
+            val cached = previousById[id] ?: return@mapNotNull current
+            val factsStillMatch = cached.type == current.type &&
+                numericFacts("${cached.title} ${cached.body}") ==
+                numericFacts("${current.title} ${current.body}")
+            if (factsStillMatch) {
+                current.copy(title = cached.title, body = cached.body)
+            } else {
+                current
+            }
+        }
+        val aiGeneratedAt = previous.aiGeneratedAt.takeIf { it > 0L } ?: previous.generatedAt
+        return refreshed.copy(
+            generatedAt = previous.generatedAt,
+            cards = mergedCards,
+            providerUsed = previous.providerUsed,
+            providerMessage = previous.providerMessage,
+            aiGeneratedAt = aiGeneratedAt,
+        )
+    }
+}

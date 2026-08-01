@@ -25,7 +25,7 @@ import kotlin.math.abs
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
     private const val MAX_CARDS = 5
-    private const val ENGINE_VERSION = 2
+    private const val ENGINE_VERSION = 3
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -36,6 +36,7 @@ object BriefEngine {
         val fingerprint = contextFingerprint(context, clean)
         if (!force && previous != null &&
             previous.engineVersion == ENGINE_VERSION &&
+            BriefAiCachePolicy.isFresh(previous) &&
             previous.contextFingerprint == fingerprint &&
             previous.username.equals(clean, ignoreCase = true) &&
             previous.sourceSyncedAt == stats.syncedAt &&
@@ -50,7 +51,7 @@ object BriefEngine {
 
         val evaluation = evaluate(context, clean, stats, analytics, followerState, previous)
 
-        val snapshot = BriefSnapshot(
+        val rebuilt = BriefSnapshot(
             username = clean,
             generatedAt = System.currentTimeMillis(),
             sourceSyncedAt = stats.syncedAt,
@@ -66,6 +67,7 @@ object BriefEngine {
             engineVersion = ENGINE_VERSION,
             contextFingerprint = fingerprint,
         )
+        val snapshot = BriefAiCachePolicy.retain(previous, rebuilt)
         BriefStore.write(context, snapshot)
         BriefDebugLog.record(context, if (force) "forced rebuild" else "rebuild", evaluation.report)
         return snapshot

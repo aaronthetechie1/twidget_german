@@ -53,6 +53,38 @@
                     android:scaleType="centerInside" />
             </LinearLayout>
 
+            <!-- Editorial overview. This is page chrome, not a ranked card. -->
+            <LinearLayout
+                android:id="@+id/brief_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:paddingStart="19dp"
+                android:paddingEnd="19dp">
+
+                <TextView
+                    android:id="@+id/brief_summary_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sec"
+                    android:includeFontPadding="false"
+                    android:textColor="@color/oneui_text_primary"
+                    android:textSize="36sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/brief_summary_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="sec"
+                    android:includeFontPadding="false"
+                    android:lineSpacingExtra="1dp"
+                    android:textColor="@color/oneui_text_primary"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
             <!-- The engine owns this sequence. Each child is inserted in the
                  exact order of BriefSnapshot.cards. -->
             <LinearLayout

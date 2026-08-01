@@ -32,6 +32,27 @@ data class BriefCard(
     val score: Int,
 )
 
+data class BriefEditorialSummary(
+    val title: String,
+    val body: String,
+) {
+    companion object {
+        fun from(cards: List<BriefCard>): BriefEditorialSummary {
+            val lead = cards.firstOrNull()
+            val title = lead?.title.orEmpty().ifBlank { "Your Twidget Brief" }
+            val body = cards.asSequence()
+                .map(BriefCard::body)
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .distinct()
+                .take(3)
+                .joinToString(" ")
+                .ifBlank { "Twidget is watching for your next meaningful account update." }
+            return BriefEditorialSummary(title, body)
+        }
+    }
+}
+
 data class BriefSnapshot(
     val username: String,
     val generatedAt: Long,
@@ -49,4 +70,5 @@ data class BriefSnapshot(
     val contextFingerprint: String = "",
     val providerUsed: BriefProviderUsed = BriefProviderUsed.TEMPLATE,
     val providerMessage: String = "Built on device from your Twidget data",
+    val aiGeneratedAt: Long = 0L,
 )

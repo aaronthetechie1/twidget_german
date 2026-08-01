@@ -283,6 +283,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun render(snapshot: BriefSnapshot) {
         renderedSnapshot = snapshot
+        val summary = BriefEditorialSummary.from(snapshot.cards)
+        findViewById<TextView>(R.id.brief_summary_title).text = summary.title
+        findViewById<TextView>(R.id.brief_summary_body).text = summary.body
         val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
         snapshot.cards.forEach { card ->

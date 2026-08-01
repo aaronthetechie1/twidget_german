@@ -24,6 +24,7 @@ object BriefStore {
                 snapshot.copy(
                     providerUsed = BriefProviderUsed.TEMPLATE,
                     providerMessage = "Built on device from your Twidget data",
+                    aiGeneratedAt = 0L,
                 ),
             )
         }
@@ -44,6 +45,7 @@ object BriefStore {
         put("contextFingerprint", snapshot.contextFingerprint)
         put("providerUsed", snapshot.providerUsed.name)
         put("providerMessage", snapshot.providerMessage)
+        put("aiGeneratedAt", snapshot.aiGeneratedAt)
         put("cards", JSONArray().apply {
             snapshot.cards.forEach { card ->
                 put(JSONObject().apply {
@@ -98,6 +100,12 @@ object BriefStore {
                 "providerMessage",
                 "Built on device from your Twidget data",
             ),
+            aiGeneratedAt = root.optLong("aiGeneratedAt").takeIf { it > 0L }
+                ?: if (root.optString("providerUsed") != BriefProviderUsed.TEMPLATE.name) {
+                    root.optLong("generatedAt")
+                } else {
+                    0L
+                },
         )
     }
 
