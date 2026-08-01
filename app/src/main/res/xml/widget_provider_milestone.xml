@@ -14,7 +14,7 @@
     android:targetCellWidth="2"
     android:targetCellHeight="1"
     android:updatePeriodMillis="1800000"
-    android:description="@string/milestone_widget_description"
+    android:description="@string/brief_widget_description"
     android:widgetCategory="home_screen"
     android:configure="com.tjg.twidget.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable"

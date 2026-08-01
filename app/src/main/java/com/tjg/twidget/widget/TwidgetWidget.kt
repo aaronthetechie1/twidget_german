@@ -17,6 +17,10 @@ import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import com.tjg.twidget.R
+import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefSettingsStore
+import com.tjg.twidget.brief.BriefStore
+import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.TwidgetStore
@@ -84,11 +88,18 @@ open class TwidgetWidget : AppWidgetProvider() {
                 layoutModeForAosp(artworkWidth, artworkHeight)
             }
             val widgetSettings = TwidgetStore.widgetSettings(context, appWidgetId)
-            val account = widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
-            val stats = TwidgetStore.currentStats(context, account)
-            val delta = TwidgetStore.followersDelta(context, account)
             val milestoneWidget = appWidgetManager.getAppWidgetInfo(appWidgetId)
                 ?.provider?.className == com.tjg.twidget.MilestoneWidget::class.java.name
+            if (milestoneWidget) BriefSettingsStore.setEnabled(context, true)
+            // The retired Milestones provider remains as a compatibility shell
+            // for widgets already placed on home screens. Brief is default-only.
+            val account = if (milestoneWidget) {
+                TwidgetStore.settings(context).username
+            } else {
+                widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
+            }
+            val stats = TwidgetStore.currentStats(context, account)
+            val delta = TwidgetStore.followersDelta(context, account)
 
             val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !TwidgetFonts.hasSystemOneUiSans) {
                 val responsiveViews = linkedMapOf<SizeF, RemoteViews>()
@@ -213,12 +224,17 @@ open class TwidgetWidget : AppWidgetProvider() {
                 setImageViewBitmap(
                     R.id.widget_artwork,
                     if (milestoneWidget) {
-                        MilestoneWidgetArtworkRenderer.render(
+                        val snapshot = BriefStore.read(context, account)
+                            ?: if (account.isNotBlank() && BriefSettingsStore.enabled(context)) {
+                                BriefEngine.rebuild(context, account)
+                            } else null
+                        BriefWidgetArtworkRenderer.render(
                             context = context,
                             widthPx = dp(context, width),
                             heightPx = dp(context, height),
                             settings = widgetSettings,
                             account = account,
+                            snapshot = snapshot,
                             dark = dark,
                             drawBackground = drawArtworkBackground,
                         )
@@ -236,9 +252,21 @@ open class TwidgetWidget : AppWidgetProvider() {
                         )
                     },
                 )
-                setOnClickPendingIntent(android.R.id.background, tapIntent(context, appWidgetId, widgetSettings.tapAction, account))
+                setOnClickPendingIntent(
+                    android.R.id.background,
+                    if (milestoneWidget) briefTapIntent(context, appWidgetId, account)
+                    else tapIntent(context, appWidgetId, widgetSettings.tapAction, account),
+                )
             }
         }
+
+        private fun briefTapIntent(context: Context, appWidgetId: Int, account: String): PendingIntent =
+            PendingIntent.getActivity(
+                context,
+                4000 + appWidgetId,
+                TwidgetBriefActivity.intent(context, account),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         data class ResponsiveSpec(
             val minWidth: Int,

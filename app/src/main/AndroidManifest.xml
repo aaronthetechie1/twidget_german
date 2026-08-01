@@ -188,6 +188,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".settings.BriefDebugActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".bridge.DebugBridgeLogActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
@@ -230,7 +235,7 @@
         <receiver
             android:name=".MilestoneWidget"
             android:exported="true"
-            android:label="@string/milestone_widget_label">
+            android:label="@string/brief_widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -255,6 +260,9 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_provider_brief" />
+            <meta-data
+                android:name="com.sec.android.appwidget.widgetinfo"
+                android:resource="@xml/widget_supported_cell_size_info" />
         </receiver>
 
         <receiver

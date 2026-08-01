@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_preview_glass_bg"
@@ -9,11 +8,10 @@
     android:padding="14dp">
 
     <ImageView
-        android:layout_width="54dp"
-        android:layout_height="54dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:contentDescription="@null"
-        android:src="@drawable/ic_milestone_goals"
-        app:tint="@android:color/black" />
+        android:src="@drawable/ic_brief_widget" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -26,19 +24,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/one_ui_sans"
-            android:text="@string/milestone_title_growing_quickly"
-            android:textColor="@android:color/black"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="Getting attention"
+            android:textColor="@color/widget_preview_text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
             android:fontFamily="@font/one_ui_sans"
-            android:maxLines="2"
-            android:text="@string/milestone_widget_preview_message"
-            android:textColor="@android:color/black"
-            android:textSize="12sp" />
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="Your latest post is taking off."
+            android:textColor="@color/widget_preview_text_secondary"
+            android:textSize="13sp" />
     </LinearLayout>
 </LinearLayout>

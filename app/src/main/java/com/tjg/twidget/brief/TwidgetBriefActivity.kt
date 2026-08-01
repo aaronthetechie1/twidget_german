@@ -37,6 +37,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private lateinit var username: String
     private var renderedSnapshot: BriefSnapshot? = null
     private var localStatus = BriefLocalStatus.UNAVAILABLE
+    private var debugScenario: BriefDebugScenario = BriefDebugScenario.REAL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +49,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             finish()
             return
         }
+        if (TwidgetStore.debugMenuUnlocked(this)) {
+            debugScenario = BriefDebugScenario.fromStorageId(
+                intent.getStringExtra(EXTRA_DEBUG_SCENARIO),
+            )
+        }
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
@@ -55,8 +61,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         bindPost()
         bindTopFollowers()
 
-        val source = BriefEngine.rebuild(this, username)
+        val source = debugScenario.snapshot(BriefEngine.rebuild(this, username))
         render(source)
+        if (debugScenario != BriefDebugScenario.REAL) return
         lifecycleScope.launch {
             val result = BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source)
             render(result.snapshot)
@@ -329,8 +336,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     companion object {
         const val EXTRA_USERNAME = "username"
+        private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"
 
         fun intent(context: Context, username: String) =
             Intent(context, TwidgetBriefActivity::class.java).putExtra(EXTRA_USERNAME, username)
+
+        fun debugIntent(context: Context, username: String, scenario: BriefDebugScenario) =
+            intent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)
     }
 }

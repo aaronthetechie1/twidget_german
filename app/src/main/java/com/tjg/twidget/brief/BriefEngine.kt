@@ -2,11 +2,14 @@ package com.tjg.twidget.brief
 
 import android.content.Context
 import com.tjg.twidget.analytics.AnalyticsClient
+import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistorySample
+import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollower
+import com.tjg.twidget.followers.TopFollowersState
 import com.tjg.twidget.followers.TopFollowersStore
 import java.text.NumberFormat
 import java.util.Locale
@@ -26,35 +29,14 @@ object BriefEngine {
             previous.sourceSyncedAt == stats.syncedAt &&
             previous.analyticsCachedAt == (analytics?.cachedAt ?: 0L) &&
             previous.followerScanCompletedAt == followerState.completedAt
-        ) return previous
-
-        val history = TwidgetStore.fullHistory(context, clean)
-            .filterNot { it.estimated }
-            .sortedBy { it.timestamp }
-        val todayDelta = TwidgetStore.followersDelta(context, clean)
-        val weekDelta = deltaSince(history, stats.followersCount, 7, HistorySample::followers)
-        val currentRanks = followerState.top.take(100).mapIndexed { index, follower ->
-            followerKey(follower) to index + 1
-        }.toMap()
-        val facts = mutableListOf<BriefCard>()
-
-        growthCard(stats.followersCount, todayDelta, weekDelta)?.let(facts::add)
-        postCard(analytics?.best, stats.followersCount)?.let(facts::add)
-        slowdownCard(history, stats.followersCount, todayDelta)?.let(facts::add)
-        inactivityCard(history, stats.statusesCount)?.let(facts::add)
-        milestoneCard(context, clean, stats.followersCount)?.let(facts::add)
-        streakCard(context, clean)?.let(facts::add)
-        topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(facts::add)
-
-        if (facts.isEmpty()) {
-            facts += BriefCard(
-                id = "summary-steady",
-                type = BriefCardType.SUMMARY,
-                title = "Everything looks steady",
-                body = "You have ${format(stats.followersCount)} followers. Keep showing up and Twidget will watch for the next meaningful change.",
-                score = 50,
-            )
+        ) {
+            if (TwidgetStore.debugMenuUnlocked(context)) {
+                BriefDebugLog.record(context, "cache hit", inspect(context, clean))
+            }
+            return previous
         }
+
+        val evaluation = evaluate(context, clean, stats, analytics, followerState, previous)
 
         val snapshot = BriefSnapshot(
             username = clean,
@@ -65,13 +47,91 @@ object BriefEngine {
             followers = stats.followersCount,
             following = stats.followingsCount,
             posts = stats.statusesCount,
-            followersToday = todayDelta,
-            followersWeek = weekDelta,
-            cards = facts.sortedByDescending(BriefCard::score).take(MAX_CARDS),
-            topFollowerRanks = currentRanks,
+            followersToday = evaluation.report.followersToday,
+            followersWeek = evaluation.report.followersWeek,
+            cards = evaluation.selected,
+            topFollowerRanks = evaluation.currentRanks,
         )
         BriefStore.write(context, snapshot)
+        BriefDebugLog.record(context, if (force) "forced rebuild" else "rebuild", evaluation.report)
         return snapshot
+    }
+
+    fun inspect(context: Context, username: String): BriefEngineReport {
+        val clean = username.trim().trimStart('@')
+        return evaluate(
+            context = context,
+            username = clean,
+            stats = TwidgetStore.currentStats(context, clean),
+            analytics = AnalyticsClient.cached(context, clean),
+            followerState = TopFollowersStore.read(context, clean),
+            previous = BriefStore.read(context, clean),
+        ).report
+    }
+
+    private data class Evaluation(
+        val report: BriefEngineReport,
+        val selected: List<BriefCard>,
+        val currentRanks: Map<String, Int>,
+    )
+
+    private fun evaluate(
+        context: Context,
+        username: String,
+        stats: ProfileStats,
+        analytics: PostAnalytics?,
+        followerState: TopFollowersState,
+        previous: BriefSnapshot?,
+    ): Evaluation {
+        val history = TwidgetStore.fullHistory(context, username)
+            .filterNot { it.estimated }
+            .sortedBy { it.timestamp }
+        val todayDelta = TwidgetStore.followersDelta(context, username)
+        val weekDelta = deltaSince(history, stats.followersCount, 7, HistorySample::followers)
+        val currentRanks = followerState.top.take(100).mapIndexed { index, follower ->
+            followerKey(follower) to index + 1
+        }.toMap()
+        val candidates = mutableListOf<BriefCard>()
+
+        growthCard(stats.followersCount, todayDelta, weekDelta)?.let(candidates::add)
+        postCard(analytics?.best, stats.followersCount)?.let(candidates::add)
+        slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
+        inactivityCard(history, stats.statusesCount)?.let(candidates::add)
+        milestoneCard(context, username, stats.followersCount)?.let(candidates::add)
+        streakCard(context, username)?.let(candidates::add)
+        topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
+
+        if (candidates.isEmpty()) {
+            candidates += BriefCard(
+                id = "summary-steady",
+                type = BriefCardType.SUMMARY,
+                title = "Everything looks steady",
+                body = "You have ${format(stats.followersCount)} followers. Keep showing up and Twidget will watch for the next meaningful change.",
+                score = 50,
+            )
+        }
+        val ranked = candidates.sortedByDescending(BriefCard::score)
+        val selected = ranked.take(MAX_CARDS)
+        return Evaluation(
+            report = BriefEngineReport(
+                username = username,
+                generatedAt = System.currentTimeMillis(),
+                followers = stats.followersCount,
+                following = stats.followingsCount,
+                posts = stats.statusesCount,
+                followersToday = todayDelta,
+                followersWeek = weekDelta,
+                historySamples = history.size,
+                analyticsCachedAt = analytics?.cachedAt ?: 0L,
+                standoutPostViews = analytics?.best?.views,
+                followerScanCompletedAt = followerState.completedAt,
+                followersScanned = followerState.scanned,
+                rankedCandidates = ranked,
+                selectedIds = selected.mapTo(linkedSetOf(), BriefCard::id),
+            ),
+            selected = selected,
+            currentRanks = currentRanks,
+        )
     }
 
     private fun growthCard(followers: Long, today: Long, week: Long): BriefCard? {

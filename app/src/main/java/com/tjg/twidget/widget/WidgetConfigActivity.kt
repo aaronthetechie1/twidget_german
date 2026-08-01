@@ -76,6 +76,19 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                 .forEach { findViewById<View>(it).visibility = View.GONE }
             findViewById<CardItemView>(R.id.logo_row).showTopDivider = false
         }
+        if (isMilestoneWidget) {
+            // Brief belongs to the default profile and always opens its Brief;
+            // don't offer legacy Milestones controls that no longer apply.
+            listOf(
+                R.id.account_separator,
+                R.id.account_group,
+                R.id.logo_row,
+                R.id.delta_row,
+                R.id.tap_separator,
+                R.id.tap_action_card,
+            ).forEach { findViewById<View>(it).visibility = View.GONE }
+            accountUsername = ""
+        }
 
         val settings = TwidgetStore.widgetSettings(this, appWidgetId)
         tintAlpha = settings.tintAlpha
@@ -92,7 +105,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             settings.logo
         }
         tapAction = settings.tapAction
-        accountUsername = settings.accountUsername
+        accountUsername = if (isMilestoneWidget) "" else settings.accountUsername
         colorMode = settings.colorMode
         fontFamily = settings.fontFamily
         showDelta = settings.showDelta
@@ -269,7 +282,8 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         preview.removeAllViews()
         preview.setPadding(0, 0, 0, 0)
 
-        val selectedAccount = accountUsername.ifBlank { TwidgetStore.settings(this).username }
+        val defaultAccount = TwidgetStore.settings(this).username
+        val selectedAccount = if (isMilestoneWidget) defaultAccount else accountUsername.ifBlank { defaultAccount }
         val previewSettings = TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, selectedAccount, colorMode, fontFamily, showDelta)
 
         if (isLockWidget) {
@@ -305,12 +319,14 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             scaleType = ImageView.ScaleType.FIT_XY
             setImageBitmap(
                 if (isMilestoneWidget) {
-                    MilestoneWidgetArtworkRenderer.render(
+                    val snapshot = com.tjg.twidget.brief.BriefStore.read(this@WidgetConfigActivity, selectedAccount)
+                    BriefWidgetArtworkRenderer.render(
                         context = this@WidgetConfigActivity,
                         widthPx = dp(previewSpec.widthDp),
                         heightPx = dp(previewSpec.heightDp),
                         settings = previewSettings,
                         account = selectedAccount,
+                        snapshot = snapshot,
                         dark = darkPreview,
                         drawBackground = false,
                     )

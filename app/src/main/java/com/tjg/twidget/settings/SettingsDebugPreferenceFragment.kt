@@ -76,6 +76,15 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
+        screen.addPreference(Preference(context).apply {
+            key = "debug_brief_workbench"
+            title = getString(R.string.brief_debug_title)
+            summary = getString(R.string.brief_debug_summary)
+            setOnPreferenceClickListener {
+                requireActivity().startSettingsSubActivity(Intent(context, BriefDebugActivity::class.java))
+                true
+            }
+        })
 
         screen.addPreference(category(R.string.dummy_profile))
         if (!hasDummy) {
