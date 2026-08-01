@@ -13,12 +13,12 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.lifecycleScope
@@ -31,6 +31,7 @@ import com.tjg.twidget.data.AccountAverageSeries
 import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistoryRange
 import com.tjg.twidget.data.TwidgetStore
+import com.tjg.twidget.followers.TopFollowersBrowseActivity
 import com.tjg.twidget.followers.TopFollowersStore
 import com.tjg.twidget.main.MilestoneArcView
 import com.tjg.twidget.main.MilestoneCardBackgroundDrawable
@@ -40,13 +41,17 @@ import com.tjg.twidget.main.MilestoneMetricResolver
 import com.tjg.twidget.main.MilestonePerformanceState
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.StreakCardFactory
-import com.tjg.twidget.schedule.ScheduleDeepLink
+import com.tjg.twidget.schedule.LocalUriMedia
+import com.tjg.twidget.schedule.PublicUrlMedia
+import com.tjg.twidget.schedule.ScheduleComposeActivity
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
+import com.tjg.twidget.schedule.ScheduleStore
 import com.tjg.twidget.settings.BriefSettingsActivity
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.MetricChartView
 import com.tjg.twidget.ui.ProfileImageLoader
+import com.tjg.twidget.ui.startRightSidePopOverActivity
 import dev.oneuiproject.oneui.R as OneUiIconR
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -61,10 +66,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var renderedSnapshot: BriefSnapshot? = null
     private var localStatus = BriefLocalStatus.UNAVAILABLE
     private var debugScenario: BriefDebugScenario = BriefDebugScenario.REAL
-    private var reloadScheduleOnResume = false
-    private val milestoneEditor = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { loadBrief(force = true) }
+    private var reloadOnResume = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,8 +91,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (reloadScheduleOnResume) {
-            reloadScheduleOnResume = false
+        if (reloadOnResume) {
+            reloadOnResume = false
             loadBrief(force = true)
         }
     }
@@ -145,7 +147,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_settings_outline))
             imageTintList = tint
             setOnClickListener {
-                startActivity(Intent(this@TwidgetBriefActivity, BriefSettingsActivity::class.java))
+                startRightSidePopOverActivity(
+                    Intent(this@TwidgetBriefActivity, BriefSettingsActivity::class.java),
+                )
             }
         }
     }
@@ -185,7 +189,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(194)))
     }
 
-    private fun postCard(post: PostSummary, insight: String): View = LinearLayout(this).apply {
+    private fun postCard(post: PostSummary): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(14), dp(14), dp(14), dp(14))
         setBackgroundResource(R.drawable.brief_card_background)
@@ -194,10 +198,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         if (isClickable) setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(post.url)))
         }
-
-        addView(primaryText(insight, 14f).apply {
-            setLineSpacing(dp(2).toFloat(), 1f)
-        })
 
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -255,6 +255,14 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun topFollowersCard(card: BriefCard): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setBackgroundResource(R.drawable.brief_card_background)
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            startRightSidePopOverActivity(
+                Intent(this@TwidgetBriefActivity, TopFollowersBrowseActivity::class.java)
+                    .putExtra(TopFollowersBrowseActivity.EXTRA_USERNAME, username),
+            )
+        }
         addView(primaryText(card.body, 14f).apply {
             setPadding(dp(20), dp(16), dp(20), dp(10))
         })
@@ -347,59 +355,80 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         container.visibility = if (tweets.isEmpty()) View.GONE else View.VISIBLE
         if (tweets.isEmpty()) return
         container.addView(sectionLabel("Upcoming tweets"), matchWrap(top = 24))
-        container.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.brief_card_background)
-            tweets.forEachIndexed { index, tweet ->
-                addView(upcomingTweetRow(tweet))
-                if (index < tweets.lastIndex) addView(View(context).apply {
-                    setBackgroundColor(getColor(R.color.brief_divider))
-                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
-                    marginStart = dp(16)
-                    marginEnd = dp(16)
-                })
-            }
-        }, matchWrap(top = 10))
+        tweets.forEachIndexed { index, tweet ->
+            container.addView(sectionLabel(upcomingSubheading(tweet)), matchWrap(top = if (index == 0) 10 else 20))
+            container.addView(scheduledPostCard(tweet), matchWrap(top = 10))
+        }
     }
 
-    private fun upcomingTweetRow(tweet: BriefUpcomingTweet): View = LinearLayout(this).apply {
+    private fun scheduledPostCard(tweet: BriefUpcomingTweet): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(18), dp(14), dp(18), dp(14))
+        setPadding(dp(14), dp(14), dp(14), dp(14))
         isClickable = true
         isFocusable = true
-        background = AppCompatResources.getDrawable(context, R.drawable.metric_card_clickable_bg)
+        setBackgroundResource(R.drawable.brief_card_background)
         setOnClickListener { openSchedule(tweet) }
+
+        val stats = TwidgetStore.currentStats(this@TwidgetBriefActivity, username)
+        val scheduledPost = ScheduleStore(this@TwidgetBriefActivity).get(tweet.id)
+        val firstPost = scheduledPost?.thread?.firstOrNull()
 
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
-            addView(primaryText(upcomingStatus(tweet), 13f, true).apply {
-                setTextColor(getColor(if (tweet.status in setOf(ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED)) {
-                    R.color.notice_badge_orange
-                } else {
-                    R.color.oneui_text_secondary
-                }))
+            addView(ImageView(context).apply {
+                ProfileImageLoader.loadInto(context, this, stats.profileImage)
+            }, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(LinearLayout(this@TwidgetBriefActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), 0, 0, 0)
+                addView(primaryText(stats.fullName.ifBlank { "@$username" }, 14f, true))
+                addView(supportingText("@$username · ${scheduleDate(tweet.scheduledAt)}", 12f))
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(supportingText(scheduleDate(tweet.scheduledAt), 12f))
         })
-        addView(primaryText(tweet.preview.ifBlank { "Scheduled tweet" }, 14f).apply {
-            maxLines = 3
-            ellipsize = TextUtils.TruncateAt.END
-        }, matchWrap(top = 7))
+
+        addView(primaryText(firstPost?.text.orEmpty().ifBlank {
+            tweet.preview.ifBlank { "Scheduled tweet" }
+        }, 14f).apply {
+            setLineSpacing(dp(2).toFloat(), 1f)
+        }, matchWrap(top = 10))
+
+        firstPost?.media?.firstOrNull()?.let { media ->
+            addView(ImageView(context).apply {
+                contentDescription = getString(R.string.post_media)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                when (media) {
+                    is LocalUriMedia -> {
+                        background = AppCompatResources.getDrawable(context, R.drawable.schedule_media_preview_bg)
+                        outlineProvider = ViewOutlineProvider.BACKGROUND
+                        clipToOutline = true
+                        runCatching { setImageURI(Uri.parse(media.uri)) }
+                    }
+                    is PublicUrlMedia -> ProfileImageLoader.loadMediaInto(
+                        context,
+                        this,
+                        media.displayUrl,
+                        dp(14),
+                    )
+                }
+            }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(218),
+            ).apply { topMargin = dp(10) })
+        }
+
         val details = buildList {
             if (tweet.threadCount > 1) add("${tweet.threadCount}-tweet thread")
             if (tweet.mediaCount > 0) add("${tweet.mediaCount} media")
             add(if (tweet.provider == ScheduleProvider.BUFFER) "Buffer" else "Local reminder")
         }.joinToString(" · ")
-        addView(supportingText(details, 12f), matchWrap(top = 6))
-        tweet.errorMessage.takeIf(String::isNotBlank)?.let { error ->
-            addView(supportingText(error, 12f).apply {
-                setTextColor(getColor(R.color.notice_badge_orange))
-                maxLines = 2
-                ellipsize = TextUtils.TruncateAt.END
-            }, matchWrap(top = 5))
-        }
+        addView(supportingText(details, 12f), matchWrap(top = 10))
     }
+
+    private fun upcomingSubheading(tweet: BriefUpcomingTweet): String = buildList {
+        add(upcomingStatus(tweet))
+        tweet.errorMessage.takeIf(String::isNotBlank)?.let(::add)
+    }.joinToString(" · ")
 
     private fun upcomingStatus(tweet: BriefUpcomingTweet): String = when {
         tweet.status == ScheduleStatus.FAILED -> "Needs attention"
@@ -416,22 +445,20 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun openSchedule(tweet: BriefUpcomingTweet) {
-        reloadScheduleOnResume = true
-        startActivity(Intent().apply {
-            setClassName(this@TwidgetBriefActivity, ScheduleDeepLink.SCHEDULE_ACTIVITY_CLASS)
-            action = if (tweet.status == ScheduleStatus.NEEDS_ACTION && tweet.provider == ScheduleProvider.LOCAL_REMINDER) {
-                ScheduleDeepLink.ACTION_OPEN_CHECKLIST
-            } else {
-                ScheduleDeepLink.ACTION_OPEN_SCHEDULE
-            }
-            putExtra(ScheduleDeepLink.EXTRA_SCHEDULE_ID, tweet.id)
-        })
+        reloadOnResume = true
+        startRightSidePopOverActivity(
+            Intent(this, ScheduleComposeActivity::class.java)
+                .putExtra(ScheduleComposeActivity.EXTRA_USERNAME, username)
+                .putExtra(ScheduleComposeActivity.EXTRA_SCHEDULE_ID, tweet.id),
+        )
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         renderedSnapshot?.let(::render) ?: configureResponsiveLayout()
     }
+
+    override fun allowsPopOverPresentation(): Boolean = false
 
     private fun configureResponsiveLayout(): Int {
         val columns = BriefLayoutPolicy.columnCount(resources.configuration.screenWidthDp)
@@ -462,6 +489,17 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         addView(sectionLabel(sectionHeading(card)))
+        val analytics = AnalyticsClient.cached(context, username)
+        val hasFetchedPost = when (card.type) {
+            BriefCardType.POST -> analytics?.best != null
+            BriefCardType.WORST_POST -> analytics?.worst != null
+            else -> false
+        }
+        if (hasFetchedPost) {
+            addView(sectionLabel(card.body).apply {
+                setLineSpacing(dp(2).toFloat(), 1f)
+            }, matchWrap(top = 8))
+        }
         val content = when (card.type) {
             BriefCardType.MILESTONE -> milestoneCard(card)
             BriefCardType.STREAK -> StreakCardFactory.create(
@@ -471,9 +509,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 detailOverride = card.body,
             )
             BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard(card)
-            BriefCardType.POST -> AnalyticsClient.cached(context, username)?.best?.let { postCard(it, card.body) }
+            BriefCardType.POST -> analytics?.best?.let { postCard(it) }
                 ?: genericCard(card)
-            BriefCardType.WORST_POST -> AnalyticsClient.cached(context, username)?.worst?.let { postCard(it, card.body) }
+            BriefCardType.WORST_POST -> analytics?.worst?.let { postCard(it) }
                 ?: genericCard(card)
             BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
             BriefCardType.INACTIVITY -> genericCard(card, warm = true)
@@ -553,7 +591,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         root.findViewById<TextView>(R.id.milestone_title).text = card.title
         root.findViewById<TextView>(R.id.milestone_message).text = card.body
         val openEditor = View.OnClickListener {
-            milestoneEditor.launch(MilestoneGoalActivity.intent(this, username))
+            reloadOnResume = true
+            startRightSidePopOverActivity(MilestoneGoalActivity.intent(this, username))
         }
         root.setOnClickListener(openEditor)
         root.findViewById<ImageButton>(R.id.milestone_edit).setOnClickListener(openEditor)

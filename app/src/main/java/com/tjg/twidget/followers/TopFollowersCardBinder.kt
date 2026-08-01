@@ -25,12 +25,13 @@ import androidx.core.widget.TextViewCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.MainActivity
-import com.tjg.twidget.settings.SettingsAdvancedActivity
 import com.tjg.twidget.providers.TwitterApisClient
 import com.tjg.twidget.providers.XApiClient
 import com.tjg.twidget.providers.TwitterApisAccessSource
+import com.tjg.twidget.settings.SettingsAdvancedActivity
 import com.tjg.twidget.ui.OneUiSpinner
 import com.tjg.twidget.ui.ProfileImageLoader
+import com.tjg.twidget.ui.startRightSidePopOverActivity
 import dev.oneuiproject.oneui.R as OneUiIconR
 
 /** Renders the four Figma states for the dashboard's Top Followers card. */
@@ -337,7 +338,7 @@ internal class TopFollowersCardBinder(
     }
 
     private fun openBrowse(account: String) {
-        activity.startActivity(
+        activity.startRightSidePopOverActivity(
             Intent(activity, TopFollowersBrowseActivity::class.java)
                 .putExtra(TopFollowersBrowseActivity.EXTRA_USERNAME, account),
         )

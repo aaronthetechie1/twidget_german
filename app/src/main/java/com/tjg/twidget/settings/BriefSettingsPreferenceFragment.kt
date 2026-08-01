@@ -128,6 +128,7 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         override fun onBindViewHolder(holder: PreferenceViewHolder) {
             super.onBindViewHolder(holder)
             holder.itemView.background = null
+            holder.itemView.foreground = null
         }
     }
 }
