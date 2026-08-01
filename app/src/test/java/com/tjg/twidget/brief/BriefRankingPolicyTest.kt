@@ -22,6 +22,15 @@ class BriefRankingPolicyTest {
     }
 
     @Test
+    fun rankingRetainsEveryRelevantCard() {
+        val cards = BriefCardType.entries.take(7).mapIndexed { index, type ->
+            BriefCard("card-$index", type, "Card $index", "", 100 - index)
+        }
+
+        assertEquals(cards.size, BriefRankingPolicy.order(cards).size)
+    }
+
+    @Test
     fun accountActivityChangesGrowthPriority() {
         val quiet = BriefRankingPolicy.growth(today = 5, week = 15, weeklyPercent = 2.0)
         val surging = BriefRankingPolicy.growth(today = 25, week = 80, weeklyPercent = 8.0)

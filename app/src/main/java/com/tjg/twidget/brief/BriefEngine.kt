@@ -33,8 +33,7 @@ import kotlin.math.abs
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val MAX_CARDS = 5
-    private const val ENGINE_VERSION = 4
+    private const val ENGINE_VERSION = 5
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -141,7 +140,9 @@ object BriefEngine {
             )
         }
         val ranked = BriefRankingPolicy.order(candidates)
-        val selected = selectCards(ranked)
+        // Eligibility rules decide whether a card belongs in the Brief. Do not
+        // discard a relevant card merely because several other signals fired.
+        val selected = ranked
         return Evaluation(
             report = BriefEngineReport(
                 username = username,
@@ -343,13 +344,6 @@ object BriefEngine {
 
     private fun isScheduledToday(tweet: BriefUpcomingTweet): Boolean = tweet.scheduledAt > 0L &&
         Instant.ofEpochMilli(tweet.scheduledAt).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now()
-
-    private fun selectCards(ranked: List<BriefCard>): List<BriefCard> {
-        val required = ranked.firstOrNull { it.type == BriefCardType.WORST_POST }
-        if (required == null || ranked.take(MAX_CARDS).contains(required)) return ranked.take(MAX_CARDS)
-        val ids = (ranked.take(MAX_CARDS - 1) + required).mapTo(mutableSetOf(), BriefCard::id)
-        return ranked.filter { it.id in ids }
-    }
 
     private fun topFollowerCard(
         top: List<TopFollower>,
