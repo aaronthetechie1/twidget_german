@@ -126,3 +126,56 @@ object TopFollowersFilterPolicy {
     fun mutualFilterAvailable(followers: List<TopFollower>): Boolean =
         followers.any { it.mutual != null }
 }
+
+/**
+ * Produces the single canonical order used by the followers browser.
+ *
+ * Search results retain their rank from the complete list so typing a query
+ * never makes (for example) the account ranked 42nd appear to be number one.
+ */
+data class RankedTopFollower(
+    val rank: Int,
+    val follower: TopFollower,
+)
+
+object TopFollowersBrowserPolicy {
+    fun apply(followers: List<TopFollower>, query: String = ""): List<RankedTopFollower> {
+        val normalizedQuery = query.trim().lowercase(Locale.US).trimStart('@')
+        return followers
+            .distinctBy(::identityKey)
+            .sortedWith(
+                compareByDescending<TopFollower> { it.followers }
+                    .thenBy { it.name.lowercase(Locale.US) }
+                    .thenBy { it.username.lowercase(Locale.US) }
+                    .thenBy { it.id.lowercase(Locale.US) }
+                    .thenBy { it.scanIndex },
+            )
+            .mapIndexed { index, follower -> RankedTopFollower(index + 1, follower) }
+            .filter { ranked ->
+                normalizedQuery.isEmpty() ||
+                    ranked.follower.name.lowercase(Locale.US).contains(normalizedQuery) ||
+                    ranked.follower.username.lowercase(Locale.US).contains(normalizedQuery)
+            }
+    }
+
+    private fun identityKey(follower: TopFollower): String =
+        (
+            follower.id.trim().takeIf(String::isNotEmpty)
+                ?: follower.username.trim().trimStart('@')
+            ).lowercase(Locale.US)
+}
+
+/**
+ * Keeps RecyclerView prefetch from becoming image prefetch. Text can be bound
+ * off-screen, while avatar requests start only after the row is attached.
+ */
+object TopFollowerAvatarLoadPolicy {
+    fun shouldLoad(
+        rowAttached: Boolean,
+        boundIdentity: String?,
+        requestedIdentity: String?,
+    ): Boolean =
+        rowAttached &&
+            !boundIdentity.isNullOrBlank() &&
+            boundIdentity != requestedIdentity
+}

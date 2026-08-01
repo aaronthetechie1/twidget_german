@@ -270,7 +270,7 @@ object WidgetArtworkRenderer {
         return bitmap
     }
 
-    private fun drawWidgetBackground(
+    internal fun drawWidgetBackground(
         context: Context,
         canvas: Canvas,
         width: Int,

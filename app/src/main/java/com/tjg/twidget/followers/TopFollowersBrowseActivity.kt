@@ -1,17 +1,16 @@
 package com.tjg.twidget.followers
 
 import android.content.Intent
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
@@ -21,15 +20,16 @@ import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.ProfileImageLoader
 import dev.oneuiproject.oneui.layout.ToolbarLayout
+import dev.oneuiproject.oneui.R as OneUiIconR
 
 class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private lateinit var username: String
     private var allFollowers = emptyList<TopFollower>()
-    private var filter = TopFollowersFilter.ALL
+    private var query = ""
     private lateinit var adapter: FollowerAdapter
-    private lateinit var summaryView: TextView
     private lateinit var emptyView: TextView
     private lateinit var listView: RecyclerView
+    private lateinit var toolbarLayout: ToolbarLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,78 +40,84 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             return
         }
 
-        findViewById<ToolbarLayout>(R.id.top_followers_browse_root)
-            .setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        applyEdgeToEdgeInsets(findViewById(R.id.top_followers_browse_root))
+        toolbarLayout = findViewById(R.id.top_followers_browse_root)
+        toolbarLayout.setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        applyEdgeToEdgeInsets(toolbarLayout)
 
-        summaryView = findViewById(R.id.top_followers_browse_summary)
         emptyView = findViewById(R.id.top_followers_browse_empty)
         listView = findViewById(R.id.top_followers_browse_list)
         adapter = FollowerAdapter { openProfile(it.username) }
-        listView.layoutManager = LinearLayoutManager(this)
+        listView.layoutManager = LinearLayoutManager(this).apply {
+            initialPrefetchItemCount = 0
+        }
         listView.adapter = adapter
+        listView.background = GradientDrawable().apply {
+            cornerRadius = dp(28).toFloat()
+            setColor(getColor(R.color.oneui_card_bg))
+        }
+        listView.clipToOutline = true
 
         allFollowers = TopFollowersArchiveStore.readAll(this, username)
-        buildFilters()
         render()
     }
 
-    private fun buildFilters() {
-        val row = findViewById<LinearLayout>(R.id.top_followers_filter_row)
-        row.removeAllViews()
-        val mutualAvailable = TopFollowersFilterPolicy.mutualFilterAvailable(allFollowers)
-        FILTER_OPTIONS.forEach { option ->
-            row.addView(createFilterChip(option, enabled = option != TopFollowersFilter.MUTUAL || mutualAvailable))
-        }
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu
+            .add(Menu.NONE, View.generateViewId(), Menu.NONE, R.string.top_followers_browser_search)
+            .apply {
+                setIcon(OneUiIconR.drawable.ic_oui_search)
+                setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+                setOnMenuItemClickListener {
+                    toolbarLayout.startSearchMode(
+                        object : ToolbarLayout.SearchModeListener {
+                            override fun onSearchModeToggle(searchView: SearchView, isActive: Boolean) {
+                                if (isActive) {
+                                    searchView.queryHint = getString(R.string.top_followers_browser_search_hint)
+                                } else {
+                                    query = ""
+                                    render()
+                                }
+                            }
+
+                            override fun onQueryTextSubmit(submittedQuery: String?): Boolean {
+                                updateQuery(submittedQuery)
+                                return true
+                            }
+
+                            override fun onQueryTextChange(newText: String?): Boolean {
+                                updateQuery(newText)
+                                return true
+                            }
+                        },
+                        ToolbarLayout.SearchModeOnBackBehavior.CLEAR_DISMISS,
+                        true,
+                    )
+                    true
+                }
+            }
+        return true
     }
 
-    private fun createFilterChip(option: TopFollowersFilter, enabled: Boolean): AppCompatButton =
-        AppCompatButton(this).apply {
-            text = filterLabel(option)
-            isAllCaps = false
-            isEnabled = enabled
-            alpha = if (enabled) 1f else 0.45f
-            typeface = Typeface.create("sec", Typeface.BOLD)
-            setTextColor(getColor(if (option == filter) android.R.color.white else R.color.oneui_text_primary))
-            background = chipBackground(option == filter)
-            setOnClickListener {
-                if (!enabled && option == TopFollowersFilter.MUTUAL) {
-                    Toast.makeText(this@TopFollowersBrowseActivity, R.string.top_followers_filter_mutual_unavailable, Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                filter = option
-                buildFilters()
-                render()
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                marginEnd = dp(8)
-            }
-        }
-
-    private fun chipBackground(selected: Boolean): GradientDrawable =
-        GradientDrawable().apply {
-            cornerRadius = dp(18).toFloat()
-            setColor(getColor(if (selected) R.color.oneui_accent else R.color.oneui_card_bg))
-        }
-
     private fun render() {
-        val visible = TopFollowersFilterPolicy.apply(allFollowers, filter)
+        val visible = TopFollowersBrowserPolicy.apply(allFollowers, query)
         adapter.submitList(visible)
-        summaryView.text = getString(R.string.top_followers_browse_count, visible.size)
         val empty = visible.isEmpty()
+        emptyView.setText(
+            if (query.isBlank()) {
+                R.string.top_followers_browser_empty
+            } else {
+                R.string.top_followers_browser_no_results
+            },
+        )
         emptyView.visibility = if (empty) View.VISIBLE else View.GONE
         listView.visibility = if (empty) View.GONE else View.VISIBLE
     }
 
-    private fun filterLabel(option: TopFollowersFilter): String = when (option) {
-        TopFollowersFilter.ALL -> getString(R.string.top_followers_filter_all)
-        TopFollowersFilter.ALPHABETICAL -> getString(R.string.top_followers_filter_alpha)
-        TopFollowersFilter.RECENT -> getString(R.string.top_followers_filter_recent)
-        TopFollowersFilter.VERIFIED -> getString(R.string.top_followers_filter_verified)
-        TopFollowersFilter.MUTUAL -> getString(R.string.top_followers_filter_mutual)
+    private fun updateQuery(value: String?) {
+        val nextQuery = value.orEmpty()
+        if (query == nextQuery) return
+        query = nextQuery
+        render()
     }
 
     private fun openProfile(handle: String) {
@@ -122,7 +128,7 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
     private class FollowerAdapter(
         private val onClick: (TopFollower) -> Unit,
-    ) : ListAdapter<TopFollower, FollowerAdapter.Holder>(DIFF) {
+    ) : ListAdapter<RankedTopFollower, FollowerAdapter.Holder>(DIFF) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val view = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_top_follower_row, parent, false)
@@ -130,7 +136,22 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
         }
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
-            holder.bind(getItem(position), position + 1)
+            holder.bind(getItem(position), showDivider = position < itemCount - 1)
+        }
+
+        override fun onViewAttachedToWindow(holder: Holder) {
+            super.onViewAttachedToWindow(holder)
+            holder.loadAvatarIfVisible()
+        }
+
+        override fun onViewDetachedFromWindow(holder: Holder) {
+            holder.clearAvatar()
+            super.onViewDetachedFromWindow(holder)
+        }
+
+        override fun onViewRecycled(holder: Holder) {
+            holder.recycle()
+            super.onViewRecycled(holder)
         }
 
         class Holder(
@@ -138,27 +159,82 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             private val onClick: (TopFollower) -> Unit,
         ) : RecyclerView.ViewHolder(itemView) {
             private val rank = itemView.findViewById<TextView>(R.id.top_follower_row_rank)
-            private val avatar = itemView.findViewById<android.widget.ImageView>(R.id.top_follower_row_avatar)
+            private val avatar = itemView.findViewById<ImageView>(R.id.top_follower_row_avatar)
             private val name = itemView.findViewById<TextView>(R.id.top_follower_row_name)
             private val handle = itemView.findViewById<TextView>(R.id.top_follower_row_username)
             private val count = itemView.findViewById<TextView>(R.id.top_follower_row_count)
+            private val divider = itemView.findViewById<View>(R.id.top_follower_row_divider)
+            private var boundFollower: TopFollower? = null
+            private var requestedIdentity: String? = null
 
-            fun bind(follower: TopFollower, rankValue: Int) {
-                rank.text = rankValue.toString()
+            fun bind(ranked: RankedTopFollower, showDivider: Boolean) {
+                clearAvatar()
+                val follower = ranked.follower
+                boundFollower = follower
+                rank.text = ranked.rank.toString()
+                rank.textSize = when (ranked.rank.toString().length) {
+                    1 -> 30f
+                    2 -> 26f
+                    3 -> 22f
+                    else -> 18f
+                }
                 name.text = follower.name
                 handle.text = "@${follower.username}"
                 count.text = TwidgetStore.compactNumber(follower.followers)
-                ProfileImageLoader.loadInto(itemView.context, avatar, follower.avatarUrl)
+                divider.visibility = if (showDivider) View.VISIBLE else View.INVISIBLE
                 itemView.setOnClickListener { onClick(follower) }
+                loadAvatarIfVisible()
             }
+
+            fun loadAvatarIfVisible() {
+                val follower = boundFollower ?: return
+                val identity = follower.identity()
+                if (!TopFollowerAvatarLoadPolicy.shouldLoad(
+                        itemView.isAttachedToWindow,
+                        identity,
+                        requestedIdentity,
+                    )
+                ) return
+                requestedIdentity = identity
+                ProfileImageLoader.loadInto(itemView.context, avatar, follower.avatarUrl)
+            }
+
+            fun clearAvatar() {
+                requestedIdentity = null
+                avatar.setTag(R.id.profile_image_request, null)
+                ProfileImageLoader.applyCircleClip(avatar)
+                avatar.setPadding(0, 0, 0, 0)
+                avatar.imageTintList = null
+                avatar.setImageDrawable(null)
+                avatar.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(itemView.context.getColor(R.color.top_followers_skeleton))
+                }
+            }
+
+            fun recycle() {
+                clearAvatar()
+                boundFollower = null
+                itemView.setOnClickListener(null)
+            }
+
+            private fun TopFollower.identity(): String =
+                id.ifBlank { username }.lowercase()
         }
 
         companion object {
-            private val DIFF = object : DiffUtil.ItemCallback<TopFollower>() {
-                override fun areItemsTheSame(oldItem: TopFollower, newItem: TopFollower): Boolean =
-                    oldItem.id == newItem.id && oldItem.username == newItem.username
+            private val DIFF = object : DiffUtil.ItemCallback<RankedTopFollower>() {
+                override fun areItemsTheSame(
+                    oldItem: RankedTopFollower,
+                    newItem: RankedTopFollower,
+                ): Boolean =
+                    oldItem.follower.id == newItem.follower.id &&
+                        oldItem.follower.username == newItem.follower.username
 
-                override fun areContentsTheSame(oldItem: TopFollower, newItem: TopFollower): Boolean =
+                override fun areContentsTheSame(
+                    oldItem: RankedTopFollower,
+                    newItem: RankedTopFollower,
+                ): Boolean =
                     oldItem == newItem
             }
         }
@@ -166,13 +242,5 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
     companion object {
         const val EXTRA_USERNAME = "username"
-
-        private val FILTER_OPTIONS = listOf(
-            TopFollowersFilter.ALL,
-            TopFollowersFilter.ALPHABETICAL,
-            TopFollowersFilter.RECENT,
-            TopFollowersFilter.VERIFIED,
-            TopFollowersFilter.MUTUAL,
-        )
     }
 }

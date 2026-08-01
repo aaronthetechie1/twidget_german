@@ -24,6 +24,18 @@ val signDebugWithRelease = providers.gradleProperty("signDebugWithRelease")
     .orNull
     ?.toBooleanStrictOrNull()
     ?: false
+val bufferOAuthClientId = providers.gradleProperty("bufferOAuthClientId").orNull
+    ?: System.getenv("BUFFER_OAUTH_CLIENT_ID")
+    ?: ""
+val cloudinaryCloudName = providers.gradleProperty("cloudinaryCloudName").orNull
+    ?: System.getenv("CLOUDINARY_CLOUD_NAME")
+    ?: ""
+val cloudinaryUploadPreset = providers.gradleProperty("cloudinaryUploadPreset").orNull
+    ?: System.getenv("CLOUDINARY_UPLOAD_PRESET")
+    ?: ""
+val twitterApisDefaultApiKey = providers.gradleProperty("twitterApisDefaultApiKey").orNull
+    ?: System.getenv("TWITTERAPIS_DEFAULT_API_KEY")
+    ?: ""
 require(!signDebugWithRelease || releaseStoreFile != null) {
     "-PsignDebugWithRelease=true requires the release signing credentials"
 }
@@ -77,6 +89,11 @@ android {
         targetSdk = 35
         versionCode = versionMajor * 1_000_000 + versionMinor * 1_000 + versionPatch
         versionName = baseVersionName
+        resValue("string", "buffer_oauth_client_id", bufferOAuthClientId)
+        resValue("string", "buffer_oauth_redirect_uri", "https://thatjoshguy67.github.io/twidget/oauth/buffer/")
+        resValue("string", "cloudinary_cloud_name", cloudinaryCloudName)
+        resValue("string", "cloudinary_upload_preset", cloudinaryUploadPreset)
+        resValue("string", "twitterapis_default_api_key", twitterApisDefaultApiKey)
     }
 
     signingConfigs {

@@ -173,6 +173,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".main.MilestoneGoalActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".settings.SettingsDebugActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
@@ -209,6 +214,24 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_provider_blur" />
+            <meta-data
+                android:name="com.sec.android.appwidget.widgetinfo"
+                android:resource="@xml/widget_supported_cell_size_info" />
+            <meta-data
+                android:name="android.appwidget.provider.semConfigureActivity"
+                android:value="com.tjg.twidget.widget.WidgetConfigActivity" />
+        </receiver>
+
+        <receiver
+            android:name=".MilestoneWidget"
+            android:exported="true"
+            android:label="@string/milestone_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_provider_milestone" />
             <meta-data
                 android:name="com.sec.android.appwidget.widgetinfo"
                 android:resource="@xml/widget_supported_cell_size_info" />

@@ -86,4 +86,54 @@ class MilestonePolicyTest {
         assertTrue(MilestonePolicy.isTargetAboveFollowers(1_000L, 1_000L, followersKnown = true))
         assertTrue(MilestonePolicy.isTargetAboveFollowers(500L, 1_000L, followersKnown = false))
     }
+
+    @Test
+    fun classifiesAcceleratingAndDeceleratingMovement() {
+        assertEquals(
+            MilestonePerformanceState.ACCELERATING,
+            MilestonePolicy.performanceState(listOf(100.0, 101.0, 102.0, 106.0, 112.0)),
+        )
+        assertEquals(
+            MilestonePerformanceState.DECELERATING,
+            MilestonePolicy.performanceState(listOf(100.0, 108.0, 114.0, 116.0, 117.0)),
+        )
+    }
+
+    @Test
+    fun insufficientOrSteadyHistoryIsNeutral() {
+        assertEquals(
+            MilestonePerformanceState.NEUTRAL,
+            MilestonePolicy.performanceState(listOf(100.0, 101.0, 102.0)),
+        )
+        assertEquals(
+            MilestonePerformanceState.NEUTRAL,
+            MilestonePolicy.performanceState(listOf(100.0, 102.0, 104.0, 106.0, 108.0)),
+        )
+    }
+
+    @Test
+    fun messageChoiceIsStableForSameAccountDayAndState() {
+        val first = MilestonePolicy.deterministicMessageIndex(
+            account = "@example",
+            epochDay = 20_000,
+            state = MilestonePerformanceState.ACCELERATING,
+            progressBand = 2,
+            optionCount = 5,
+        )
+        val rebound = MilestonePolicy.deterministicMessageIndex(
+            account = "example",
+            epochDay = 20_000,
+            state = MilestonePerformanceState.ACCELERATING,
+            progressBand = 2,
+            optionCount = 5,
+        )
+        assertEquals(first, rebound)
+    }
+
+    @Test
+    fun progressHonoursUnknownAndBounds() {
+        assertEquals(null, MilestonePolicy.progress(null, 100.0))
+        assertEquals(50, MilestonePolicy.progress(50.0, 100.0))
+        assertEquals(100, MilestonePolicy.progress(150.0, 100.0))
+    }
 }

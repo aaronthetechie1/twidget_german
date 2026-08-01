@@ -362,7 +362,9 @@ object TwidgetStore {
             tapAction = prefs.getString("widget_tap_action$suffix", prefs.getString(KEY_TAP_ACTION, TAP_REFRESH)) ?: TAP_REFRESH,
             accountUsername = prefs.getString("widget_account$suffix", "") ?: "",
             colorMode = prefs.getString("widget_color_mode$suffix", COLOR_MODE_SYSTEM) ?: COLOR_MODE_SYSTEM,
-            fontFamily = prefs.getString("widget_font_family$suffix", FONT_ONE_UI_SANS) ?: FONT_ONE_UI_SANS,
+            fontFamily = normalizeWidgetFont(
+                prefs.getString("widget_font_family$suffix", FONT_ONE_UI_SANS),
+            ),
             showDelta = prefs.getBoolean("widget_show_delta$suffix", prefs.getBoolean("widget_show_delta", true)),
         )
     }
@@ -376,10 +378,13 @@ object TwidgetStore {
             .putString("widget_tap_action$suffix", settings.tapAction)
             .putString("widget_account$suffix", normalizeUsername(settings.accountUsername))
             .putString("widget_color_mode$suffix", settings.colorMode)
-            .putString("widget_font_family$suffix", settings.fontFamily)
+            .putString("widget_font_family$suffix", normalizeWidgetFont(settings.fontFamily))
             .putBoolean("widget_show_delta$suffix", settings.showDelta)
             .apply()
     }
+
+    fun normalizeWidgetFont(fontFamily: String?): String =
+        if (fontFamily == FONT_GOOGLE_SANS_FLEX) FONT_GOOGLE_SANS_FLEX else FONT_ONE_UI_SANS
 
     fun accounts(context: Context): List<String> {
         val saved = prefs(context).getString(KEY_ACCOUNTS, null)?.let { encoded ->

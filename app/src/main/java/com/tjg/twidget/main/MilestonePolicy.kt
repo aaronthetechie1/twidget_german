@@ -1,6 +1,7 @@
 package com.tjg.twidget.main
 
 import java.util.Locale
+import kotlin.math.abs
 
 data class MilestoneSettings(
     val target: Long? = null,
@@ -21,11 +22,87 @@ data class MilestoneInput(
     val valid: Boolean,
 )
 
+enum class MilestoneMetric(val storageId: String) {
+    FOLLOWERS("followers"),
+    VERIFIED_FOLLOWERS("verified_followers"),
+    ENGAGEMENT_RATE("engagement_rate"),
+    IMPRESSIONS("impressions");
+
+    companion object {
+        fun fromStorageId(id: String?): MilestoneMetric =
+            entries.firstOrNull { it.storageId == id } ?: FOLLOWERS
+    }
+}
+
+enum class MilestonePerformanceState {
+    NEUTRAL,
+    ACCELERATING,
+    DECELERATING,
+}
+
+data class MilestoneMessage(
+    val title: String,
+    val body: String,
+)
+
+data class AccountGoalSettings(
+    val configured: Boolean = false,
+    val metric: MilestoneMetric = MilestoneMetric.FOLLOWERS,
+    val target: Double = 0.0,
+    val autoAdjust: Boolean = true,
+)
+
 object MilestonePolicy {
     const val MAX_TARGET = 999_999_999L
 
     fun isTargetAboveFollowers(target: Long, followersCount: Long, followersKnown: Boolean): Boolean =
         !followersKnown || target >= followersCount
+
+    /**
+     * Compares the recent half of a metric's daily movement with the earlier
+     * half. A small tolerance prevents one-count noise from constantly changing
+     * the card colour.
+     */
+    fun performanceState(values: List<Double>): MilestonePerformanceState {
+        val finite = values.filter(Double::isFinite)
+        if (finite.size < 4) return MilestonePerformanceState.NEUTRAL
+        val movements = finite.zipWithNext { before, after -> after - before }
+        val split = movements.size / 2
+        if (split == 0 || split == movements.size) return MilestonePerformanceState.NEUTRAL
+        val earlier = movements.take(split).average()
+        val recent = movements.drop(split).average()
+        val tolerance = maxOf(0.0001, abs(earlier) * 0.15)
+        return when {
+            recent > earlier + tolerance -> MilestonePerformanceState.ACCELERATING
+            recent < earlier - tolerance -> MilestonePerformanceState.DECELERATING
+            else -> MilestonePerformanceState.NEUTRAL
+        }
+    }
+
+    fun progress(current: Double?, target: Double): Int? {
+        if (current == null || !current.isFinite() || target <= 0.0 || !target.isFinite()) return null
+        return ((current / target) * 100.0).toInt().coerceIn(0, 100)
+    }
+
+    /**
+     * Message choice is random-looking but stable for an account for the whole
+     * local day. Rebinding or scrolling therefore never makes the copy flicker.
+     */
+    fun deterministicMessageIndex(
+        account: String,
+        epochDay: Long,
+        state: MilestonePerformanceState,
+        progressBand: Int,
+        optionCount: Int,
+    ): Int {
+        if (optionCount <= 1) return 0
+        var hash = 17
+        hash = 31 * hash + account.trim().trimStart('@').lowercase(Locale.US).hashCode()
+        hash = 31 * hash + epochDay.hashCode()
+        hash = 31 * hash + state.ordinal
+        hash = 31 * hash + progressBand
+        return (hash and Int.MAX_VALUE) % optionCount
+    }
 
     fun parseInput(raw: String): MilestoneInput {
         val trimmed = raw.trim()

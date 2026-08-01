@@ -47,6 +47,8 @@ import kotlin.math.roundToLong
 // full-width cards with extra height.
 internal enum class DashboardCardSize(val span: Int, val heightDp: Int) {
     HALF(1, 140),
+    STREAK(1, 112),
+    MILESTONE(2, 112),
     FULL(2, 156),
     CHART(2, 260),
     TOP_FOLLOWERS(2, 430),
@@ -66,8 +68,8 @@ internal enum class DashboardCardType(val id: String, val labelRes: Int, val siz
     X_ENGAGEMENTS("x_engagements", R.string.x_engagements, DashboardCardSize.HALF),
     X_PROFILE_VISITS("x_profile_visits", R.string.x_profile_visits, DashboardCardSize.HALF),
     X_LIKES_RECEIVED("x_likes_received", R.string.x_likes_received, DashboardCardSize.HALF),
-    MILESTONE("milestone", R.string.milestone_progress, DashboardCardSize.FULL),
-    DAILY_STREAK("daily_streak", R.string.daily_streak, DashboardCardSize.HALF),
+    MILESTONE("milestone", R.string.milestone_account_goals, DashboardCardSize.MILESTONE),
+    DAILY_STREAK("daily_streak", R.string.daily_streak, DashboardCardSize.STREAK),
     GROWTH_PACE("growth_pace", R.string.growth_pace, DashboardCardSize.HALF),
     BEST_DAY("best_day", R.string.best_recent_day, DashboardCardSize.HALF),
     MOMENTUM("momentum", R.string.momentum, DashboardCardSize.HALF),
@@ -181,7 +183,13 @@ internal class MainDashboardBinder(
                 } else if (card.size == DashboardCardSize.CHART) {
                     createChartCard(card, account, stats, chartHistory, fullHistory)
                 } else if (card == DashboardCardType.MILESTONE) {
-                    createMilestoneCard(stats, history, account)
+                    createMilestoneCard(
+                        stats,
+                        TwidgetStore.rangedHistory(activity, account, HistoryRange.MONTH),
+                        account,
+                    )
+                } else if (card == DashboardCardType.DAILY_STREAK) {
+                    createStreakCard(stats)
                 } else {
                     createInsightCard(card, stats, history)
                 }
@@ -334,30 +342,10 @@ internal class MainDashboardBinder(
     }
 
     private fun createMilestoneCard(stats: ProfileStats, history: List<HistorySample>, account: String): View =
-        FrameLayout(activity).apply {
-            addView(
-                createInsightCard(DashboardCardType.MILESTONE, stats, history).apply {
-                    setPadding(paddingLeft, paddingTop, paddingRight, activity.dp(34))
-                },
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                ),
-            )
-            if (!editModeController.editMode) {
-                addView(
-                    MilestoneEditDialog.createEditButton(activity, account) { bindContent() },
-                    FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        Gravity.BOTTOM or Gravity.END,
-                    ).apply {
-                        marginEnd = activity.dp(10)
-                        bottomMargin = activity.dp(8)
-                    },
-                )
-            }
-        }
+        MilestoneCardBinder(activity).create(stats, history, account)
+
+    private fun createStreakCard(stats: ProfileStats): View =
+        StreakCardFactory.create(activity, ActivityClient.snapshot(activity, stats.userName))
 
     private fun createTopFollowersCard(account: String): View {
         return TopFollowersCardBinder(

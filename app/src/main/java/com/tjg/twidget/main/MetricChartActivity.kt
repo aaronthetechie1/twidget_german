@@ -64,7 +64,8 @@ class MetricChartActivity : FoldablePopOverActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        finishWithResult()
+        if (rangeChanged) setResult(RESULT_OK)
+        super.onBackPressed()
     }
 
     private fun finishWithResult() {
