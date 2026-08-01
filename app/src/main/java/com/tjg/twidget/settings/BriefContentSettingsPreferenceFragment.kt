@@ -1,5 +1,9 @@
 package com.tjg.twidget.settings
 
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
@@ -106,9 +110,11 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
 
     private fun tintedIcon(category: BriefContentCategory): Drawable? {
         val context = requireContext()
-        return AppCompatResources.getDrawable(context, BriefVisuals.categoryIcon(category))
+        val tinted = AppCompatResources.getDrawable(context, BriefVisuals.categoryIcon(category))
             ?.mutate()
             ?.also { DrawableCompat.setTint(it, context.getColor(iconColor(category))) }
+            ?: return null
+        return SizedDrawable(tinted, (24f * context.resources.displayMetrics.density).toInt())
     }
 
     private fun iconColor(category: BriefContentCategory): Int = when (category) {
@@ -131,5 +137,35 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
 
     private fun spacerCategory() = PreferenceCategory(requireContext()).apply {
         isIconSpaceReserved = false
+    }
+
+    private class SizedDrawable(
+        private val delegate: Drawable,
+        private val sizePx: Int,
+    ) : Drawable() {
+        override fun draw(canvas: Canvas) = delegate.draw(canvas)
+
+        override fun onBoundsChange(bounds: Rect) {
+            delegate.bounds = bounds
+        }
+
+        override fun setAlpha(alpha: Int) {
+            delegate.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: ColorFilter?) {
+            delegate.colorFilter = colorFilter
+        }
+
+        @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
+        override fun getIntrinsicWidth(): Int = sizePx
+
+        override fun getIntrinsicHeight(): Int = sizePx
+
+        override fun isStateful(): Boolean = delegate.isStateful
+
+        override fun onStateChange(state: IntArray): Boolean = delegate.setState(state)
     }
 }
