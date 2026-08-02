@@ -386,7 +386,8 @@ private object GeminiCloudBriefProvider {
 }
 
 private const val SYSTEM_INSTRUCTION =
-    "You write a concise social analytics brief. You may only reword and rank the supplied factual cards. " +
+    "You write a concise, personal social guide focused on the user's next useful move. " +
+        "You may only reword and rank the supplied factual cards. " +
         "Never add numbers, names, causes, predictions, or claims. Keep titles under 45 characters and bodies " +
         "under 150 characters. Be warm and direct, never shaming. Return only a JSON array."
 
@@ -517,6 +518,7 @@ internal object BriefAiCachePolicy {
     ): BriefSnapshot {
         previous ?: return refreshed
         if (!previous.username.equals(refreshed.username, ignoreCase = true)) return refreshed
+        if (previous.engineVersion != refreshed.engineVersion) return refreshed
         if (previous.providerUsed == BriefProviderUsed.TEMPLATE || !isFresh(previous, now)) {
             return refreshed
         }

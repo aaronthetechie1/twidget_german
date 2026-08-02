@@ -56,6 +56,8 @@ object BriefStore {
                     put("title", card.title)
                     put("body", card.body)
                     put("score", card.score)
+                    put("action", card.action.name)
+                    put("actionData", card.actionData)
                 })
             }
         })
@@ -103,6 +105,9 @@ object BriefStore {
                         title = card.optString("title"),
                         body = card.optString("body"),
                         score = card.optInt("score"),
+                        action = runCatching { BriefCardAction.valueOf(card.optString("action")) }
+                            .getOrDefault(BriefCardAction.NONE),
+                        actionData = card.optString("actionData"),
                     ))
                 }
             },

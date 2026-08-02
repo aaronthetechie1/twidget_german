@@ -11,6 +11,9 @@ object BriefVisuals {
         BriefContentCategory.TOP_FOLLOWERS -> OneUiIconR.drawable.ic_oui_diamond
         BriefContentCategory.TWEET_ACTIVITY -> OneUiIconR.drawable.ic_oui_send
         BriefContentCategory.SCHEDULED_TWEETS -> OneUiIconR.drawable.ic_oui_time_outline
+        BriefContentCategory.SCHEDULE_HEALTH -> OneUiIconR.drawable.ic_oui_calendar_task
+        BriefContentCategory.POST_FOLLOW_THROUGH -> OneUiIconR.drawable.ic_oui_repeat
+        BriefContentCategory.POSTING_GUIDANCE -> OneUiIconR.drawable.ic_oui_star_outline
         BriefContentCategory.ACCOUNT_GOALS -> R.drawable.ic_milestone_goals
     }
 }

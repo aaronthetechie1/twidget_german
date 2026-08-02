@@ -59,9 +59,9 @@ object MilestonePolicy {
         !followersKnown || target >= followersCount
 
     /**
-     * Compares the recent half of a metric's daily movement with the earlier
-     * half. A small tolerance prevents one-count noise from constantly changing
-     * the card colour.
+     * Describes movement towards a higher-is-better goal. Slower positive
+     * growth is still progress, so it remains neutral rather than being
+     * presented as movement away from the target.
      */
     fun performanceState(values: List<Double>): MilestonePerformanceState {
         val finite = values.filter(Double::isFinite)
@@ -73,8 +73,8 @@ object MilestonePolicy {
         val recent = movements.drop(split).average()
         val tolerance = maxOf(0.0001, abs(earlier) * 0.15)
         return when {
-            recent > earlier + tolerance -> MilestonePerformanceState.ACCELERATING
-            recent < earlier - tolerance -> MilestonePerformanceState.DECELERATING
+            recent < -tolerance -> MilestonePerformanceState.DECELERATING
+            recent > 0.0 && recent > earlier + tolerance -> MilestonePerformanceState.ACCELERATING
             else -> MilestonePerformanceState.NEUTRAL
         }
     }

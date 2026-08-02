@@ -45,6 +45,7 @@ import com.tjg.twidget.schedule.BufferScheduleSync
 import com.tjg.twidget.schedule.LocalUriMedia
 import com.tjg.twidget.schedule.PublicUrlMedia
 import com.tjg.twidget.schedule.ScheduleComposeActivity
+import com.tjg.twidget.schedule.ScheduleActivity
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStore
 import com.tjg.twidget.settings.BriefSettingsActivity
@@ -335,7 +336,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun render(snapshot: BriefSnapshot) {
         renderedSnapshot = snapshot
-        val summary = BriefEditorialSummary.from(snapshot.cards)
+        val summary = BriefEditorialSummary.from(snapshot)
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
         findViewById<TextView>(R.id.brief_summary_body).text = summary.body
         val columns = configureResponsiveLayout()
@@ -498,6 +499,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val hasFetchedPost = when (card.type) {
             BriefCardType.POST -> analytics?.best != null
             BriefCardType.WORST_POST -> analytics?.worst != null
+            BriefCardType.POST_FOLLOW_THROUGH -> analytics?.recentPosts?.any { it.url == card.actionData } == true
             else -> false
         }
         if (hasFetchedPost) {
@@ -519,6 +521,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             BriefCardType.POST -> analytics?.best?.let { postCard(it) }
                 ?: genericCard(card)
             BriefCardType.WORST_POST -> analytics?.worst?.let { postCard(it) }
+                ?: genericCard(card)
+            BriefCardType.POST_FOLLOW_THROUGH -> analytics?.recentPosts
+                ?.firstOrNull { it.url == card.actionData }
+                ?.let { postCard(it) }
                 ?: genericCard(card)
             BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
             BriefCardType.INACTIVITY -> genericCard(card, warm = true)
@@ -559,6 +565,52 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             getColor(R.color.oneui_card_bg),
         ) else AppCompatResources.getDrawable(context, R.drawable.brief_card_background)
         addView(primaryText(card.body, 14f))
+        actionLabel(card)?.let { label ->
+            addView(primaryText("$label  ›", 13f, bold = true).apply {
+                setTextColor(getColor(R.color.oneui_accent))
+            }, matchWrap(top = 12))
+        }
+        if (card.action != BriefCardAction.NONE) {
+            isClickable = true
+            isFocusable = true
+            foreground = selectableItemBackground()
+            setOnClickListener { performCardAction(card) }
+        }
+    }
+
+    private fun actionLabel(card: BriefCard): String? = when (card.action) {
+        BriefCardAction.NONE -> null
+        BriefCardAction.OPEN_SCHEDULER -> "Review schedule"
+        BriefCardAction.COMPOSE_TWEET -> "Plan a tweet"
+        BriefCardAction.OPEN_POST -> "Open tweet"
+    }
+
+    private fun performCardAction(card: BriefCard) {
+        when (card.action) {
+            BriefCardAction.NONE -> Unit
+            BriefCardAction.OPEN_SCHEDULER -> {
+                reloadOnResume = true
+                startRightSidePopOverActivity(
+                    Intent(this, ScheduleActivity::class.java)
+                        .putExtra(ScheduleActivity.EXTRA_USERNAME, username),
+                )
+            }
+            BriefCardAction.COMPOSE_TWEET -> {
+                reloadOnResume = true
+                startRightSidePopOverActivity(
+                    Intent(this, ScheduleComposeActivity::class.java)
+                        .putExtra(ScheduleComposeActivity.EXTRA_USERNAME, username),
+                )
+            }
+            BriefCardAction.OPEN_POST -> card.actionData
+                .takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                ?.let { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+        }
+    }
+
+    private fun selectableItemBackground() = android.util.TypedValue().let { value ->
+        theme.resolveAttribute(android.R.attr.selectableItemBackground, value, true)
+        AppCompatResources.getDrawable(this, value.resourceId)
     }
 
     private fun milestoneCard(card: BriefCard): View {

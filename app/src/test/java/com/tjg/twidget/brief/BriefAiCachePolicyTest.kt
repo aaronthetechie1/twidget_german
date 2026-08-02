@@ -78,10 +78,29 @@ class BriefAiCachePolicyTest {
         assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, now))
     }
 
+    @Test
+    fun `engine changes discard cached wording`() {
+        val cached = snapshot(
+            generatedAt = now - 60_000L,
+            provider = BriefProviderUsed.LOCAL,
+            cards = listOf(card("goal", "Slipping off", "Keep working for your 8,000 follower goal.", 90)),
+            engineVersion = 7,
+        )
+        val refreshed = snapshot(
+            generatedAt = now,
+            provider = BriefProviderUsed.TEMPLATE,
+            cards = listOf(card("goal", "Almost there", "Your 8,000 follower goal is within reach.", 90)),
+            engineVersion = 8,
+        )
+
+        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, now))
+    }
+
     private fun snapshot(
         generatedAt: Long,
         provider: BriefProviderUsed,
         cards: List<BriefCard>,
+        engineVersion: Int = 0,
     ) = BriefSnapshot(
         username = "tester",
         generatedAt = generatedAt,
@@ -98,6 +117,7 @@ class BriefAiCachePolicyTest {
         providerUsed = provider,
         providerMessage = if (provider == BriefProviderUsed.LOCAL) "Gemini Nano" else "Template",
         aiGeneratedAt = if (provider == BriefProviderUsed.TEMPLATE) 0L else generatedAt,
+        engineVersion = engineVersion,
     )
 
     private fun card(id: String, title: String, body: String, score: Int) = BriefCard(

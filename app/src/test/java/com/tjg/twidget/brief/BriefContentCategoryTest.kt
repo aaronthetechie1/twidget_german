@@ -16,6 +16,9 @@ class BriefContentCategoryTest {
         assertEquals(BriefContentCategory.TOP_TWEET, BriefContentCategory.forCard(BriefCardType.POST))
         assertEquals(BriefContentCategory.WORST_TWEET, BriefContentCategory.forCard(BriefCardType.WORST_POST))
         assertEquals(BriefContentCategory.TOP_FOLLOWERS, BriefContentCategory.forCard(BriefCardType.TOP_FOLLOWER))
+        assertEquals(BriefContentCategory.SCHEDULE_HEALTH, BriefContentCategory.forCard(BriefCardType.SCHEDULE_GUIDE))
+        assertEquals(BriefContentCategory.POST_FOLLOW_THROUGH, BriefContentCategory.forCard(BriefCardType.POST_FOLLOW_THROUGH))
+        assertEquals(BriefContentCategory.POSTING_GUIDANCE, BriefContentCategory.forCard(BriefCardType.POSTING_GUIDE))
     }
 
     @Test

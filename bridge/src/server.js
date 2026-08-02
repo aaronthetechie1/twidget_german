@@ -592,6 +592,12 @@ async function computeAnalytics(username) {
     // Require two posts with a full day of exposure before naming a quietest one.
     best: posts.length ? best : null,
     worst: maturePosts.length >= 2 ? worst : null,
+    // Lets clients derive conservative, account-specific guidance without
+    // exposing replies or reposts (already excluded by fetchFxWeeklyPosts).
+    recentPosts: posts.slice(0, 50).map((post) => ({
+      ...post,
+      text: post.text.slice(0, 180),
+    })),
     // Original-post timestamps let clients build streaks without counting replies.
     activityTimestamps: posts.map((post) => post.ts),
     activityComplete: activity.complete,

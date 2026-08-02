@@ -64,6 +64,8 @@ data class PostAnalytics(
     val medianLikes: Double = 0.0,
     val medianReplies: Double = 0.0,
     val medianShares: Double = 0.0,
+    /** Recent original posts retained locally for evidence-based Brief guidance. */
+    val recentPosts: List<PostSummary> = emptyList(),
 )
 
 enum class TweetPerformanceDirection { STRONG, QUIET }

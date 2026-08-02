@@ -1,11 +1,40 @@
 package com.tjg.twidget.brief
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class BriefEditorialSummaryTest {
     @Test
-    fun summaryUsesRankedLeadAndCombinesTopFactsWithoutConsumingCards() {
+    fun personalGuideShapesTheOverviewWithoutDuplicatingItsCardCopy() {
+        val guide = BriefCard(
+            "schedule-gap",
+            BriefCardType.SCHEDULE_GUIDE,
+            "Plan your next tweet",
+            "Nothing is scheduled for the next three days.",
+            82,
+        )
+
+        val summary = BriefEditorialSummary.from(
+            cards = listOf(
+                BriefCard("growth", BriefCardType.GROWTH, "Growing", "Followers increased by 20.", 95),
+                guide,
+            ),
+            followersToday = 20,
+            followersWeek = 40,
+        )
+
+        assertEquals("Momentum is building", summary.title)
+        assertEquals(
+            "You gained 20 followers today and 40 this week. " +
+                "Your schedule has a useful next step waiting.",
+            summary.body,
+        )
+        assertFalse(summary.body.contains(guide.body))
+    }
+
+    @Test
+    fun summarySynthesizesSignalsWithoutRepeatingCardCopy() {
         val cards = listOf(
             BriefCard("post", BriefCardType.POST, "Getting attention", "Your post got 100K impressions.", 98),
             BriefCard("growth", BriefCardType.GROWTH, "Growing", "Followers increased by 20.", 90),
@@ -13,14 +42,20 @@ class BriefEditorialSummaryTest {
             BriefCard("streak", BriefCardType.STREAK, "On a roll", "Your streak is safe.", 70),
         )
 
-        val summary = BriefEditorialSummary.from(cards)
+        val summary = BriefEditorialSummary.from(
+            cards = cards,
+            followersToday = 12,
+            followersWeek = 22,
+        )
 
-        assertEquals("Getting attention", summary.title)
+        assertEquals("Momentum is building", summary.title)
         assertEquals(
-            "Your post got 100K impressions. Followers increased by 20. " +
-                "@JohnCena is now your second most popular follower.",
+            "You gained 12 followers today and 22 this week. " +
+                "One recent tweet stood out from your usual performance. " +
+                "There is a meaningful change in your top followers. Your posting rhythm is active.",
             summary.body,
         )
+        assertFalse(summary.body.contains("100K impressions"))
         assertEquals(4, cards.size)
     }
 
@@ -33,5 +68,37 @@ class BriefEditorialSummaryTest {
             "Twidget is watching for your next meaningful account update.",
             summary.body,
         )
+    }
+
+    @Test
+    fun positiveFollowerMovementMakesGoalOverviewForwardLooking() {
+        val cards = listOf(
+            BriefCard(
+                "goal",
+                BriefCardType.MILESTONE,
+                "Almost there",
+                "Your 8,000 follower goal is within reach.",
+                95,
+            ),
+            BriefCard(
+                "post",
+                BriefCardType.POST,
+                "Why this tweet worked",
+                "This tweet got 37K views and 330 likes.",
+                90,
+            ),
+        )
+
+        val summary = BriefEditorialSummary.from(cards, followersToday = 12, followersWeek = 22)
+
+        assertEquals("Moving closer", summary.title)
+        assertEquals(
+            "You gained 12 followers today and 22 this week. " +
+                "That progress brings your goal closer. " +
+                "One recent tweet stood out from your usual performance.",
+            summary.body,
+        )
+        assertFalse(summary.body.contains("37K views"))
+        assertFalse(summary.body.contains("8,000 follower goal"))
     }
 }

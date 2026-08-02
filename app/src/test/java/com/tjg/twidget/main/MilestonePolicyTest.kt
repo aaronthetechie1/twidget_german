@@ -88,14 +88,22 @@ class MilestonePolicyTest {
     }
 
     @Test
-    fun classifiesAcceleratingAndDeceleratingMovement() {
+    fun classifiesAccelerationButDoesNotTreatSlowerGrowthAsMovingAway() {
         assertEquals(
             MilestonePerformanceState.ACCELERATING,
             MilestonePolicy.performanceState(listOf(100.0, 101.0, 102.0, 106.0, 112.0)),
         )
         assertEquals(
-            MilestonePerformanceState.DECELERATING,
+            MilestonePerformanceState.NEUTRAL,
             MilestonePolicy.performanceState(listOf(100.0, 108.0, 114.0, 116.0, 117.0)),
+        )
+    }
+
+    @Test
+    fun classifiesRecentLossAsDecelerating() {
+        assertEquals(
+            MilestonePerformanceState.DECELERATING,
+            MilestonePolicy.performanceState(listOf(100.0, 104.0, 107.0, 105.0, 103.0)),
         )
     }
 

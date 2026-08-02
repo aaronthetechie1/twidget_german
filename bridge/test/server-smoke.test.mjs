@@ -181,6 +181,7 @@ test("bridge security and health defaults", async (t) => {
   assert.match(analytics.headers.get("ratelimit-limit") ?? "", /^\d+$/);
   const analyticsBody = await analytics.json();
   assert.ok(Array.isArray(analyticsBody.activityTimestamps));
+  assert.ok(Array.isArray(analyticsBody.recentPosts));
   assert.equal(analyticsBody.activityComplete, true);
 
   const unauthorized = await fetch(`${base}/official/user/example`);

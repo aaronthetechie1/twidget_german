@@ -41,6 +41,9 @@ internal object BriefWidgetArtworkRenderer {
         BriefCardType.POST, BriefCardType.WORST_POST -> OneUiIconR.drawable.ic_oui_equalizer_2
         BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community
         BriefCardType.STREAK -> R.drawable.ic_streak_fire
+        BriefCardType.SCHEDULE_GUIDE -> OneUiIconR.drawable.ic_oui_calendar_task
+        BriefCardType.POST_FOLLOW_THROUGH -> OneUiIconR.drawable.ic_oui_repeat
+        BriefCardType.POSTING_GUIDE -> OneUiIconR.drawable.ic_oui_star_outline
     }
 
     fun render(
@@ -246,6 +249,9 @@ internal object BriefWidgetArtworkRenderer {
         BriefCardType.WORST_POST -> Color.rgb(255, 177, 66) to Color.rgb(139, 92, 246)
         BriefCardType.TOP_FOLLOWER -> Color.rgb(69, 188, 255) to Color.rgb(75, 207, 122)
         BriefCardType.STREAK -> Color.rgb(255, 155, 60) to Color.rgb(238, 73, 92)
+        BriefCardType.SCHEDULE_GUIDE -> Color.rgb(46, 204, 113) to Color.rgb(56, 122, 255)
+        BriefCardType.POST_FOLLOW_THROUGH -> Color.rgb(56, 122, 255) to Color.rgb(44, 201, 188)
+        BriefCardType.POSTING_GUIDE -> Color.rgb(139, 92, 246) to Color.rgb(56, 122, 255)
         BriefCardType.SUMMARY -> Color.rgb(77, 162, 255) to Color.rgb(139, 92, 246)
     }
 

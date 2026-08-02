@@ -157,7 +157,14 @@ internal object NetworkResponseParsers {
             medianLikes = benchmarks.optDouble("medianLikes", 0.0),
             medianReplies = benchmarks.optDouble("medianReplies", 0.0),
             medianShares = benchmarks.optDouble("medianShares", 0.0),
+            recentPosts = parseBridgePosts(json.optJSONArray("recentPosts")),
         )
+    }
+
+    private fun parseBridgePosts(array: JSONArray?): List<PostSummary> {
+        array ?: return emptyList()
+        return List(array.length()) { index -> parseBridgePost(array.optJSONObject(index)) }
+            .filterNotNull()
     }
 
     private fun parseBridgeHistory(root: JSONObject, user: JSONObject): List<HistorySample> {

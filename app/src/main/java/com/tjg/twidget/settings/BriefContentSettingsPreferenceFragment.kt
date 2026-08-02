@@ -35,6 +35,16 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
 
         screen.addPreference(categorySwitch(BriefContentCategory.TOP_TWEET, R.string.brief_content_top_tweet))
         screen.addPreference(categorySwitch(BriefContentCategory.WORST_TWEET, R.string.brief_content_worst_tweet))
+        screen.addPreference(explainedCategorySwitch(
+            BriefContentCategory.POST_FOLLOW_THROUGH,
+            R.string.brief_content_post_follow_through,
+            R.string.brief_post_follow_through_explainer,
+        ))
+        screen.addPreference(explainedCategorySwitch(
+            BriefContentCategory.POSTING_GUIDANCE,
+            R.string.brief_content_posting_guidance,
+            R.string.brief_posting_guidance_explainer,
+        ))
 
         screen.addPreference(spacerCategory())
         screen.addPreference(categorySwitch(BriefContentCategory.FOLLOWERS, R.string.brief_content_followers))
@@ -54,6 +64,11 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(categorySwitch(
             BriefContentCategory.SCHEDULED_TWEETS,
             R.string.brief_content_scheduled_tweets,
+        ))
+        screen.addPreference(explainedCategorySwitch(
+            BriefContentCategory.SCHEDULE_HEALTH,
+            R.string.brief_content_schedule_health,
+            R.string.brief_schedule_health_explainer,
         ))
 
         screen.addPreference(spacerCategory())
@@ -92,6 +107,18 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         }
     }
 
+    private fun explainedCategorySwitch(
+        category: BriefContentCategory,
+        titleRes: Int,
+        messageRes: Int,
+    ) = navigableCategorySwitch(category, titleRes) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(titleRes)
+            .setMessage(messageRes)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
     private fun configureCategory(
         preference: SwitchPreferenceCompat,
         category: BriefContentCategory,
@@ -123,9 +150,14 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
     private fun iconColor(category: BriefContentCategory): Int = when (category) {
         BriefContentCategory.TOP_TWEET -> R.color.brief_icon_top_tweet
         BriefContentCategory.WORST_TWEET -> R.color.metric_red
-        BriefContentCategory.TOP_FOLLOWERS, BriefContentCategory.TWEET_ACTIVITY -> R.color.oneui_accent
+        BriefContentCategory.TOP_FOLLOWERS,
+        BriefContentCategory.TWEET_ACTIVITY,
+        BriefContentCategory.POSTING_GUIDANCE -> R.color.oneui_accent
         BriefContentCategory.ACCOUNT_GOALS -> R.color.metric_green
-        BriefContentCategory.FOLLOWERS, BriefContentCategory.SCHEDULED_TWEETS -> R.color.oneui_text_primary
+        BriefContentCategory.POST_FOLLOW_THROUGH -> R.color.brief_icon_top_tweet
+        BriefContentCategory.SCHEDULE_HEALTH -> R.color.metric_green
+        BriefContentCategory.FOLLOWERS,
+        BriefContentCategory.SCHEDULED_TWEETS -> R.color.oneui_text_primary
     }
 
     private fun refreshBrief() {

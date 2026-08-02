@@ -34,7 +34,7 @@ import kotlin.math.abs
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 6
+    private const val ENGINE_VERSION = 8
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -132,6 +132,7 @@ object BriefEngine {
         }.toMap()
         val activity = DailyStreakStore.snapshot(context, username)
         val content = BriefSettingsStore.enabledContent(context)
+        val schedules = ScheduleStore(context).listForAccount(username)
         val candidates = mutableListOf<BriefCard>()
 
         if (BriefContentCategory.FOLLOWERS in content) {
@@ -152,6 +153,15 @@ object BriefEngine {
         }
         if (BriefContentCategory.TOP_FOLLOWERS in content) {
             topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
+        }
+        if (BriefContentCategory.SCHEDULE_HEALTH in content) {
+            BriefGuidePolicy.scheduleCard(schedules)?.let(candidates::add)
+        }
+        if (BriefContentCategory.POST_FOLLOW_THROUGH in content) {
+            BriefGuidePolicy.followThroughCard(schedules, analytics)?.let(candidates::add)
+        }
+        if (BriefContentCategory.POSTING_GUIDANCE in content) {
+            BriefGuidePolicy.postingCard(analytics)?.let(candidates::add)
         }
 
         if (candidates.isEmpty() && BriefContentCategory.FOLLOWERS in content) {
@@ -412,7 +422,11 @@ object BriefEngine {
         val streak = DailyStreakStore.snapshot(context, username)
         val now = System.currentTimeMillis()
         val schedule = ScheduleStore(context).listForAccount(username)
-            .filter { BriefSchedulePolicy.isRelevant(it, now) }
+            .filter {
+                BriefSchedulePolicy.isRelevant(it, now) ||
+                    it.status == ScheduleStatus.DRAFT ||
+                    it.status == ScheduleStatus.PUBLISHED
+            }
             .joinToString(";") { "${it.id}:${it.status}:${it.scheduledAt}:${it.updatedAt}" }
         return listOf(
             goal.configured,
