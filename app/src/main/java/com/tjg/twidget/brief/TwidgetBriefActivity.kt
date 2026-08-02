@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewOutlineProvider
+import android.view.ViewTreeObserver
 import android.view.animation.PathInterpolator
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -97,33 +98,71 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
+        showLaunchShell()
         if (intent.getBooleanExtra(EXTRA_FROM_ONBOARDING, false)) {
             prepareOnboardingBackgroundTransition()
         }
+        afterFirstFrame(::loadInitialBrief)
+    }
+
+    private fun loadInitialBrief() {
         if (intent.getBooleanExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, false)) {
             awaitLaunchGeneration()
             return
         }
         val forceRefresh = intent.getBooleanExtra(EXTRA_FORCE_REFRESH, false)
-        val cached = if (!forceRefresh && debugScenario == BriefDebugScenario.REAL) {
-            BriefStore.read(this, username)
-        } else {
-            null
+        lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                if (!forceRefresh && debugScenario == BriefDebugScenario.REAL) {
+                    BriefStore.read(this@TwidgetBriefActivity, username)?.let { snapshot ->
+                        snapshot to AnalyticsClient.cached(this@TwidgetBriefActivity, username)
+                    }
+                } else {
+                    null
+                }
+            }
+            if (cached != null) {
+                render(cached.first, cached.second)
+                prepareBriefEntrance()
+                setLoading(false)
+                startPreparedBriefEntrance()
+                loadBrief(showSpinner = false, animateOnComplete = false)
+            } else {
+                loadBrief(
+                    forceEngine = forceRefresh,
+                    forceAi = forceRefresh,
+                    showSpinner = true,
+                    animateOnComplete = true,
+                )
+            }
         }
-        if (cached != null) {
-            render(cached)
-            prepareBriefEntrance()
-            setLoading(false)
-            startPreparedBriefEntrance()
-            loadBrief(showSpinner = false, animateOnComplete = false)
-        } else {
-            loadBrief(
-                forceEngine = forceRefresh,
-                forceAi = forceRefresh,
-                showSpinner = true,
-                animateOnComplete = true,
-            )
+    }
+
+    private fun showLaunchShell() {
+        findViewById<View>(R.id.brief_scroll).visibility = View.GONE
+        findViewById<LottieAnimationView>(R.id.brief_loading).apply {
+            visibility = View.GONE
+            cancelAnimation()
         }
+        findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = false
+        findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = false
+    }
+
+    private fun afterFirstFrame(block: () -> Unit) {
+        val root = findViewById<View>(R.id.brief_root)
+        val observer = root.viewTreeObserver
+        var scheduled = false
+        lateinit var listener: ViewTreeObserver.OnDrawListener
+        listener = ViewTreeObserver.OnDrawListener {
+            if (!scheduled) {
+                scheduled = true
+                root.post {
+                    if (observer.isAlive) observer.removeOnDrawListener(listener)
+                    if (!isFinishing && !isDestroyed) block()
+                }
+            }
+        }
+        observer.addOnDrawListener(listener)
     }
 
     private fun awaitLaunchGeneration() {
@@ -427,7 +466,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun render(snapshot: BriefSnapshot) {
+    private fun render(
+        snapshot: BriefSnapshot,
+        analytics: PostAnalytics? = AnalyticsClient.cached(this, username),
+    ) {
         renderedSnapshot = snapshot
         val summary = BriefEditorialSummary.from(snapshot)
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
@@ -435,7 +477,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val columns = configureResponsiveLayout()
         val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
-        val analytics = AnalyticsClient.cached(this, username)
         val sections = buildList {
             if (snapshot.upcomingTweets.isNotEmpty()) {
                 add(upcomingSection(snapshot.upcomingTweets) to 24)

@@ -114,7 +114,8 @@
         android:layout_height="50dp"
         android:layout_gravity="center"
         android:contentDescription="@string/brief_widget_empty_title"
-        app:lottie_autoPlay="true"
+        android:visibility="gone"
+        app:lottie_autoPlay="false"
         app:lottie_loop="true"
         app:lottie_rawRes="@raw/intelligence_progress_mono" />
 
