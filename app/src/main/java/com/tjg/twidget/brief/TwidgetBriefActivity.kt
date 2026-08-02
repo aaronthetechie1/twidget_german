@@ -1,5 +1,6 @@
 package com.tjg.twidget.brief
 
+import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -28,6 +29,7 @@ import com.airbnb.lottie.LottieAnimationView
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
+import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.AccountAverageSeries
 import com.tjg.twidget.data.DailyStreakStore
@@ -75,6 +77,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var reloadOnResume = false
     private var entranceSections: List<View> = emptyList()
     private var titleColorAnimator: ValueAnimator? = null
+    private var backgroundAnimator: ValueAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,6 +97,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
+        if (intent.getBooleanExtra(EXTRA_FROM_ONBOARDING, false)) {
+            prepareOnboardingBackgroundTransition()
+        }
         if (intent.getBooleanExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, false)) {
             awaitLaunchGeneration()
             return
@@ -105,11 +111,18 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             null
         }
         if (cached != null) {
-            render(cached)
-            prepareBriefEntrance()
             setLoading(false)
-            startPreparedBriefEntrance()
-            loadBrief(showSpinner = false, animateOnComplete = false)
+            // Let the destination window draw its background and chrome before
+            // constructing the card tree. Cached media decoding and repeated
+            // analytics parsing used to delay the first Activity frame.
+            findViewById<View>(R.id.brief_scroll).postOnAnimation {
+                findViewById<View>(R.id.brief_scroll).postOnAnimation renderCached@{
+                    if (isFinishing || isDestroyed) return@renderCached
+                    render(cached)
+                    startCachedBriefEntrance()
+                    loadBrief(showSpinner = false, animateOnComplete = false)
+                }
+            }
         } else {
             loadBrief(
                 forceEngine = forceRefresh,
@@ -208,6 +221,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     override fun onDestroy() {
         titleColorAnimator?.cancel()
         titleColorAnimator = null
+        backgroundAnimator?.cancel()
+        backgroundAnimator = null
         super.onDestroy()
     }
 
@@ -427,11 +442,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val columns = configureResponsiveLayout()
         val container = findViewById<LinearLayout>(R.id.brief_cards)
         container.removeAllViews()
+        val analytics = AnalyticsClient.cached(this, username)
         val sections = buildList {
             if (snapshot.upcomingTweets.isNotEmpty()) {
                 add(upcomingSection(snapshot.upcomingTweets) to 24)
             }
-            snapshot.cards.forEach { card -> add(cardSection(card) to 20) }
+            snapshot.cards.forEach { card -> add(cardSection(card, analytics) to 20) }
         }
         entranceSections = sections.map { it.first }
         if (columns == 1) {
@@ -692,9 +708,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         return columns
     }
 
-    private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
+    private fun cardSection(
+        card: BriefCard,
+        analytics: PostAnalytics?,
+    ): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        val analytics = AnalyticsClient.cached(context, username)
         val followThroughPost = if (card.type == BriefCardType.POST_FOLLOW_THROUGH) {
             analytics?.recentPosts?.firstOrNull { it.url == card.actionData }
                 ?: analytics?.best?.takeIf { debugScenario == BriefDebugScenario.POST_FOLLOW_THROUGH }
@@ -1012,6 +1030,49 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         prepareEntranceView(findViewById(R.id.brief_footer), COPY_LIFT_DP)
     }
 
+    private fun startCachedBriefEntrance() {
+        val content = findViewById<View>(R.id.brief_content)
+        content.animate().cancel()
+        content.alpha = 0f
+        content.translationY = dp(CACHED_CONTENT_LIFT_DP).toFloat()
+        content.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setStartDelay(0L)
+            .setDuration(CACHED_ENTRANCE_DURATION_MS)
+            .setInterpolator(PathInterpolator(0.2f, 0f, 0f, 1f))
+            .start()
+    }
+
+    private fun prepareOnboardingBackgroundTransition() {
+        val root = findViewById<View>(R.id.brief_root)
+        val startTop = getColor(R.color.brief_onboarding_top)
+        val startBottom = getColor(R.color.brief_onboarding_bottom)
+        val endTop = getColor(R.color.brief_screen_top)
+        val endBottom = getColor(R.color.brief_screen_bottom)
+        val background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(startTop, startBottom),
+        )
+        root.background = background
+        root.postOnAnimation {
+            if (isFinishing || isDestroyed) return@postOnAnimation
+            val evaluator = ArgbEvaluator()
+            backgroundAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = BACKGROUND_TRANSITION_DURATION_MS
+                interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
+                addUpdateListener { animator ->
+                    val fraction = animator.animatedFraction
+                    background.colors = intArrayOf(
+                        evaluator.evaluate(fraction, startTop, endTop) as Int,
+                        evaluator.evaluate(fraction, startBottom, endBottom) as Int,
+                    )
+                }
+                start()
+            }
+        }
+    }
+
     private fun startPreparedBriefEntrance() {
         findViewById<View>(R.id.brief_scroll).post {
             if (isFinishing || isDestroyed) return@post
@@ -1120,10 +1181,14 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         private const val COPY_DURATION_MS = 400L
         private const val CARD_DURATION_MS = 440L
         private const val MAX_STAGGERED_CARD_INDEX = 7
+        private const val CACHED_CONTENT_LIFT_DP = 6
+        private const val CACHED_ENTRANCE_DURATION_MS = 180L
+        private const val BACKGROUND_TRANSITION_DURATION_MS = 560L
         const val EXTRA_USERNAME = "username"
         private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"
         private const val EXTRA_FORCE_REFRESH = "brief_force_refresh"
         private const val EXTRA_WAIT_FOR_LAUNCH_GENERATION = "brief_wait_for_launch_generation"
+        private const val EXTRA_FROM_ONBOARDING = "brief_from_onboarding"
 
         fun intent(context: Context, username: String): Intent =
             if (BriefSettingsStore.onboardingComplete(context)) {
@@ -1136,9 +1201,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             context: Context,
             username: String,
             waitForLaunchGeneration: Boolean = false,
+            fromOnboarding: Boolean = false,
         ) = Intent(context, TwidgetBriefActivity::class.java)
             .putExtra(EXTRA_USERNAME, username)
             .putExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, waitForLaunchGeneration)
+            .putExtra(EXTRA_FROM_ONBOARDING, fromOnboarding)
 
         fun debugIntent(context: Context, username: String, scenario: BriefDebugScenario) =
             contentIntent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)

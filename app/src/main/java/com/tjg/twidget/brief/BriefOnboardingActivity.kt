@@ -56,6 +56,7 @@ class BriefOnboardingActivity : FoldablePopOverActivity() {
                     this,
                     username,
                     waitForLaunchGeneration = waitForGeneration,
+                    fromOnboarding = true,
                 ),
             )
             finish()
