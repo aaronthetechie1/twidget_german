@@ -26,7 +26,7 @@ class BriefAiCardResponseTest {
     )
 
     @Test
-    fun compactNanoResponseReordersCardsAndPreservesUnreturnedCards() {
+    fun compactNanoResponseRewritesCardsWithoutOverridingEngineOrder() {
         val result = BriefAiCardResponse.apply(
             source,
             """[{"i":"streak","t":"3-day streak","b":"Your streak is 3 days."},{"i":"growth","t":"Growing","b":"You gained 10 followers."}]""",
@@ -35,7 +35,8 @@ class BriefAiCardResponseTest {
 
         assertNotNull(result.snapshot)
         assertEquals(2, result.appliedCards)
-        assertEquals(listOf("streak", "growth", "steady"), result.snapshot?.cards?.map(BriefCard::id))
+        assertEquals(listOf("growth", "streak", "steady"), result.snapshot?.cards?.map(BriefCard::id))
+        assertEquals("Growing", result.snapshot?.cards?.first()?.title)
         assertEquals(BriefProviderUsed.LOCAL, result.snapshot?.providerUsed)
     }
 

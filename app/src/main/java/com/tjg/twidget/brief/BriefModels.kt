@@ -38,6 +38,19 @@ enum class BriefCardAction {
     OPEN_POST,
 }
 
+/**
+ * Signals used to decide when a card is useful, independently of its base importance.
+ * All values are deliberately data driven so the language model never has to invent rank.
+ */
+data class BriefRankSignals(
+    val contextRelevance: Double = 0.5,
+    val timeRelevance: Double = 0.5,
+    val occurredAt: Long = 0L,
+    val freshForMillis: Long = 0L,
+    val validUntil: Long = 0L,
+    val maintainUntil: Long = 0L,
+)
+
 enum class BriefContentCategory(val storageId: String) {
     TOP_TWEET("top_tweet"),
     WORST_TWEET("worst_tweet"),
@@ -81,6 +94,8 @@ data class BriefCard(
     val score: Int,
     val action: BriefCardAction = BriefCardAction.NONE,
     val actionData: String = "",
+    val rankSignals: BriefRankSignals = BriefRankSignals(),
+    val rankingScore: Int = -1,
 )
 
 data class BriefUpcomingTweet(

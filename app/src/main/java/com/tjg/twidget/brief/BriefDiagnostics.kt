@@ -53,7 +53,8 @@ data class BriefEngineReport(
         appendLine("RANKED CANDIDATES")
         rankedCandidates.forEachIndexed { index, card ->
             val selection = if (card.id in selectedIds) "SELECTED" else "OMITTED"
-            appendLine("${index + 1}. score=${card.score} type=${card.type} $selection id=${card.id}")
+            val rank = card.rankingScore.takeIf { it >= 0 } ?: card.score
+            appendLine("${index + 1}. rank=$rank base=${card.score} type=${card.type} $selection id=${card.id}")
             appendLine("   ${card.title}")
             appendLine("   ${card.body}")
         }

@@ -188,10 +188,11 @@ class BriefDebugFragment : InsetPreferenceFragment() {
             screen.addPreference(Preference(context).apply {
                 key = "brief_debug_candidate_${card.id}"
                 val selected = card.id in report.selectedIds
-                title = "${index + 1}. ${card.score} · ${card.type} · ${if (selected) "selected" else "omitted"}"
+                val rank = card.rankingScore.takeIf { it >= 0 } ?: card.score
+                title = "${index + 1}. $rank · ${card.type} · ${if (selected) "selected" else "omitted"}"
                 summary = "${card.title}\n${card.body}"
                 setOnPreferenceClickListener {
-                    showText(card.title, "score=${card.score}\ntype=${card.type}\nid=${card.id}\nselected=$selected\n\n${card.body}")
+                    showText(card.title, "rank=$rank\nbase=${card.score}\ntype=${card.type}\nid=${card.id}\nselected=$selected\n\n${card.body}")
                     true
                 }
             })

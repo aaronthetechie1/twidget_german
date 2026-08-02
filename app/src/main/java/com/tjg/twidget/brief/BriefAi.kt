@@ -387,7 +387,7 @@ private object GeminiCloudBriefProvider {
 
 private const val SYSTEM_INSTRUCTION =
     "You write a concise, personal social guide focused on the user's next useful move. " +
-        "You may only reword and rank the supplied factual cards. " +
+        "You may only reword the supplied factual cards and must preserve their order. " +
         "Never add numbers, names, causes, predictions, or claims. Keep titles under 45 characters and bodies " +
         "under 150 characters. Be warm and direct, never shaming. Return only a JSON array."
 
@@ -398,11 +398,11 @@ internal fun promptFor(source: BriefSnapshot): String {
                 put("id", card.id)
                 put("title", card.title)
                 put("body", card.body)
-                put("priority", card.score)
+                put("priority", card.rankingScore.takeIf { it >= 0 } ?: card.score)
             })
         }
     }
-    return "Rewrite and order these cards. Keep each id unchanged. Return objects with exactly id, title, and body: $input"
+    return "Rewrite these ordered cards without reordering them. Keep each id unchanged. Return objects with exactly id, title, and body: $input"
 }
 
 internal fun localPromptFor(source: BriefSnapshot): String {
@@ -413,15 +413,15 @@ internal fun localPromptFor(source: BriefSnapshot): String {
                 put("i", card.id)
                 put("t", card.title)
                 put("b", card.body)
-                put("p", card.score)
+                put("p", card.rankingScore.takeIf { it >= 0 } ?: card.score)
             })
         }
     }
     return """
         ## TASK
-        Rank the cards and rewrite only the best $outputCount.
+        Rewrite the first $outputCount cards in the supplied order.
         ## RULES
-        Keep every id and numeric fact unchanged. Title max 32 characters. Body max 80 characters.
+        Preserve card order. Keep every id and numeric fact unchanged. Title max 32 characters. Body max 80 characters.
         ## OUTPUT
         JSON array only, using exactly these keys: [{"i":"id","t":"title","b":"body"}]
         ## CARDS
@@ -444,23 +444,22 @@ internal object BriefAiCardResponse {
             ?: return Result(null, 0, "Response JSON was malformed")
         val originals = source.cards.associateBy(BriefCard::id)
         val seen = mutableSetOf<String>()
+        val replacements = mutableMapOf<String, BriefCard>()
         var applied = 0
-        val rewritten = buildList {
-            for (index in 0 until array.length()) {
-                val item = array.optJSONObject(index) ?: continue
-                val id = item.optString("id").ifBlank { item.optString("i") }
-                val original = originals[id] ?: continue
-                if (!seen.add(id)) continue
-                val title = item.optString("title").ifBlank { item.optString("t") }
-                    .trim().takeIf { it.length in 1..60 } ?: original.title
-                val body = item.optString("body").ifBlank { item.optString("b") }
-                    .trim().takeIf { it.length in 1..180 } ?: original.body
-                val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
-                add(if (factual) original.copy(title = title, body = body) else original)
-                applied++
-            }
-            source.cards.filterNot { it.id in seen }.forEach(::add)
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val id = item.optString("id").ifBlank { item.optString("i") }
+            val original = originals[id] ?: continue
+            if (!seen.add(id)) continue
+            val title = item.optString("title").ifBlank { item.optString("t") }
+                .trim().takeIf { it.length in 1..60 } ?: original.title
+            val body = item.optString("body").ifBlank { item.optString("b") }
+                .trim().takeIf { it.length in 1..180 } ?: original.body
+            val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
+            replacements[id] = if (factual) original.copy(title = title, body = body) else original
+            applied++
         }
+        val rewritten = source.cards.map { replacements[it.id] ?: it }
         if (applied == 0) return Result(null, 0, "Response contained no recognised card ids")
         val generatedAt = System.currentTimeMillis()
         return Result(
@@ -525,10 +524,7 @@ internal object BriefAiCachePolicy {
 
         val currentById = refreshed.cards.associateBy(BriefCard::id)
         val previousById = previous.cards.associateBy(BriefCard::id)
-        val orderedIds = buildList {
-            previous.cards.forEach { if (it.id in currentById) add(it.id) }
-            refreshed.cards.forEach { if (it.id !in this) add(it.id) }
-        }
+        val orderedIds = refreshed.cards.map(BriefCard::id)
         if (orderedIds.none { it in previousById && it in currentById }) return refreshed
 
         val mergedCards = orderedIds.mapNotNull { id ->

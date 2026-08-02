@@ -29,9 +29,9 @@ class BriefAiCachePolicyTest {
         val result = BriefAiCachePolicy.retain(cached, refreshed, now)
 
         assertEquals(BriefProviderUsed.LOCAL, result.providerUsed)
-        assertEquals(listOf("streak", "growth"), result.cards.map(BriefCard::id))
-        assertEquals("Keep it rolling", result.cards[0].title)
-        assertEquals(70, result.cards[0].score)
+        assertEquals(listOf("growth", "streak"), result.cards.map(BriefCard::id))
+        assertEquals("You are flying", result.cards[0].title)
+        assertEquals(96, result.cards[0].score)
         assertEquals(now - 3 * 60 * 60 * 1000L, result.aiGeneratedAt)
     }
 

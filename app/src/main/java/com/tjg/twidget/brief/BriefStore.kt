@@ -56,8 +56,17 @@ object BriefStore {
                     put("title", card.title)
                     put("body", card.body)
                     put("score", card.score)
+                    put("rankingScore", card.rankingScore)
                     put("action", card.action.name)
                     put("actionData", card.actionData)
+                    put("rankSignals", JSONObject().apply {
+                        put("contextRelevance", card.rankSignals.contextRelevance)
+                        put("timeRelevance", card.rankSignals.timeRelevance)
+                        put("occurredAt", card.rankSignals.occurredAt)
+                        put("freshForMillis", card.rankSignals.freshForMillis)
+                        put("validUntil", card.rankSignals.validUntil)
+                        put("maintainUntil", card.rankSignals.maintainUntil)
+                    })
                 })
             }
         })
@@ -98,6 +107,7 @@ object BriefStore {
             cards = buildList {
                 for (index in 0 until cardsJson.length()) {
                     val card = cardsJson.getJSONObject(index)
+                    val rankSignals = card.optJSONObject("rankSignals")
                     add(BriefCard(
                         id = card.optString("id"),
                         type = runCatching { BriefCardType.valueOf(card.optString("type")) }
@@ -108,6 +118,15 @@ object BriefStore {
                         action = runCatching { BriefCardAction.valueOf(card.optString("action")) }
                             .getOrDefault(BriefCardAction.NONE),
                         actionData = card.optString("actionData"),
+                        rankSignals = BriefRankSignals(
+                            contextRelevance = rankSignals?.optDouble("contextRelevance", 0.5) ?: 0.5,
+                            timeRelevance = rankSignals?.optDouble("timeRelevance", 0.5) ?: 0.5,
+                            occurredAt = rankSignals?.optLong("occurredAt") ?: 0L,
+                            freshForMillis = rankSignals?.optLong("freshForMillis") ?: 0L,
+                            validUntil = rankSignals?.optLong("validUntil") ?: 0L,
+                            maintainUntil = rankSignals?.optLong("maintainUntil") ?: 0L,
+                        ),
+                        rankingScore = card.optInt("rankingScore", -1),
                     ))
                 }
             },

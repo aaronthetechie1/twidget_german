@@ -31,10 +31,11 @@ import java.time.temporal.ChronoUnit
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 8
+    private const val ENGINE_VERSION = 9
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -133,6 +134,7 @@ object BriefEngine {
         val activity = DailyStreakStore.snapshot(context, username)
         val content = BriefSettingsStore.enabledContent(context)
         val schedules = ScheduleStore(context).listForAccount(username)
+        val now = System.currentTimeMillis()
         val candidates = mutableListOf<BriefCard>()
 
         if (BriefContentCategory.FOLLOWERS in content) {
@@ -146,22 +148,22 @@ object BriefEngine {
             worstPostCard(analytics)?.let(candidates::add)
         }
         if (BriefContentCategory.ACCOUNT_GOALS in content) {
-            milestoneCard(context, username, stats, history, analytics)?.let(candidates::add)
+            milestoneCard(context, username, stats, history, analytics, todayDelta, weekDelta)?.let(candidates::add)
         }
         if (BriefContentCategory.TWEET_ACTIVITY in content) {
-            activityCard(context, username, upcomingTweets)?.let(candidates::add)
+            activityCard(context, username, upcomingTweets, now)?.let(candidates::add)
         }
         if (BriefContentCategory.TOP_FOLLOWERS in content) {
             topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
         }
         if (BriefContentCategory.SCHEDULE_HEALTH in content) {
-            BriefGuidePolicy.scheduleCard(schedules)?.let(candidates::add)
+            BriefGuidePolicy.scheduleCard(schedules, now)?.let(candidates::add)
         }
         if (BriefContentCategory.POST_FOLLOW_THROUGH in content) {
-            BriefGuidePolicy.followThroughCard(schedules, analytics)?.let(candidates::add)
+            BriefGuidePolicy.followThroughCard(schedules, analytics, now)?.let(candidates::add)
         }
         if (BriefContentCategory.POSTING_GUIDANCE in content) {
-            BriefGuidePolicy.postingCard(analytics)?.let(candidates::add)
+            BriefGuidePolicy.postingCard(analytics, now)?.let(candidates::add)
         }
 
         if (candidates.isEmpty() && BriefContentCategory.FOLLOWERS in content) {
@@ -171,9 +173,13 @@ object BriefEngine {
                 title = "Everything looks steady",
                 body = "You have ${format(stats.followersCount)} followers. Keep showing up and Twidget will watch for the next meaningful change.",
                 score = 50,
+                rankSignals = BriefRankSignals(contextRelevance = 0.35, timeRelevance = 0.35),
             )
         }
-        val ranked = BriefRankingPolicy.order(candidates)
+        val ranked = BriefRankingPolicy.order(
+            candidates,
+            BriefRankingPolicy.Context(now, previous?.cards?.map(BriefCard::id).orEmpty()),
+        )
         // Eligibility rules decide whether a card belongs in the Brief. Do not
         // discard a relevant card merely because several other signals fired.
         val selected = ranked
@@ -216,7 +222,14 @@ object BriefEngine {
             else -> "You gained ${format(week)} followers over the last week."
         }
         val score = BriefRankingPolicy.growth(today, week, weeklyPercent)
-        return BriefCard("growth", BriefCardType.GROWTH, headline, body, score)
+        return BriefCard(
+            "growth",
+            BriefCardType.GROWTH,
+            headline,
+            body,
+            score,
+            rankSignals = BriefRankSignals(contextRelevance = 0.9, timeRelevance = 0.95),
+        )
     }
 
     private fun postCard(post: PostSummary?, analytics: PostAnalytics?, followers: Long): BriefCard? {
@@ -231,6 +244,12 @@ object BriefEngine {
             title = "Why this tweet worked",
             body = "${standoutPostBody(post)} ${TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.STRONG).body}",
             score = BriefRankingPolicy.post(post, followers),
+            rankSignals = BriefRankSignals(
+                contextRelevance = 0.78,
+                timeRelevance = 0.35,
+                occurredAt = post.timestamp,
+                freshForMillis = analytics.windowDays * DAY_MS,
+            ),
         )
     }
 
@@ -245,6 +264,12 @@ object BriefEngine {
             title = explanation.title,
             body = explanation.body,
             score = BriefRankingPolicy.worstPost(post, analytics),
+            rankSignals = BriefRankSignals(
+                contextRelevance = 0.7,
+                timeRelevance = 0.3,
+                occurredAt = post.timestamp,
+                freshForMillis = analytics.windowDays * DAY_MS,
+            ),
         )
     }
 
@@ -269,6 +294,7 @@ object BriefEngine {
             "Growth has slowed down",
             "Your recent pace is ${format(abs(prior - recent))} followers behind the previous few days. A fresh post could help restart it.",
             BriefRankingPolicy.slowdown(recent, prior, today),
+            rankSignals = BriefRankSignals(contextRelevance = 0.92, timeRelevance = 0.95),
         )
     }
 
@@ -278,6 +304,8 @@ object BriefEngine {
         stats: ProfileStats,
         history: List<HistorySample>,
         analytics: PostAnalytics?,
+        todayDelta: Long,
+        weekDelta: Long,
     ): BriefCard? {
         val settings = MilestoneGoalStore.read(context, username)
         if (!settings.configured || settings.target <= 0.0) return null
@@ -308,6 +336,15 @@ object BriefEngine {
             title = message.title,
             body = message.body,
             score = BriefRankingPolicy.milestone(progress, state),
+            rankSignals = BriefRankSignals(
+                contextRelevance = when {
+                    progress >= 100 -> 1.0
+                    state == MilestonePerformanceState.DECELERATING && todayDelta < 0L && weekDelta <= 0L -> 0.9
+                    todayDelta > 0L || weekDelta > 0L || state == MilestonePerformanceState.ACCELERATING -> 0.65
+                    else -> 0.55
+                },
+                timeRelevance = if (progress >= 100) 1.0 else 0.45,
+            ),
         )
     }
 
@@ -315,9 +352,13 @@ object BriefEngine {
         context: Context,
         username: String,
         upcomingTweets: List<BriefUpcomingTweet>,
+        now: Long,
     ): BriefCard? {
         val streak = DailyStreakStore.snapshot(context, username)
-        val scheduledToday = upcomingTweets.firstOrNull(::isScheduledToday)
+        val scheduledToday = upcomingTweets.firstOrNull { isScheduledToday(it, now) }
+        val endOfDay = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
+            .toLocalDate().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val urgency = dailyUrgency(now)
         if (streak.streak <= 0 && !BriefActivityPolicy.shouldStart(streak)) return null
         if (streak.streak <= 0) {
             val body = when {
@@ -329,7 +370,18 @@ object BriefEngine {
                     "You have a tweet queued today. Post it to start a new daily rhythm."
                 else -> "Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin."
             }
-            return BriefCard("start-streak", BriefCardType.STREAK, "Start a posting streak", body, 84)
+            return BriefCard(
+                "start-streak",
+                BriefCardType.STREAK,
+                "Start a posting streak",
+                body,
+                84,
+                rankSignals = BriefRankSignals(
+                    contextRelevance = 0.82,
+                    timeRelevance = urgency,
+                    maintainUntil = endOfDay,
+                ),
+            )
         }
         return BriefCard(
             "streak",
@@ -345,6 +397,11 @@ object BriefEngine {
                 else -> "Tweet today to keep your ${streak.streak}-day rhythm going."
             },
             BriefRankingPolicy.streak(streak.streak, streak.activeToday),
+            rankSignals = BriefRankSignals(
+                contextRelevance = if (streak.activeToday) 0.15 else 0.98,
+                timeRelevance = if (streak.activeToday) 0.15 else urgency,
+                maintainUntil = if (streak.activeToday) 0L else endOfDay,
+            ),
         )
     }
 
@@ -376,8 +433,14 @@ object BriefEngine {
         else -> 2
     }
 
-    private fun isScheduledToday(tweet: BriefUpcomingTweet): Boolean = tweet.scheduledAt > 0L &&
-        Instant.ofEpochMilli(tweet.scheduledAt).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now()
+    private fun isScheduledToday(tweet: BriefUpcomingTweet, now: Long): Boolean = tweet.scheduledAt > 0L &&
+        Instant.ofEpochMilli(tweet.scheduledAt).atZone(ZoneId.systemDefault()).toLocalDate() ==
+        Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
+
+    private fun dailyUrgency(now: Long): Double {
+        val hour = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).hour
+        return (0.25 + hour / 24.0 * 0.75).coerceIn(0.25, 1.0)
+    }
 
     private fun topFollowerCard(
         top: List<TopFollower>,
@@ -400,6 +463,13 @@ object BriefEngine {
             title,
             "${follower.name.ifBlank { "@${follower.username}" }} has ${format(follower.followers)} followers.$movement",
             if (newScan && oldRank == null) 92 else 76,
+            rankSignals = BriefRankSignals(
+                contextRelevance = if (newScan) 0.85 else 0.55,
+                timeRelevance = 0.4,
+                occurredAt = completedAt,
+                freshForMillis = 7 * DAY_MS,
+                maintainUntil = completedAt + 12 * 60 * 60 * 1000L,
+            ),
         )
     }
 
@@ -438,6 +508,7 @@ object BriefEngine {
             streak.lastActiveDay,
             streak.activityCheckedAt,
             schedule,
+            BriefRankingPolicy.contextBucket(now),
             BriefSettingsStore.contentFingerprint(context),
         ).joinToString("|")
     }
@@ -469,9 +540,129 @@ internal object BriefSchedulePolicy {
 }
 
 internal object BriefRankingPolicy {
-    fun order(cards: List<BriefCard>): List<BriefCard> = cards.sortedWith(
-        compareByDescending<BriefCard>(BriefCard::score).thenBy(BriefCard::id),
+    private const val THEME_EXPOSURE_PENALTY = 5
+    private const val CONSECUTIVE_THEME_PENALTY = 3
+
+    internal data class Context(
+        val now: Long = System.currentTimeMillis(),
+        val previousOrder: List<String> = emptyList(),
     )
+
+    private enum class Theme { PROGRESS, LEARN, PEOPLE, RHYTHM, PLAN }
+
+    /**
+     * Rank every eligible card without imposing a card-count limit. Importance is only half
+     * the result; the rest describes whether the card is timely and useful in this session.
+     */
+    fun order(cards: List<BriefCard>, context: Context = Context()): List<BriefCard> {
+        val previousPositions = context.previousOrder.withIndex().associate { it.value to it.index }
+        val previousLead = context.previousOrder.firstOrNull()
+        val remaining = cards.asSequence()
+            .filter { it.rankSignals.validUntil <= 0L || context.now <= it.rankSignals.validUntil }
+            .map { card ->
+                val time = timeRelevance(card.rankSignals, context.now)
+                val contextual = (
+                    card.rankSignals.contextRelevance.coerceIn(0.0, 1.0) * 0.75 +
+                        dayPartRelevance(theme(card.type), context.now) * 0.25 +
+                        if (card.action != BriefCardAction.NONE) 0.08 else 0.0
+                    ).coerceIn(0.0, 1.0)
+                val maintained = card.id == previousLead && card.rankSignals.maintainUntil > context.now
+                val result = (
+                    card.score.coerceIn(0, 100) / 100.0 * 0.5 +
+                        time * 0.25 +
+                        contextual * 0.25 +
+                        if (maintained) 0.04 else 0.0
+                    ).coerceIn(0.0, 1.0)
+                card.copy(rankingScore = (result * 100).roundToInt())
+            }
+            .toMutableList()
+        val output = ArrayList<BriefCard>(remaining.size)
+        val themeExposure = mutableMapOf<Theme, Int>()
+
+        while (remaining.isNotEmpty()) {
+            val lastTheme = output.lastOrNull()?.let { theme(it.type) }
+            val next = remaining.sortedWith(
+                compareByDescending<BriefCard> { card ->
+                    val cardTheme = theme(card.type)
+                    card.rankingScore -
+                        themeExposure.getOrDefault(cardTheme, 0) * THEME_EXPOSURE_PENALTY -
+                        if (cardTheme == lastTheme) CONSECUTIVE_THEME_PENALTY else 0
+                }.thenBy { previousPositions[it.id] ?: Int.MAX_VALUE }
+                    .thenByDescending { it.rankSignals.occurredAt }
+                    .thenBy(BriefCard::id),
+            ).first()
+            remaining.remove(next)
+            val nextTheme = theme(next.type)
+            val effectiveScore = next.rankingScore -
+                themeExposure.getOrDefault(nextTheme, 0) * THEME_EXPOSURE_PENALTY -
+                if (nextTheme == lastTheme) CONSECUTIVE_THEME_PENALTY else 0
+            output += next.copy(rankingScore = effectiveScore.coerceIn(0, 100))
+            themeExposure[nextTheme] = themeExposure.getOrDefault(nextTheme, 0) + 1
+        }
+        return output
+    }
+
+    fun contextBucket(now: Long = System.currentTimeMillis()): String {
+        val hour = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).hour
+        return when (hour) {
+            in 5..10 -> "morning"
+            in 11..16 -> "afternoon"
+            in 17..21 -> "evening"
+            else -> "night"
+        }
+    }
+
+    private fun timeRelevance(signals: BriefRankSignals, now: Long): Double {
+        val configured = signals.timeRelevance.coerceIn(0.0, 1.0)
+        if (signals.occurredAt <= 0L || signals.freshForMillis <= 0L) return configured
+        val age = (now - signals.occurredAt).coerceAtLeast(0L)
+        val freshness = (1.0 - age.toDouble() / signals.freshForMillis).coerceIn(0.0, 1.0)
+        return maxOf(configured, freshness)
+    }
+
+    private fun dayPartRelevance(theme: Theme, now: Long): Double = when (contextBucket(now)) {
+        "morning" -> when (theme) {
+            Theme.PROGRESS -> 1.0
+            Theme.PLAN -> 0.9
+            Theme.LEARN -> 0.7
+            Theme.PEOPLE -> 0.6
+            Theme.RHYTHM -> 0.35
+        }
+        "afternoon" -> when (theme) {
+            Theme.PLAN -> 1.0
+            Theme.LEARN -> 0.9
+            Theme.RHYTHM -> 0.65
+            Theme.PROGRESS -> 0.6
+            Theme.PEOPLE -> 0.6
+        }
+        "evening", "night" -> when (theme) {
+            Theme.RHYTHM -> 1.0
+            Theme.PLAN -> 0.85
+            Theme.LEARN -> 0.75
+            Theme.PEOPLE -> 0.6
+            Theme.PROGRESS -> 0.5
+        }
+        else -> 0.5
+    }
+
+    private fun theme(type: BriefCardType): Theme = when (type) {
+        BriefCardType.SUMMARY,
+        BriefCardType.GROWTH,
+        BriefCardType.SLOWDOWN,
+        BriefCardType.MILESTONE,
+        -> Theme.PROGRESS
+        BriefCardType.POST,
+        BriefCardType.WORST_POST,
+        BriefCardType.POST_FOLLOW_THROUGH,
+        -> Theme.LEARN
+        BriefCardType.TOP_FOLLOWER -> Theme.PEOPLE
+        BriefCardType.STREAK,
+        BriefCardType.INACTIVITY,
+        -> Theme.RHYTHM
+        BriefCardType.SCHEDULE_GUIDE,
+        BriefCardType.POSTING_GUIDE,
+        -> Theme.PLAN
+    }
 
     fun growth(today: Long, week: Long, weeklyPercent: Double): Int =
         (68 + today.coerceAtLeast(0).coerceAtMost(25) +

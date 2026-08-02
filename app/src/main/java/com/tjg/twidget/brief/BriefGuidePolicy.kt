@@ -27,6 +27,7 @@ internal object BriefGuidePolicy {
                 body = "A queued tweet needs your attention. Review it now so your plan stays on track.",
                 score = 97,
                 action = BriefCardAction.OPEN_SCHEDULER,
+                rankSignals = BriefRankSignals(contextRelevance = 1.0, timeRelevance = 1.0),
             )
         }
 
@@ -45,6 +46,7 @@ internal object BriefGuidePolicy {
                 },
                 score = 87,
                 action = BriefCardAction.OPEN_SCHEDULER,
+                rankSignals = BriefRankSignals(contextRelevance = 0.88, timeRelevance = 0.75),
             )
         }
 
@@ -68,6 +70,7 @@ internal object BriefGuidePolicy {
             },
             score = 82,
             action = BriefCardAction.COMPOSE_TWEET,
+            rankSignals = BriefRankSignals(contextRelevance = 0.72, timeRelevance = 0.65),
         )
     }
 
@@ -109,6 +112,13 @@ internal object BriefGuidePolicy {
             score = if (strong) 94 else 88,
             action = BriefCardAction.OPEN_POST,
             actionData = match.url,
+            rankSignals = BriefRankSignals(
+                contextRelevance = 0.9,
+                timeRelevance = 0.35,
+                occurredAt = match.timestamp,
+                freshForMillis = FOLLOW_UP_WINDOW_MS,
+                validUntil = match.timestamp + analytics.windowDays * DAY_MS,
+            ),
         )
     }
 
@@ -142,6 +152,13 @@ internal object BriefGuidePolicy {
             body = "A recent tweet clearly beat your baseline. Add a useful update, answer the next question, or show the result.",
             score = 93,
             action = BriefCardAction.COMPOSE_TWEET,
+            rankSignals = BriefRankSignals(
+                contextRelevance = 0.95,
+                timeRelevance = 0.4,
+                occurredAt = post.timestamp,
+                freshForMillis = FOLLOW_UP_WINDOW_MS,
+                validUntil = post.timestamp + FOLLOW_UP_WINDOW_MS,
+            ),
         )
     }
 
@@ -167,6 +184,7 @@ internal object BriefGuidePolicy {
             body = "Your recent ${winner.key} tweets performed better than your other time windows. Test that timing again.",
             score = 86,
             action = BriefCardAction.COMPOSE_TWEET,
+            rankSignals = BriefRankSignals(contextRelevance = 0.82, timeRelevance = 0.7),
         )
     }
 
@@ -191,6 +209,7 @@ internal object BriefGuidePolicy {
             },
             score = 84,
             action = BriefCardAction.COMPOSE_TWEET,
+            rankSignals = BriefRankSignals(contextRelevance = 0.78, timeRelevance = 0.65),
         )
     }
 
