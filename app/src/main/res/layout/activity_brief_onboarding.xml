@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/brief_onboarding_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -25,20 +24,10 @@
         android:gravity="center_horizontal"
         android:orientation="vertical">
 
-        <com.airbnb.lottie.LottieAnimationView
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:contentDescription="@null"
-            android:importantForAccessibility="no"
-            app:lottie_autoPlay="true"
-            app:lottie_loop="false"
-            app:lottie_rawRes="@raw/loading_circle_color" />
-
         <TextView
             android:id="@+id/brief_onboarding_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
             android:fontFamily="sec"
             android:includeFontPadding="false"
             android:textColor="@color/oneui_text_primary"

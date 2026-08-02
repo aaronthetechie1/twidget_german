@@ -1,12 +1,15 @@
 package com.tjg.twidget.brief
 
 import android.animation.ArgbEvaluator
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -78,6 +81,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var entranceSections: List<View> = emptyList()
     private var titleColorAnimator: ValueAnimator? = null
     private var backgroundAnimator: ValueAnimator? = null
+    private val revealAnimators = mutableListOf<ValueAnimator>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,18 +115,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             null
         }
         if (cached != null) {
+            render(cached)
+            prepareBriefEntrance()
             setLoading(false)
-            // Let the destination window draw its background and chrome before
-            // constructing the card tree. Cached media decoding and repeated
-            // analytics parsing used to delay the first Activity frame.
-            findViewById<View>(R.id.brief_scroll).postOnAnimation {
-                findViewById<View>(R.id.brief_scroll).postOnAnimation renderCached@{
-                    if (isFinishing || isDestroyed) return@renderCached
-                    render(cached)
-                    startCachedBriefEntrance()
-                    loadBrief(showSpinner = false, animateOnComplete = false)
-                }
-            }
+            startPreparedBriefEntrance()
+            loadBrief(showSpinner = false, animateOnComplete = false)
         } else {
             loadBrief(
                 forceEngine = forceRefresh,
@@ -223,6 +220,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         titleColorAnimator = null
         backgroundAnimator?.cancel()
         backgroundAnimator = null
+        revealAnimators.forEach(ValueAnimator::cancel)
+        revealAnimators.clear()
         super.onDestroy()
     }
 
@@ -1021,27 +1020,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun prepareBriefEntrance() {
         titleColorAnimator?.cancel()
+        revealAnimators.forEach(ValueAnimator::cancel)
+        revealAnimators.clear()
         val title = findViewById<TextView>(R.id.brief_summary_title)
         val body = findViewById<TextView>(R.id.brief_summary_body)
-        prepareEntranceView(title, TITLE_LIFT_DP)
+        prepareWipeView(title)
         title.setTextColor(getColor(R.color.oneui_accent))
-        prepareEntranceView(body, COPY_LIFT_DP)
-        entranceSections.forEach { prepareEntranceView(it, CARD_LIFT_DP) }
-        prepareEntranceView(findViewById(R.id.brief_footer), COPY_LIFT_DP)
-    }
-
-    private fun startCachedBriefEntrance() {
-        val content = findViewById<View>(R.id.brief_content)
-        content.animate().cancel()
-        content.alpha = 0f
-        content.translationY = dp(CACHED_CONTENT_LIFT_DP).toFloat()
-        content.animate()
-            .alpha(1f)
-            .translationY(0f)
-            .setStartDelay(0L)
-            .setDuration(CACHED_ENTRANCE_DURATION_MS)
-            .setInterpolator(PathInterpolator(0.2f, 0f, 0f, 1f))
-            .start()
+        prepareWipeView(body)
+        entranceSections.forEach(::prepareFadeView)
+        prepareFadeView(findViewById(R.id.brief_footer))
     }
 
     private fun prepareOnboardingBackgroundTransition() {
@@ -1078,48 +1065,90 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             if (isFinishing || isDestroyed) return@post
             val interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
             val title = findViewById<TextView>(R.id.brief_summary_title)
-            startEntranceView(title, TITLE_DELAY_MS, TITLE_DURATION_MS, interpolator)
+            startWipeReveal(
+                title,
+                TITLE_REVEAL_DELAY_MS,
+                TITLE_REVEAL_DURATION_MS,
+                interpolator,
+            )
             titleColorAnimator = ValueAnimator.ofArgb(
                 getColor(R.color.oneui_accent),
                 getColor(R.color.oneui_text_primary),
             ).apply {
-                startDelay = TITLE_DELAY_MS
+                startDelay = TITLE_COLOR_DELAY_MS
                 duration = TITLE_COLOR_DURATION_MS
                 addUpdateListener { animator ->
                     title.setTextColor(animator.animatedValue as Int)
                 }
                 start()
             }
-            startEntranceView(
+            startWipeReveal(
                 findViewById(R.id.brief_summary_body),
-                COPY_DELAY_MS,
-                COPY_DURATION_MS,
+                COPY_REVEAL_DELAY_MS,
+                COPY_REVEAL_DURATION_MS,
                 interpolator,
             )
-            entranceSections.forEachIndexed { index, section ->
-                startEntranceView(
+            entranceSections.forEach { section ->
+                startFadeView(
                     section,
-                    CARD_DELAY_MS + minOf(index, MAX_STAGGERED_CARD_INDEX) * CARD_STAGGER_MS,
-                    CARD_DURATION_MS,
+                    CARD_FADE_DELAY_MS,
+                    CARD_FADE_DURATION_MS,
                     interpolator,
                 )
             }
-            startEntranceView(
+            startFadeView(
                 findViewById(R.id.brief_footer),
-                FOOTER_DELAY_MS,
-                COPY_DURATION_MS,
+                CARD_FADE_DELAY_MS,
+                CARD_FADE_DURATION_MS,
                 interpolator,
             )
         }
     }
 
-    private fun prepareEntranceView(view: View, liftDp: Int) {
+    private fun prepareWipeView(view: View) {
         view.animate().cancel()
         view.alpha = 0f
-        view.translationY = dp(liftDp).toFloat()
+        view.translationY = 0f
+        view.clipBounds = Rect(0, 0, 0, 0)
     }
 
-    private fun startEntranceView(
+    private fun prepareFadeView(view: View) {
+        view.animate().cancel()
+        view.alpha = 0f
+        view.translationY = 0f
+        view.clipBounds = null
+    }
+
+    private fun startWipeReveal(
+        view: View,
+        delay: Long,
+        duration: Long,
+        interpolator: PathInterpolator,
+    ) {
+        if (view.width <= 0 || view.height <= 0) {
+            view.alpha = 1f
+            view.clipBounds = null
+            return
+        }
+        view.alpha = 1f
+        ValueAnimator.ofInt(0, view.width).apply {
+            startDelay = delay
+            this.duration = duration
+            this.interpolator = interpolator
+            addUpdateListener { animator ->
+                view.clipBounds = Rect(0, 0, animator.animatedValue as Int, view.height)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    view.clipBounds = null
+                }
+            })
+            revealAnimators += this
+            start()
+        }
+    }
+
+    private fun startFadeView(
         view: View,
         delay: Long,
         duration: Long,
@@ -1127,7 +1156,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     ) {
         view.animate()
             .alpha(1f)
-            .translationY(0f)
             .setStartDelay(delay)
             .setDuration(duration)
             .setInterpolator(interpolator)
@@ -1168,21 +1196,14 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     companion object {
         private const val MASONRY_COLUMN_GAP_DP = 20
-        private const val TITLE_LIFT_DP = 10
-        private const val COPY_LIFT_DP = 12
-        private const val CARD_LIFT_DP = 18
-        private const val TITLE_DELAY_MS = 35L
-        private const val COPY_DELAY_MS = 115L
-        private const val CARD_DELAY_MS = 190L
-        private const val CARD_STAGGER_MS = 58L
-        private const val FOOTER_DELAY_MS = 420L
-        private const val TITLE_DURATION_MS = 460L
-        private const val TITLE_COLOR_DURATION_MS = 620L
-        private const val COPY_DURATION_MS = 400L
-        private const val CARD_DURATION_MS = 440L
-        private const val MAX_STAGGERED_CARD_INDEX = 7
-        private const val CACHED_CONTENT_LIFT_DP = 6
-        private const val CACHED_ENTRANCE_DURATION_MS = 180L
+        private const val TITLE_REVEAL_DELAY_MS = 70L
+        private const val TITLE_REVEAL_DURATION_MS = 390L
+        private const val TITLE_COLOR_DELAY_MS = 430L
+        private const val TITLE_COLOR_DURATION_MS = 480L
+        private const val COPY_REVEAL_DELAY_MS = 430L
+        private const val COPY_REVEAL_DURATION_MS = 260L
+        private const val CARD_FADE_DELAY_MS = 870L
+        private const val CARD_FADE_DURATION_MS = 360L
         private const val BACKGROUND_TRANSITION_DURATION_MS = 560L
         const val EXTRA_USERNAME = "username"
         private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"
