@@ -158,6 +158,14 @@ data class ScheduleValidationIssue(
     val message: String,
 )
 
+data class ScheduleTextLimitStatus(
+    val standardExcess: Int,
+    val hardExcess: Int,
+) {
+    val exceedsStandardLimit: Boolean get() = standardExcess > 0
+    val exceedsHardLimit: Boolean get() = hardExcess > 0
+}
+
 object SchedulePolicy {
     const val STANDARD_TEXT_LENGTH = 280
     const val PREMIUM_TEXT_LENGTH = 25_000
@@ -167,6 +175,14 @@ object SchedulePolicy {
         if (isVerified == true) PREMIUM_TEXT_LENGTH else STANDARD_TEXT_LENGTH
 
     fun textLength(text: String): Int = text.codePointCount(0, text.length)
+
+    fun textLimitStatus(text: String, isVerified: Boolean): ScheduleTextLimitStatus {
+        val length = textLength(text)
+        return ScheduleTextLimitStatus(
+            standardExcess = (length - STANDARD_TEXT_LENGTH).coerceAtLeast(0),
+            hardExcess = (length - textLimit(isVerified)).coerceAtLeast(0),
+        )
+    }
 
     fun validate(
         post: ScheduledPost,

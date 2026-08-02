@@ -379,6 +379,14 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         composeUi.refreshFromEditor()
     }
 
+    internal fun onComposeMoveThreadRequested(index: Int, offset: Int) {
+        val destination = index + offset
+        if (index !in editorItems.indices || destination !in editorItems.indices) return
+        val item = editorItems.removeAt(index)
+        editorItems.add(destination, item)
+        composeUi.refreshFromEditor(activeIndex = destination)
+    }
+
     internal fun composeItemCount(): Int = editorItems.size
     internal fun composeItemText(index: Int): String = editorItems.getOrNull(index)?.text.orEmpty()
     internal fun composeUpdateItemText(index: Int, value: String) {
@@ -394,8 +402,10 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         invalidateOptionsMenu()
     }
     internal fun composeHasContent(): Boolean = editorItems.any { it.text.isNotBlank() || it.media.isNotEmpty() }
+    internal fun composeIsVerified(): Boolean =
+        TwidgetStore.currentStats(this, editorAccount).isVerified == true
     internal fun composeCharacterLimit(): Int = SchedulePolicy.textLimit(
-        TwidgetStore.currentStats(this, editorAccount).isVerified
+        composeIsVerified()
     )
     internal fun composeHasInvalidLength(): Boolean = editorItems.any {
         SchedulePolicy.textLength(it.text) > composeCharacterLimit()

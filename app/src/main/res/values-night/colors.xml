@@ -11,8 +11,8 @@
     <color name="oneui_accent_translucent">#334da2ff</color>
     <color name="top_followers_skeleton">#29292c</color>
     <color name="schedule_character_limit">#FF6B6B</color>
-    <color name="schedule_toolbar_floating">#E817171A</color>
-    <color name="schedule_toolbar_floating_stroke">#33FFFFFF</color>
+    <color name="schedule_toolbar_floating">#FF303033</color>
+    <color name="schedule_toolbar_floating_stroke">#1FFFFFFF</color>
     <color name="notice_detail_back_surface">#8017191C</color>
     <color name="notice_detail_back_icon">#FFFFFFFF</color>
     <color name="oneui_preview_bg">#333333</color>

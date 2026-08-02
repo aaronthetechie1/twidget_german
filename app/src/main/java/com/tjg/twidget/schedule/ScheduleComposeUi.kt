@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatImageButton
+import androidx.appcompat.widget.PopupMenu
 import com.tjg.twidget.R
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.TwidgetStore
@@ -49,10 +50,14 @@ internal class ScheduleComposeUi(
         refreshFromEditor()
     }
 
-    fun refreshFromEditor(focusLast: Boolean = false) {
+    fun refreshFromEditor(focusLast: Boolean = false, activeIndex: Int? = null) {
         threadContainer.removeAllViews()
         val count = activity.composeItemCount()
-        if (focusLast) activeItem = count - 1 else activeItem = activeItem.coerceIn(0, count - 1)
+        activeItem = when {
+            focusLast -> count - 1
+            activeIndex != null -> activeIndex.coerceIn(0, count - 1)
+            else -> activeItem.coerceIn(0, count - 1)
+        }
         repeat(count) { index -> addThreadItem(index) }
         refreshTimeSummary()
         refreshSubmitState()
@@ -90,6 +95,7 @@ internal class ScheduleComposeUi(
         val input = row.findViewById<EditText>(R.id.schedule_thread_input)
         val avatar = row.findViewById<ImageView>(R.id.schedule_thread_avatar)
         val connector = row.findViewById<View>(R.id.schedule_thread_connector)
+        val reorderThread = row.findViewById<AppCompatImageButton>(R.id.schedule_thread_reorder)
         val removeThread = row.findViewById<AppCompatImageButton>(R.id.schedule_thread_remove)
         val limitNotice = row.findViewById<TextView>(R.id.schedule_thread_limit_notice)
         val strip = row.findViewById<HorizontalScrollView>(R.id.schedule_thread_media_strip)
@@ -108,21 +114,16 @@ internal class ScheduleComposeUi(
         updateCharacterLimit(input, limitNotice)
         updateRemoveThreadButton(index, input, removeThread, media.isEmpty())
         removeThread.setOnClickListener { activity.onComposeRemoveThreadRequested(index) }
+        reorderThread.visibility = if (activity.composeItemCount() > 1) View.VISIBLE else View.GONE
+        reorderThread.contentDescription = activity.getString(
+            R.string.schedule_reorder_thread_item,
+            index + 1,
+        )
+        reorderThread.setOnClickListener { showReorderMenu(index, reorderThread) }
         input.setOnFocusChangeListener { _, focused ->
             if (focused) {
                 activeItem = index
             }
-        }
-        input.setOnLongClickListener {
-            if (activity.composeItemCount() <= 1) return@setOnLongClickListener false
-            AlertDialog.Builder(activity)
-                .setMessage(R.string.schedule_remove_item)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.schedule_remove_item) { _, _ ->
-                    activity.onComposeRemoveThreadRequested(index)
-                }
-                .show()
-            true
         }
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -168,6 +169,23 @@ internal class ScheduleComposeUi(
             mediaContainer.addView(preview)
         }
         threadContainer.addView(row)
+    }
+
+    private fun showReorderMenu(index: Int, anchor: View) {
+        PopupMenu(activity, anchor).apply {
+            menu.add(0, MOVE_UP, 0, R.string.schedule_move_up).isEnabled = index > 0
+            menu.add(0, MOVE_DOWN, 1, R.string.schedule_move_down).isEnabled =
+                index < activity.composeItemCount() - 1
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    MOVE_UP -> activity.onComposeMoveThreadRequested(index, -1)
+                    MOVE_DOWN -> activity.onComposeMoveThreadRequested(index, 1)
+                    else -> return@setOnMenuItemClickListener false
+                }
+                true
+            }
+            show()
+        }
     }
 
     private fun updateRemoveThreadButton(
@@ -221,21 +239,58 @@ internal class ScheduleComposeUi(
     private fun updateCharacterLimit(input: EditText, notice: TextView) {
         val text = input.text ?: return
         text.getSpans(0, text.length, ExcessCharacterSpan::class.java).forEach(text::removeSpan)
-        val limit = activity.composeCharacterLimit()
-        val length = SchedulePolicy.textLength(text.toString())
-        val excess = (length - limit).coerceAtLeast(0)
-        if (excess == 0) {
+        val isVerified = activity.composeIsVerified()
+        val limitStatus = SchedulePolicy.textLimitStatus(text.toString(), isVerified)
+        if (!limitStatus.exceedsStandardLimit) {
             notice.visibility = View.GONE
             return
         }
-        val excessStart = text.toString().offsetByCodePoints(0, limit)
+
+        val standardExcessStart = text.toString().offsetByCodePoints(
+            0,
+            SchedulePolicy.STANDARD_TEXT_LENGTH,
+        )
+        val softOverflowColor = activity.getColor(
+            if (isVerified) R.color.oneui_accent else R.color.schedule_character_limit,
+        )
         text.setSpan(
-            ExcessCharacterSpan(activity.getColor(R.color.schedule_character_limit)),
-            excessStart,
+            ExcessCharacterSpan(softOverflowColor),
+            standardExcessStart,
             text.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
-        notice.text = activity.getString(R.string.schedule_character_limit_over, excess)
+
+        val hardLimit = activity.composeCharacterLimit()
+        if (limitStatus.exceedsHardLimit && hardLimit > SchedulePolicy.STANDARD_TEXT_LENGTH) {
+            val hardExcessStart = text.toString().offsetByCodePoints(0, hardLimit)
+            text.setSpan(
+                ExcessCharacterSpan(activity.getColor(R.color.schedule_character_limit)),
+                hardExcessStart,
+                text.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+        notice.setTextColor(
+            activity.getColor(
+                if (limitStatus.exceedsHardLimit) {
+                    R.color.schedule_character_limit
+                } else {
+                    R.color.oneui_accent
+                },
+            ),
+        )
+        notice.text = activity.getString(
+            if (limitStatus.exceedsHardLimit) {
+                R.string.schedule_character_limit_over
+            } else {
+                R.string.schedule_standard_character_limit_over
+            },
+            if (limitStatus.exceedsHardLimit) {
+                limitStatus.hardExcess
+            } else {
+                limitStatus.standardExcess
+            },
+        )
         notice.visibility = View.VISIBLE
     }
 
@@ -332,6 +387,8 @@ internal class ScheduleComposeUi(
     private class ExcessCharacterSpan(color: Int) : ForegroundColorSpan(color)
 
     private companion object {
+        const val MOVE_UP = 1
+        const val MOVE_DOWN = 2
         val COMPOSER_TOKEN_PATTERN = Regex(
             "(?<![A-Za-z0-9_])@[A-Za-z0-9_]{1,15}|(?<![\\p{L}\\p{N}_])#[\\p{L}\\p{N}_]+"
         )
