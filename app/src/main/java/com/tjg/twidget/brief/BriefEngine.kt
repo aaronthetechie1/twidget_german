@@ -347,7 +347,7 @@ object BriefEngine {
                 state,
                 progress,
                 target,
-                goalNoun(settings.metric),
+                settings.metric.goalNoun,
             )
             BriefCard(
                 id = "milestone-${settings.metric.storageId}-${settings.target}",
@@ -539,13 +539,6 @@ object BriefEngine {
         } else {
             format(target.toLong())
         }
-
-    private fun goalNoun(metric: MilestoneMetric): String = when (metric) {
-        MilestoneMetric.FOLLOWERS -> "follower"
-        MilestoneMetric.VERIFIED_FOLLOWERS -> "verified follower"
-        MilestoneMetric.ENGAGEMENT_RATE -> "engagement rate"
-        MilestoneMetric.IMPRESSIONS -> "impression"
-    }
 
     private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
 }

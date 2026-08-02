@@ -1,5 +1,6 @@
 package com.tjg.twidget.brief
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -14,6 +15,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewOutlineProvider
+import android.view.animation.PathInterpolator
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.FrameLayout
@@ -71,6 +73,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var localStatus = BriefLocalStatus.UNAVAILABLE
     private var debugScenario: BriefDebugScenario = BriefDebugScenario.REAL
     private var reloadOnResume = false
+    private var entranceSections: List<View> = emptyList()
+    private var titleColorAnimator: ValueAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,8 +94,58 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
+        if (intent.getBooleanExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, false)) {
+            awaitLaunchGeneration()
+            return
+        }
         val forceRefresh = intent.getBooleanExtra(EXTRA_FORCE_REFRESH, false)
-        loadBrief(forceEngine = forceRefresh, forceAi = forceRefresh)
+        val cached = if (!forceRefresh && debugScenario == BriefDebugScenario.REAL) {
+            BriefStore.read(this, username)
+        } else {
+            null
+        }
+        if (cached != null) {
+            render(cached)
+            prepareBriefEntrance()
+            setLoading(false)
+            startPreparedBriefEntrance()
+            loadBrief(showSpinner = false, animateOnComplete = false)
+        } else {
+            loadBrief(
+                forceEngine = forceRefresh,
+                forceAi = forceRefresh,
+                showSpinner = true,
+                animateOnComplete = true,
+            )
+        }
+    }
+
+    private fun awaitLaunchGeneration() {
+        setLoading(true)
+        lifecycleScope.launch {
+            var entrancePrepared = false
+            try {
+                val generation = BriefLaunchGeneration.current(username)
+                    ?: BriefLaunchGeneration.start(
+                        this@TwidgetBriefActivity,
+                        username,
+                        restartIfComplete = false,
+                    )
+                val result = runCatching { generation.await() }.getOrElse {
+                    val source = withContext(Dispatchers.IO) {
+                        BriefEngine.rebuild(this@TwidgetBriefActivity, username, force = true)
+                    }
+                    BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
+                }
+                render(result.snapshot)
+                localStatus = result.localStatus
+                prepareBriefEntrance()
+                entrancePrepared = true
+            } finally {
+                setLoading(false)
+                if (entrancePrepared) startPreparedBriefEntrance()
+            }
+        }
     }
 
     override fun onResume() {
@@ -102,9 +156,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun loadBrief(forceEngine: Boolean = false, forceAi: Boolean = false) {
-        setLoading(true)
+    private fun loadBrief(
+        forceEngine: Boolean = false,
+        forceAi: Boolean = false,
+        showSpinner: Boolean = renderedSnapshot == null,
+        animateOnComplete: Boolean = showSpinner,
+    ) {
+        if (showSpinner) setLoading(true)
         lifecycleScope.launch {
+            var entrancePrepared = false
             try {
                 val source = withContext(Dispatchers.IO) {
                     if (forceAi) {
@@ -132,12 +192,23 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 } else {
                     BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
                 }
-                render(result.snapshot)
+                if (result.snapshot != renderedSnapshot) render(result.snapshot)
                 localStatus = result.localStatus
+                if (animateOnComplete && renderedSnapshot != null) {
+                    prepareBriefEntrance()
+                    entrancePrepared = true
+                }
             } finally {
-                setLoading(false)
+                if (showSpinner) setLoading(false)
+                if (entrancePrepared) startPreparedBriefEntrance()
             }
         }
+    }
+
+    override fun onDestroy() {
+        titleColorAnimator?.cancel()
+        titleColorAnimator = null
+        super.onDestroy()
     }
 
     private fun setLoading(loading: Boolean) {
@@ -362,6 +433,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             }
             snapshot.cards.forEach { card -> add(cardSection(card) to 20) }
         }
+        entranceSections = sections.map { it.first }
         if (columns == 1) {
             container.orientation = LinearLayout.VERTICAL
             sections.forEach { (section, topMargin) ->
@@ -380,8 +452,22 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     )
                 }
             }
-            sections.forEachIndexed { index, (section, topMargin) ->
-                masonryColumns[index % columns].addView(section, matchWrap(top = topMargin))
+            val columnHeights = IntArray(columns)
+            val content = findViewById<LinearLayout>(R.id.brief_content)
+            val configuredWidth = content.layoutParams.width.takeIf { it > 0 }
+                ?: resources.displayMetrics.widthPixels
+            val availableWidth = configuredWidth - content.paddingLeft - content.paddingRight
+            val columnWidth = (
+                availableWidth - dp(MASONRY_COLUMN_GAP_DP) * (columns - 1)
+                ) / columns
+            sections.forEach { (section, topMargin) ->
+                section.measure(
+                    View.MeasureSpec.makeMeasureSpec(columnWidth, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                )
+                val targetColumn = BriefLayoutPolicy.shortestColumn(columnHeights)
+                masonryColumns[targetColumn].addView(section, matchWrap(top = topMargin))
+                columnHeights[targetColumn] += section.measuredHeight + dp(topMargin)
             }
         }
     }
@@ -674,22 +760,34 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun sectionHeading(card: BriefCard): String = when (card.type) {
         BriefCardType.MILESTONE -> {
-            val settings = milestoneSettings(card)
-            val stats = TwidgetStore.currentStats(this, username)
-            val metric = MilestoneMetricResolver.resolve(
-                context = this,
-                account = username,
-                metric = settings.metric,
-                stats = stats,
-                history = TwidgetStore.fullHistory(this, username),
-                analytics = AnalyticsClient.cached(this, username),
-                imported = ImportedAnalyticsStore.all(this, username),
-            )
-            val progress = metric.value?.let { MilestonePolicy.progress(it, settings.target) } ?: 0
-            when {
-                progress >= 100 -> getString(R.string.brief_goal_reached_heading)
-                progress >= 75 -> getString(R.string.brief_goal_close_heading)
-                else -> getString(R.string.brief_goal_heading)
+            if (card.actionData == BRIEF_MILESTONE_SETUP_ACTION) {
+                card.title
+            } else {
+                val settings = milestoneSettings(card)
+                val stats = TwidgetStore.currentStats(this, username)
+                val metric = MilestoneMetricResolver.resolve(
+                    context = this,
+                    account = username,
+                    metric = settings.metric,
+                    stats = stats,
+                    history = TwidgetStore.fullHistory(this, username),
+                    analytics = AnalyticsClient.cached(this, username),
+                    imported = ImportedAnalyticsStore.all(this, username),
+                )
+                val progress = metric.value?.let {
+                    MilestonePolicy.progress(it, settings.target)
+                } ?: 0
+                when {
+                    progress >= 100 -> getString(
+                        R.string.brief_goal_reached_heading,
+                        settings.metric.goalNoun,
+                    )
+                    progress >= 75 -> getString(
+                        R.string.brief_goal_close_heading,
+                        settings.metric.goalNoun,
+                    )
+                    else -> getString(R.string.brief_goal_heading, settings.metric.goalNoun)
+                }
             }
         }
         BriefCardType.STREAK -> getString(R.string.brief_streak_heading)
@@ -882,6 +980,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun downloadLocalModel() {
         lifecycleScope.launch {
             setLoading(true)
+            var entrancePrepared = false
             try {
                 localStatus = BriefLocalStatus.DOWNLOADING
                 val downloaded = BriefAiCoordinator.downloadLocalModel { }
@@ -893,10 +992,85 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 val result = BriefAiCoordinator.enrich(this@TwidgetBriefActivity, source, force = true)
                 localStatus = result.localStatus
                 render(result.snapshot)
+                prepareBriefEntrance()
+                entrancePrepared = true
             } finally {
                 setLoading(false)
+                if (entrancePrepared) startPreparedBriefEntrance()
             }
         }
+    }
+
+    private fun prepareBriefEntrance() {
+        titleColorAnimator?.cancel()
+        val title = findViewById<TextView>(R.id.brief_summary_title)
+        val body = findViewById<TextView>(R.id.brief_summary_body)
+        prepareEntranceView(title, TITLE_LIFT_DP)
+        title.setTextColor(getColor(R.color.oneui_accent))
+        prepareEntranceView(body, COPY_LIFT_DP)
+        entranceSections.forEach { prepareEntranceView(it, CARD_LIFT_DP) }
+        prepareEntranceView(findViewById(R.id.brief_footer), COPY_LIFT_DP)
+    }
+
+    private fun startPreparedBriefEntrance() {
+        findViewById<View>(R.id.brief_scroll).post {
+            if (isFinishing || isDestroyed) return@post
+            val interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
+            val title = findViewById<TextView>(R.id.brief_summary_title)
+            startEntranceView(title, TITLE_DELAY_MS, TITLE_DURATION_MS, interpolator)
+            titleColorAnimator = ValueAnimator.ofArgb(
+                getColor(R.color.oneui_accent),
+                getColor(R.color.oneui_text_primary),
+            ).apply {
+                startDelay = TITLE_DELAY_MS
+                duration = TITLE_COLOR_DURATION_MS
+                addUpdateListener { animator ->
+                    title.setTextColor(animator.animatedValue as Int)
+                }
+                start()
+            }
+            startEntranceView(
+                findViewById(R.id.brief_summary_body),
+                COPY_DELAY_MS,
+                COPY_DURATION_MS,
+                interpolator,
+            )
+            entranceSections.forEachIndexed { index, section ->
+                startEntranceView(
+                    section,
+                    CARD_DELAY_MS + minOf(index, MAX_STAGGERED_CARD_INDEX) * CARD_STAGGER_MS,
+                    CARD_DURATION_MS,
+                    interpolator,
+                )
+            }
+            startEntranceView(
+                findViewById(R.id.brief_footer),
+                FOOTER_DELAY_MS,
+                COPY_DURATION_MS,
+                interpolator,
+            )
+        }
+    }
+
+    private fun prepareEntranceView(view: View, liftDp: Int) {
+        view.animate().cancel()
+        view.alpha = 0f
+        view.translationY = dp(liftDp).toFloat()
+    }
+
+    private fun startEntranceView(
+        view: View,
+        delay: Long,
+        duration: Long,
+        interpolator: PathInterpolator,
+    ) {
+        view.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setStartDelay(delay)
+            .setDuration(duration)
+            .setInterpolator(interpolator)
+            .start()
     }
 
     private fun sectionLabel(value: String) = primaryText(value, 14f).apply {
@@ -932,17 +1106,44 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
 
     companion object {
+        private const val MASONRY_COLUMN_GAP_DP = 20
+        private const val TITLE_LIFT_DP = 10
+        private const val COPY_LIFT_DP = 12
+        private const val CARD_LIFT_DP = 18
+        private const val TITLE_DELAY_MS = 35L
+        private const val COPY_DELAY_MS = 115L
+        private const val CARD_DELAY_MS = 190L
+        private const val CARD_STAGGER_MS = 58L
+        private const val FOOTER_DELAY_MS = 420L
+        private const val TITLE_DURATION_MS = 460L
+        private const val TITLE_COLOR_DURATION_MS = 620L
+        private const val COPY_DURATION_MS = 400L
+        private const val CARD_DURATION_MS = 440L
+        private const val MAX_STAGGERED_CARD_INDEX = 7
         const val EXTRA_USERNAME = "username"
         private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"
         private const val EXTRA_FORCE_REFRESH = "brief_force_refresh"
+        private const val EXTRA_WAIT_FOR_LAUNCH_GENERATION = "brief_wait_for_launch_generation"
 
-        fun intent(context: Context, username: String) =
-            Intent(context, TwidgetBriefActivity::class.java).putExtra(EXTRA_USERNAME, username)
+        fun intent(context: Context, username: String): Intent =
+            if (BriefSettingsStore.onboardingComplete(context)) {
+                contentIntent(context, username)
+            } else {
+                BriefOnboardingActivity.intent(context, username)
+            }
+
+        fun contentIntent(
+            context: Context,
+            username: String,
+            waitForLaunchGeneration: Boolean = false,
+        ) = Intent(context, TwidgetBriefActivity::class.java)
+            .putExtra(EXTRA_USERNAME, username)
+            .putExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, waitForLaunchGeneration)
 
         fun debugIntent(context: Context, username: String, scenario: BriefDebugScenario) =
-            intent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)
+            contentIntent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)
 
         fun refreshIntent(context: Context, username: String) =
-            intent(context, username).putExtra(EXTRA_FORCE_REFRESH, true)
+            contentIntent(context, username).putExtra(EXTRA_FORCE_REFRESH, true)
     }
 }

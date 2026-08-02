@@ -22,6 +22,7 @@ import com.tjg.twidget.brief.BriefAiDiagnostics
 import com.tjg.twidget.brief.BriefDebugLog
 import com.tjg.twidget.brief.BriefDebugScenario
 import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefOnboardingActivity
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
@@ -109,6 +110,16 @@ class BriefDebugFragment : InsetPreferenceFragment() {
             summary = getString(R.string.brief_debug_open_preview_summary, scenario.label)
             setOnPreferenceClickListener {
                 startActivity(TwidgetBriefActivity.debugIntent(context, username, selectedScenario()))
+                true
+            }
+        })
+        screen.addPreference(Preference(context).apply {
+            key = "brief_debug_open_onboarding"
+            title = getString(R.string.brief_debug_open_onboarding)
+            summary = getString(R.string.brief_debug_open_onboarding_summary)
+            isEnabled = username.isNotBlank()
+            setOnPreferenceClickListener {
+                startActivity(BriefOnboardingActivity.intent(context, username))
                 true
             }
         })

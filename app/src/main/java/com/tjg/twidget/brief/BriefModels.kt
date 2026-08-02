@@ -212,6 +212,12 @@ internal object BriefLayoutPolicy {
 
     fun columnCount(screenWidthDp: Int): Int =
         if (screenWidthDp >= LARGE_SCREEN_MIN_WIDTH_DP) 2 else 1
+
+    fun shortestColumn(columnHeights: IntArray): Int = columnHeights
+        .withIndex()
+        .minByOrNull { it.value }
+        ?.index
+        ?: 0
 }
 
 data class BriefSnapshot(

@@ -6,6 +6,7 @@ import com.tjg.twidget.data.SecureCredentialStore
 object BriefSettingsStore {
     private const val PREFS = "twidget_brief_settings"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_PROVIDER = "provider"
     private const val KEY_CONTENT_PREFIX = "content_"
 
@@ -13,6 +14,13 @@ object BriefSettingsStore {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    }
+
+    fun onboardingComplete(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false)
+
+    fun setOnboardingComplete(context: Context, complete: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ONBOARDING_COMPLETE, complete).apply()
     }
 
     fun provider(context: Context): BriefProviderMode =

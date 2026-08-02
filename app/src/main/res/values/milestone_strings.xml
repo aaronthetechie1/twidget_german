@@ -9,6 +9,7 @@
     <string name="milestone_auto_adjust">Auto adjust goal</string>
     <string name="milestone_auto_adjust_summary">Push yourself by updating your goal automatically, once achieved, based on account performance</string>
     <string name="milestone_select_goal">Select goal</string>
+    <string name="milestone_edit_goal_title">Edit %1$s goal</string>
     <string name="milestone_select">Select</string>
     <string name="milestone_current_goal">Current goal: %1$s</string>
     <string name="milestone_unavailable">Not available yet</string>

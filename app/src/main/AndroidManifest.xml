@@ -193,6 +193,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".brief.BriefOnboardingActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".settings.SettingsDebugActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />

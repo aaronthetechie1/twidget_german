@@ -41,7 +41,13 @@ internal object MilestoneGoalDialog {
         }
 
         val dialog = AlertDialog.Builder(activity)
-            .setTitle(R.string.milestone_select_goal)
+            .setTitle(
+                if (existing == null) {
+                    activity.getString(R.string.milestone_select_goal)
+                } else {
+                    activity.getString(R.string.milestone_edit_goal_title, metric.goalNoun)
+                },
+            )
             .setView(content)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.milestone_select, null)

@@ -22,11 +22,14 @@ data class MilestoneInput(
     val valid: Boolean,
 )
 
-enum class MilestoneMetric(val storageId: String) {
-    FOLLOWERS("followers"),
-    VERIFIED_FOLLOWERS("verified_followers"),
-    ENGAGEMENT_RATE("engagement_rate"),
-    IMPRESSIONS("impressions");
+enum class MilestoneMetric(
+    val storageId: String,
+    val goalNoun: String,
+) {
+    FOLLOWERS("followers", "follower"),
+    VERIFIED_FOLLOWERS("verified_followers", "verified follower"),
+    ENGAGEMENT_RATE("engagement_rate", "engagement rate"),
+    IMPRESSIONS("impressions", "impression");
 
     companion object {
         fun fromStorageId(id: String?): MilestoneMetric =

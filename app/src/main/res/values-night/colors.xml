@@ -48,4 +48,7 @@
     <color name="brief_text_supporting">#A7A7AB</color>
     <color name="brief_divider">#33FFFFFF</color>
     <color name="brief_icon_top_tweet">#FFAA58</color>
+    <color name="brief_onboarding_top">#01233F</color>
+    <color name="brief_onboarding_bottom">#000000</color>
+    <color name="brief_onboarding_button">#CC17171A</color>
 </resources>

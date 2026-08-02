@@ -14,4 +14,11 @@ class BriefLayoutPolicyTest {
         assertEquals(2, BriefLayoutPolicy.columnCount(600))
         assertEquals(2, BriefLayoutPolicy.columnCount(1280))
     }
+
+    @Test
+    fun masonryPlacementChoosesTheShortestColumn() {
+        assertEquals(1, BriefLayoutPolicy.shortestColumn(intArrayOf(900, 480)))
+        assertEquals(0, BriefLayoutPolicy.shortestColumn(intArrayOf(480, 900)))
+        assertEquals(0, BriefLayoutPolicy.shortestColumn(intArrayOf(480, 480)))
+    }
 }
