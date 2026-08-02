@@ -207,7 +207,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(194)))
     }
 
-    private fun postCard(post: PostSummary): View = LinearLayout(this).apply {
+    private fun postCard(post: PostSummary, sourceAttribution: String = ""): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(14), dp(14), dp(14), dp(14))
         setBackgroundResource(R.drawable.brief_card_background)
@@ -227,7 +227,14 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(10), 0, 0, 0)
                 addView(primaryText(post.authorName.ifBlank { TwidgetStore.currentStats(context, username).fullName }, 14f, true))
-                addView(supportingText("@${post.authorUserName.ifBlank { username }} · ${postDate(post)}", 12f))
+                val byline = buildString {
+                    append("@${post.authorUserName.ifBlank { username }} · ${postDate(post)}")
+                    sourceAttribution.takeIf(String::isNotBlank)?.let { append(" · $it") }
+                }
+                addView(supportingText(byline, 12f).apply {
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                })
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         })
 
@@ -251,8 +258,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             orientation = LinearLayout.HORIZONTAL
             addMetric(this, OneUiIconR.drawable.ic_oui_equalizer_2, post.views)
             addMetric(this, OneUiIconR.drawable.ic_oui_message_outline, post.replies)
-            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes)
             addMetric(this, OneUiIconR.drawable.ic_oui_repeat, post.reposts)
+            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes)
         }, matchWrap(top = 10))
     }
 
@@ -496,13 +503,23 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun cardSection(card: BriefCard): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         val analytics = AnalyticsClient.cached(context, username)
+        val followThroughPost = if (card.type == BriefCardType.POST_FOLLOW_THROUGH) {
+            analytics?.recentPosts?.firstOrNull { it.url == card.actionData }
+                ?: analytics?.best?.takeIf { debugScenario == BriefDebugScenario.POST_FOLLOW_THROUGH }
+        } else {
+            null
+        }
         val hasFetchedPost = when (card.type) {
             BriefCardType.POST -> analytics?.best != null
             BriefCardType.WORST_POST -> analytics?.worst != null
-            BriefCardType.POST_FOLLOW_THROUGH -> analytics?.recentPosts?.any { it.url == card.actionData } == true
+            BriefCardType.POST_FOLLOW_THROUGH -> followThroughPost != null
             else -> false
         }
-        if (hasFetchedPost) {
+        val explanationAsHeading = hasFetchedPost || card.type in setOf(
+            BriefCardType.SCHEDULE_GUIDE,
+            BriefCardType.POSTING_GUIDE,
+        )
+        if (explanationAsHeading) {
             addView(sectionLabel(card.body).apply {
                 setLineSpacing(dp(2).toFloat(), 1f)
             })
@@ -522,10 +539,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 ?: genericCard(card)
             BriefCardType.WORST_POST -> analytics?.worst?.let { postCard(it) }
                 ?: genericCard(card)
-            BriefCardType.POST_FOLLOW_THROUGH -> analytics?.recentPosts
-                ?.firstOrNull { it.url == card.actionData }
-                ?.let { postCard(it) }
+            BriefCardType.POST_FOLLOW_THROUGH -> followThroughPost
+                ?.let { postCard(it, card.sourceAttribution) }
                 ?: genericCard(card)
+            BriefCardType.SCHEDULE_GUIDE,
+            BriefCardType.POSTING_GUIDE,
+            -> compactGuideAction(card)
             BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
             BriefCardType.INACTIVITY -> genericCard(card, warm = true)
             else -> genericCard(card)
@@ -578,10 +597,43 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
+    private fun compactGuideAction(card: BriefCard): View = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.HORIZONTAL
+
+        val open = View.OnClickListener { performCardAction(card) }
+        addView(LinearLayout(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(20), 0, dp(20), 0)
+            setBackgroundResource(R.drawable.brief_guide_action_surface)
+            clipToOutline = true
+            foreground = selectableItemBackground()
+            isClickable = card.action != BriefCardAction.NONE
+            isFocusable = isClickable
+            if (isClickable) setOnClickListener(open)
+            addView(primaryText(actionLabel(card) ?: card.title, 18f, bold = true))
+        }, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+            marginEnd = dp(10)
+        })
+
+        addView(ImageView(context).apply {
+            setImageResource(OneUiIconR.drawable.ic_oui_open)
+            imageTintList = ColorStateList.valueOf(Color.WHITE)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            setBackgroundResource(R.drawable.brief_guide_action_button)
+            clipToOutline = true
+            foreground = selectableItemBackground()
+            contentDescription = actionLabel(card) ?: card.title
+            isClickable = card.action != BriefCardAction.NONE
+            isFocusable = isClickable
+            if (isClickable) setOnClickListener(open)
+        }, LinearLayout.LayoutParams(dp(52), dp(52)))
+    }
+
     private fun actionLabel(card: BriefCard): String? = when (card.action) {
         BriefCardAction.NONE -> null
         BriefCardAction.OPEN_SCHEDULER -> "Review schedule"
-        BriefCardAction.COMPOSE_TWEET -> "Plan a tweet"
+        BriefCardAction.COMPOSE_TWEET -> "Draft a tweet"
         BriefCardAction.OPEN_POST -> "Open tweet"
     }
 

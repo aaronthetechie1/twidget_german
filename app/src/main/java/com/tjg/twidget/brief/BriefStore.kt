@@ -59,6 +59,7 @@ object BriefStore {
                     put("rankingScore", card.rankingScore)
                     put("action", card.action.name)
                     put("actionData", card.actionData)
+                    put("sourceAttribution", card.sourceAttribution)
                     put("rankSignals", JSONObject().apply {
                         put("contextRelevance", card.rankSignals.contextRelevance)
                         put("timeRelevance", card.rankSignals.timeRelevance)
@@ -118,6 +119,7 @@ object BriefStore {
                         action = runCatching { BriefCardAction.valueOf(card.optString("action")) }
                             .getOrDefault(BriefCardAction.NONE),
                         actionData = card.optString("actionData"),
+                        sourceAttribution = card.optString("sourceAttribution"),
                         rankSignals = BriefRankSignals(
                             contextRelevance = rankSignals?.optDouble("contextRelevance", 0.5) ?: 0.5,
                             timeRelevance = rankSignals?.optDouble("timeRelevance", 0.5) ?: 0.5,

@@ -68,6 +68,10 @@
     <string name="preview_followers_large">Seven Thousand, Six\nHundred and Seventy\nOne Followers</string>
     <string name="preview_followers_square">Seven Thousand,\nSix Hundred and\nSeventy One\nFollowers</string>
     <string name="tweet_metrics">%1$s views · %2$s replies · %3$s likes</string>
+    <string name="post_metric_views">%1$s views</string>
+    <string name="post_metric_replies">%1$s replies</string>
+    <string name="post_metric_reposts">%1$s reposts</string>
+    <string name="post_metric_likes">%1$s likes</string>
     <string name="post_media">Post media</string>
     <string name="open_post">Open post</string>
     <string name="customize_cards">Customize cards</string>
@@ -537,8 +541,10 @@
     <string name="schedule_clear_media">Clear media</string>
     <string name="schedule_move_up">Move up</string>
     <string name="schedule_move_down">Move down</string>
-    <string name="schedule_reorder_thread">Reorder thread item</string>
-    <string name="schedule_reorder_thread_item">Reorder thread item %1$d</string>
+    <string name="schedule_reorder_thread">Hold and drag to reorder thread item</string>
+    <string name="schedule_reorder_thread_item">Hold and drag to reorder thread item %1$d</string>
+    <string name="schedule_thread_drop_target">Thread item drop position</string>
+    <string name="schedule_link_preview_image">Link preview image</string>
     <string name="schedule_remove_item">Remove</string>
     <string name="schedule_remove_thread">Remove tweet from thread</string>
     <string name="schedule_remove_media">Remove attached media</string>

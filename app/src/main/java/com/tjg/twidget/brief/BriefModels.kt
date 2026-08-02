@@ -94,6 +94,7 @@ data class BriefCard(
     val score: Int,
     val action: BriefCardAction = BriefCardAction.NONE,
     val actionData: String = "",
+    val sourceAttribution: String = "",
     val rankSignals: BriefRankSignals = BriefRankSignals(),
     val rankingScore: Int = -1,
 )

@@ -81,7 +81,7 @@ internal object BriefGuidePolicy {
     ): BriefCard? {
         analytics ?: return null
         if (analytics.recentPosts.size < 3) return null
-        val match = schedules.asSequence()
+        val matched = schedules.asSequence()
             .filter { it.status == ScheduleStatus.PUBLISHED }
             .mapNotNull { schedule ->
                 val publishedAt = schedule.publishedAt ?: schedule.scheduledAt ?: return@mapNotNull null
@@ -93,7 +93,8 @@ internal object BriefGuidePolicy {
                     ?.let { schedule to it }
             }
             .maxByOrNull { (_, post) -> post.timestamp }
-            ?.second ?: return null
+            ?: return null
+        val (schedule, match) = matched
 
         val viewRatio = ratio(match.views.toDouble(), analytics.medianViews)
         val engagementRatio = ratio(match.engagements.toDouble(), analytics.medianEngagements)
@@ -112,6 +113,10 @@ internal object BriefGuidePolicy {
             score = if (strong) 94 else 88,
             action = BriefCardAction.OPEN_POST,
             actionData = match.url,
+            sourceAttribution = when (schedule.provider) {
+                com.tjg.twidget.schedule.ScheduleProvider.BUFFER -> "Tweeted with Buffer"
+                com.tjg.twidget.schedule.ScheduleProvider.LOCAL_REMINDER -> "Scheduled with Twidget"
+            },
             rankSignals = BriefRankSignals(
                 contextRelevance = 0.9,
                 timeRelevance = 0.35,

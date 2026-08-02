@@ -47,6 +47,7 @@ class BriefGuidePolicyTest {
         assertEquals(BriefCardType.POST_FOLLOW_THROUGH, card?.type)
         assertEquals(BriefCardAction.OPEN_POST, card?.action)
         assertEquals(post.url, card?.actionData)
+        assertEquals("Tweeted with Buffer", card?.sourceAttribution)
     }
 
     @Test

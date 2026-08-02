@@ -154,7 +154,15 @@ enum class BriefDebugScenario(val storageId: String, val label: String) {
         INACTIVITY -> fixture(base, BriefCard("debug-inactivity", BriefCardType.STREAK, "Start a posting streak", "Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin.", 84))
         STREAK -> fixture(base, BriefCard("debug-streak", BriefCardType.STREAK, "14-day posting streak", "Tweet today to keep your 14-day rhythm going.", 84))
         SCHEDULE_GUIDE -> fixture(base, BriefCard("debug-schedule-guide", BriefCardType.SCHEDULE_GUIDE, "Plan your next tweet", "Nothing is scheduled for the next three days. Queue one idea while the week is still flexible.", 82, BriefCardAction.COMPOSE_TWEET))
-        POST_FOLLOW_THROUGH -> fixture(base, BriefCard("debug-post-follow-through", BriefCardType.POST_FOLLOW_THROUGH, "Build on your scheduled tweet", "It beat your recent baseline. Open it, note what people responded to, then plan a useful follow-up.", 94, BriefCardAction.OPEN_POST))
+        POST_FOLLOW_THROUGH -> fixture(base, BriefCard(
+            "debug-post-follow-through",
+            BriefCardType.POST_FOLLOW_THROUGH,
+            "Build on your scheduled tweet",
+            "It beat your recent baseline. Open it, note what people responded to, then plan a useful follow-up.",
+            94,
+            BriefCardAction.OPEN_POST,
+            sourceAttribution = "Tweeted with Buffer",
+        ))
         POSTING_GUIDE -> fixture(base, BriefCard("debug-posting-guide", BriefCardType.POSTING_GUIDE, "Try your next tweet in the evening", "Your recent evening tweets performed better than your other time windows. Test that timing again.", 86, BriefCardAction.COMPOSE_TWEET))
         STEADY -> fixture(base, BriefCard("debug-steady", BriefCardType.SUMMARY, "Everything looks steady", "Keep showing up and Twidget will watch for the next meaningful change.", 50), today = 0, week = 0)
     }
