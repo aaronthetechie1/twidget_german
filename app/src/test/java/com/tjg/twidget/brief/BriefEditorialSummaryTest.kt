@@ -101,4 +101,25 @@ class BriefEditorialSummaryTest {
         assertFalse(summary.body.contains("37K views"))
         assertFalse(summary.body.contains("8,000 follower goal"))
     }
+
+    @Test
+    fun goalSetupEntryPointIsNotDescribedAsActiveProgress() {
+        val setup = BriefCard(
+            "milestone-setup",
+            BriefCardType.MILESTONE,
+            "Account goals",
+            "Tap here to setup your account goals",
+            74,
+            actionData = BRIEF_MILESTONE_SETUP_ACTION,
+        )
+
+        val summary = BriefEditorialSummary.from(
+            cards = listOf(setup),
+            followersToday = 12,
+            followersWeek = 22,
+        )
+
+        assertEquals("Momentum is building", summary.title)
+        assertEquals("You gained 12 followers today and 22 this week.", summary.body)
+    }
 }

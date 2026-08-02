@@ -3,6 +3,8 @@ package com.tjg.twidget.brief
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
 
+internal const val BRIEF_MILESTONE_SETUP_ACTION = "setup_account_goals"
+
 enum class BriefProviderMode(val storageId: String) {
     AUTO("auto"),
     LOCAL("local"),
@@ -129,7 +131,10 @@ data class BriefEditorialSummary(
             upcomingTweets: Int = 0,
         ): BriefEditorialSummary {
             val types = cards.mapTo(linkedSetOf(), BriefCard::type)
-            val hasGoal = BriefCardType.MILESTONE in types
+            val hasGoal = cards.any {
+                it.type == BriefCardType.MILESTONE &&
+                    it.actionData != BRIEF_MILESTONE_SETUP_ACTION
+            }
             val title = when {
                 hasGoal && (followersToday > 0L || followersWeek > 0L) -> "Moving closer"
                 followersToday > 0L || followersWeek > 0L -> "Momentum is building"

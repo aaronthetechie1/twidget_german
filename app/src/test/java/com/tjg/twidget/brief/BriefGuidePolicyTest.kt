@@ -34,6 +34,15 @@ class BriefGuidePolicyTest {
     }
 
     @Test
+    fun scheduleHealthIdentifiesTheDraftUsedForItsPreview() {
+        val draft = schedule("draft-preview", ScheduleStatus.DRAFT, now)
+
+        val card = BriefGuidePolicy.scheduleCard(listOf(draft), now)
+
+        assertEquals(draft.id, card?.actionData)
+    }
+
+    @Test
     fun followThroughLinksAConservativelyMatchedPublishedTweet() {
         val publishedAt = now - 2 * day
         val text = "A sufficiently distinctive scheduled tweet about making mobile tools easier"

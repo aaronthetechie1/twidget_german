@@ -31,21 +31,23 @@ internal object BriefGuidePolicy {
             )
         }
 
-        val readyDrafts = active.count { post ->
+        val readyDrafts = active.filter { post ->
             post.status == ScheduleStatus.DRAFT && post.thread.any { it.text.isNotBlank() || it.media.isNotEmpty() }
         }
-        if (readyDrafts > 0) {
+        val previewDraft = readyDrafts.firstOrNull()
+        if (previewDraft != null) {
             return BriefCard(
-                id = "schedule-drafts-$readyDrafts",
+                id = "schedule-drafts-${readyDrafts.size}",
                 type = BriefCardType.SCHEDULE_GUIDE,
-                title = if (readyDrafts == 1) "Finish your draft" else "Turn a draft into a plan",
-                body = if (readyDrafts == 1) {
+                title = if (readyDrafts.size == 1) "Finish your draft" else "Turn a draft into a plan",
+                body = if (readyDrafts.size == 1) {
                     "You have a draft waiting. Give it a time now and take one decision off your plate."
                 } else {
-                    "You have $readyDrafts drafts waiting. Pick the strongest one and give it a time."
+                    "You have ${readyDrafts.size} drafts waiting. Pick the strongest one and give it a time."
                 },
                 score = 87,
                 action = BriefCardAction.OPEN_SCHEDULER,
+                actionData = previewDraft.id,
                 rankSignals = BriefRankSignals(contextRelevance = 0.88, timeRelevance = 0.75),
             )
         }

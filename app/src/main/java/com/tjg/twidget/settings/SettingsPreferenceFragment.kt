@@ -133,7 +133,6 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(Preference(context).apply {
             key = "brief_settings_pref"
             title = getString(R.string.brief_settings_title)
-            summary = getString(R.string.brief_settings_summary)
             setOnPreferenceClickListener {
                 requireActivity().startSettingsSubActivity(
                     Intent(context, BriefSettingsActivity::class.java),

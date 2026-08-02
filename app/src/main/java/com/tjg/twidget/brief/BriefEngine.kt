@@ -1,6 +1,7 @@
 package com.tjg.twidget.brief
 
 import android.content.Context
+import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.analytics.PostAnalytics
@@ -35,7 +36,7 @@ import kotlin.math.roundToInt
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 9
+    private const val ENGINE_VERSION = 11
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -148,7 +149,7 @@ object BriefEngine {
             worstPostCard(analytics)?.let(candidates::add)
         }
         if (BriefContentCategory.ACCOUNT_GOALS in content) {
-            milestoneCard(context, username, stats, history, analytics, todayDelta, weekDelta)?.let(candidates::add)
+            candidates += milestoneCards(context, username, stats, history, analytics, todayDelta, weekDelta)
         }
         if (BriefContentCategory.TWEET_ACTIVITY in content) {
             activityCard(context, username, upcomingTweets, now)?.let(candidates::add)
@@ -298,7 +299,7 @@ object BriefEngine {
         )
     }
 
-    private fun milestoneCard(
+    private fun milestoneCards(
         context: Context,
         username: String,
         stats: ProfileStats,
@@ -306,46 +307,66 @@ object BriefEngine {
         analytics: PostAnalytics?,
         todayDelta: Long,
         weekDelta: Long,
-    ): BriefCard? {
-        val settings = MilestoneGoalStore.read(context, username)
-        if (!settings.configured || settings.target <= 0.0) return null
-        val snapshot = MilestoneMetricResolver.resolve(
-            context = context,
-            account = username,
-            metric = settings.metric,
-            stats = stats,
-            history = history,
-            analytics = analytics,
-            imported = ImportedAnalyticsStore.all(context, username),
-        )
-        val value = snapshot.value ?: return null
-        val progress = MilestonePolicy.progress(value, settings.target) ?: return null
-        val state = MilestonePolicy.performanceState(snapshot.history)
-        val target = formatGoal(settings.metric, settings.target)
-        val message = MilestoneCopyFactory.message(
-            context,
-            username,
-            state,
-            progress,
-            target,
-            goalNoun(settings.metric),
-        )
-        return BriefCard(
-            id = "milestone-${settings.metric.storageId}-${settings.target}",
-            type = BriefCardType.MILESTONE,
-            title = message.title,
-            body = message.body,
-            score = BriefRankingPolicy.milestone(progress, state),
-            rankSignals = BriefRankSignals(
-                contextRelevance = when {
-                    progress >= 100 -> 1.0
-                    state == MilestonePerformanceState.DECELERATING && todayDelta < 0L && weekDelta <= 0L -> 0.9
-                    todayDelta > 0L || weekDelta > 0L || state == MilestonePerformanceState.ACCELERATING -> 0.65
-                    else -> 0.55
-                },
-                timeRelevance = if (progress >= 100) 1.0 else 0.45,
-            ),
-        )
+    ): List<BriefCard> {
+        val imported = ImportedAnalyticsStore.all(context, username)
+        val goals = MilestoneGoalStore.readAll(context, username)
+        if (goals.isEmpty()) {
+            return listOf(BriefCard(
+                id = "milestone-setup",
+                type = BriefCardType.MILESTONE,
+                title = context.getString(R.string.milestone_account_goals),
+                body = context.getString(R.string.milestone_setup_hint),
+                score = 74,
+                actionData = BRIEF_MILESTONE_SETUP_ACTION,
+                rankSignals = BriefRankSignals(
+                    contextRelevance = 0.72,
+                    timeRelevance = 0.35,
+                ),
+            ))
+        }
+        return goals.mapNotNull { settings ->
+            if (!settings.configured || settings.target <= 0.0) return@mapNotNull null
+            val snapshot = MilestoneMetricResolver.resolve(
+                context = context,
+                account = username,
+                metric = settings.metric,
+                stats = stats,
+                history = history,
+                analytics = analytics,
+                imported = imported,
+            )
+            // A goal remains useful while its backing scan or analytics import
+            // is temporarily unavailable. Start it at zero until data arrives.
+            val value = snapshot.value ?: 0.0
+            val progress = MilestonePolicy.progress(value, settings.target) ?: return@mapNotNull null
+            val state = MilestonePolicy.performanceState(snapshot.history)
+            val target = formatGoal(settings.metric, settings.target)
+            val message = MilestoneCopyFactory.message(
+                context,
+                "$username:${settings.metric.storageId}",
+                state,
+                progress,
+                target,
+                goalNoun(settings.metric),
+            )
+            BriefCard(
+                id = "milestone-${settings.metric.storageId}-${settings.target}",
+                type = BriefCardType.MILESTONE,
+                title = message.title,
+                body = message.body,
+                score = BriefRankingPolicy.milestone(progress, state),
+                actionData = settings.metric.storageId,
+                rankSignals = BriefRankSignals(
+                    contextRelevance = when {
+                        progress >= 100 -> 1.0
+                        state == MilestonePerformanceState.DECELERATING && todayDelta < 0L && weekDelta <= 0L -> 0.9
+                        todayDelta > 0L || weekDelta > 0L || state == MilestonePerformanceState.ACCELERATING -> 0.65
+                        else -> 0.55
+                    },
+                    timeRelevance = if (progress >= 100) 1.0 else 0.45,
+                ),
+            )
+        }
     }
 
     private fun activityCard(
@@ -488,7 +509,7 @@ object BriefEngine {
         follower.id.ifBlank { follower.username.lowercase(Locale.US) }
 
     private fun contextFingerprint(context: Context, username: String): String {
-        val goal = MilestoneGoalStore.read(context, username)
+        val goals = MilestoneGoalStore.readAll(context, username)
         val streak = DailyStreakStore.snapshot(context, username)
         val now = System.currentTimeMillis()
         val schedule = ScheduleStore(context).listForAccount(username)
@@ -499,10 +520,9 @@ object BriefEngine {
             }
             .joinToString(";") { "${it.id}:${it.status}:${it.scheduledAt}:${it.updatedAt}" }
         return listOf(
-            goal.configured,
-            goal.metric.storageId,
-            goal.target,
-            goal.autoAdjust,
+            goals.joinToString(";") { goal ->
+                "${goal.metric.storageId}:${goal.target}:${goal.autoAdjust}"
+            },
             streak.streak,
             streak.activeToday,
             streak.lastActiveDay,

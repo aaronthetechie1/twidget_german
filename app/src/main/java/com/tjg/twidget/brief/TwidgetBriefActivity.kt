@@ -36,6 +36,7 @@ import com.tjg.twidget.followers.TopFollowersStore
 import com.tjg.twidget.main.MilestoneArcView
 import com.tjg.twidget.main.MilestoneCardBackgroundDrawable
 import com.tjg.twidget.main.MilestoneGoalActivity
+import com.tjg.twidget.main.MilestoneGoalDialog
 import com.tjg.twidget.main.MilestoneGoalStore
 import com.tjg.twidget.main.MilestoneMetricResolver
 import com.tjg.twidget.main.MilestonePerformanceState
@@ -47,7 +48,9 @@ import com.tjg.twidget.schedule.PublicUrlMedia
 import com.tjg.twidget.schedule.ScheduleComposeActivity
 import com.tjg.twidget.schedule.ScheduleActivity
 import com.tjg.twidget.schedule.ScheduleProvider
+import com.tjg.twidget.schedule.ScheduleStatus
 import com.tjg.twidget.schedule.ScheduleStore
+import com.tjg.twidget.schedule.ScheduledPost
 import com.tjg.twidget.settings.BriefSettingsActivity
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.MetricChartView
@@ -213,8 +216,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         setBackgroundResource(R.drawable.brief_card_background)
         isClickable = post.url.isNotBlank()
         isFocusable = isClickable
-        if (isClickable) setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(post.url)))
+        if (isClickable) {
+            applyBriefCardRipple()
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(post.url)))
+            }
         }
 
         addView(LinearLayout(context).apply {
@@ -282,6 +288,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         setBackgroundResource(R.drawable.brief_card_background)
         isClickable = true
         isFocusable = true
+        applyBriefCardRipple()
         setOnClickListener {
             startRightSidePopOverActivity(
                 Intent(this@TwidgetBriefActivity, TopFollowersBrowseActivity::class.java)
@@ -394,6 +401,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         isClickable = true
         isFocusable = true
         setBackgroundResource(R.drawable.brief_card_background)
+        applyBriefCardRipple()
         setOnClickListener { openSchedule(tweet) }
 
         val stats = TwidgetStore.currentStats(this@TwidgetBriefActivity, username)
@@ -452,6 +460,95 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         addView(supportingText(details, 12f), matchWrap(top = 10))
     }
 
+    private fun draftPostCard(post: ScheduledPost): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(14), dp(14), dp(14), dp(14))
+        isClickable = true
+        isFocusable = true
+        setBackgroundResource(R.drawable.brief_card_background)
+        applyBriefCardRipple()
+        setOnClickListener { openDraft(post) }
+
+        val stats = TwidgetStore.currentStats(this@TwidgetBriefActivity, username)
+        val firstTweet = post.thread.firstOrNull()
+        addView(LinearLayout(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            addView(ImageView(context).apply {
+                ProfileImageLoader.loadInto(context, this, stats.profileImage)
+            }, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(LinearLayout(this@TwidgetBriefActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), 0, 0, 0)
+                addView(primaryText(stats.fullName.ifBlank { "@$username" }, 14f, true))
+                val source = if (post.provider == ScheduleProvider.BUFFER) "Buffer draft" else "Local draft"
+                addView(supportingText("@$username · $source", 12f).apply {
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                })
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        })
+
+        addView(primaryText(firstTweet?.text.orEmpty().ifBlank { getString(R.string.brief_draft_without_text) }, 14f).apply {
+            setLineSpacing(dp(2).toFloat(), 1f)
+        }, matchWrap(top = 10))
+
+        firstTweet?.media
+            ?.firstOrNull { media -> media.mimeType?.startsWith("image/", ignoreCase = true) != false }
+            ?.let { media ->
+            addView(ImageView(context).apply {
+                contentDescription = getString(R.string.post_media)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                when (media) {
+                    is LocalUriMedia -> {
+                        background = AppCompatResources.getDrawable(context, R.drawable.schedule_media_preview_bg)
+                        outlineProvider = ViewOutlineProvider.BACKGROUND
+                        clipToOutline = true
+                        runCatching { setImageURI(Uri.parse(media.uri)) }
+                    }
+                    is PublicUrlMedia -> ProfileImageLoader.loadMediaInto(
+                        context,
+                        this,
+                        media.displayUrl,
+                        dp(14),
+                    )
+                }
+            }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(218),
+            ).apply { topMargin = dp(10) })
+        }
+
+        val threadCount = post.thread.size
+        addView(LinearLayout(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            contentDescription = resources.getQuantityString(
+                R.plurals.brief_draft_thread_count,
+                threadCount,
+                threadCount,
+            )
+            addView(ImageView(context).apply {
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                setImageResource(OneUiIconR.drawable.ic_oui_list)
+                imageTintList = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
+            }, LinearLayout.LayoutParams(dp(18), dp(18)))
+            addView(primaryText(
+                resources.getQuantityString(
+                    R.plurals.brief_draft_thread_count,
+                    threadCount,
+                    threadCount,
+                ),
+                14f,
+            ).apply {
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { marginStart = dp(4) })
+        }, matchWrap(top = 10))
+    }
+
     private fun scheduleDate(timestamp: Long): String = if (timestamp > 0L) {
         SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(timestamp))
     } else {
@@ -464,6 +561,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             Intent(this, ScheduleComposeActivity::class.java)
                 .putExtra(ScheduleComposeActivity.EXTRA_USERNAME, username)
                 .putExtra(ScheduleComposeActivity.EXTRA_SCHEDULE_ID, tweet.id),
+        )
+    }
+
+    private fun openDraft(post: ScheduledPost) {
+        reloadOnResume = true
+        startRightSidePopOverActivity(
+            Intent(this, ScheduleComposeActivity::class.java)
+                .putExtra(ScheduleComposeActivity.EXTRA_USERNAME, username)
+                .putExtra(ScheduleComposeActivity.EXTRA_SCHEDULE_ID, post.id),
         )
     }
 
@@ -509,6 +615,13 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         } else {
             null
         }
+        val guideDraft = if (
+            card.type == BriefCardType.SCHEDULE_GUIDE && card.id.startsWith("schedule-drafts-")
+        ) {
+            readyDraftForCard(card)
+        } else {
+            null
+        }
         val hasFetchedPost = when (card.type) {
             BriefCardType.POST -> analytics?.best != null
             BriefCardType.WORST_POST -> analytics?.worst != null
@@ -542,9 +655,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             BriefCardType.POST_FOLLOW_THROUGH -> followThroughPost
                 ?.let { postCard(it, card.sourceAttribution) }
                 ?: genericCard(card)
-            BriefCardType.SCHEDULE_GUIDE,
-            BriefCardType.POSTING_GUIDE,
-            -> compactGuideAction(card)
+            BriefCardType.SCHEDULE_GUIDE -> guideDraft?.let(::draftPostCard) ?: compactGuideAction(card)
+            BriefCardType.POSTING_GUIDE -> compactGuideAction(card)
             BriefCardType.TOP_FOLLOWER -> topFollowersCard(card)
             BriefCardType.INACTIVITY -> genericCard(card, warm = true)
             else -> genericCard(card)
@@ -552,9 +664,17 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         addView(content, matchWrap(top = 10))
     }
 
+    private fun readyDraftForCard(card: BriefCard): ScheduledPost? {
+        val drafts = ScheduleStore(this).listForAccount(username).filter { post ->
+            post.status == ScheduleStatus.DRAFT &&
+                post.thread.any { it.text.isNotBlank() || it.media.isNotEmpty() }
+        }
+        return drafts.firstOrNull { it.id == card.actionData } ?: drafts.firstOrNull()
+    }
+
     private fun sectionHeading(card: BriefCard): String = when (card.type) {
         BriefCardType.MILESTONE -> {
-            val settings = MilestoneGoalStore.read(this, username)
+            val settings = milestoneSettings(card)
             val stats = TwidgetStore.currentStats(this, username)
             val metric = MilestoneMetricResolver.resolve(
                 context = this,
@@ -592,7 +712,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         if (card.action != BriefCardAction.NONE) {
             isClickable = true
             isFocusable = true
-            foreground = selectableItemBackground()
+            applyBriefCardRipple()
             setOnClickListener { performCardAction(card) }
         }
     }
@@ -607,7 +727,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setPadding(dp(20), 0, dp(20), 0)
             setBackgroundResource(R.drawable.brief_guide_action_surface)
             clipToOutline = true
-            foreground = selectableItemBackground()
+            applyBriefCardRipple()
             isClickable = card.action != BriefCardAction.NONE
             isFocusable = isClickable
             if (isClickable) setOnClickListener(open)
@@ -622,7 +742,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setPadding(dp(14), dp(14), dp(14), dp(14))
             setBackgroundResource(R.drawable.brief_guide_action_button)
             clipToOutline = true
-            foreground = selectableItemBackground()
+            applyBriefCardRipple()
             contentDescription = actionLabel(card) ?: card.title
             isClickable = card.action != BriefCardAction.NONE
             isFocusable = isClickable
@@ -660,26 +780,28 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun selectableItemBackground() = android.util.TypedValue().let { value ->
-        theme.resolveAttribute(android.R.attr.selectableItemBackground, value, true)
-        AppCompatResources.getDrawable(this, value.resourceId)
+    private fun View.applyBriefCardRipple() {
+        foreground = AppCompatResources.getDrawable(context, R.drawable.brief_card_ripple)
     }
 
     private fun milestoneCard(card: BriefCard): View {
         val root = LayoutInflater.from(this).inflate(R.layout.milestone_card, null, false)
-        val settings = MilestoneGoalStore.read(this, username)
-        val stats = TwidgetStore.currentStats(this, username)
-        val metric = MilestoneMetricResolver.resolve(
-            context = this,
-            account = username,
-            metric = settings.metric,
-            stats = stats,
-            history = TwidgetStore.fullHistory(this, username),
-            analytics = AnalyticsClient.cached(this, username),
-            imported = ImportedAnalyticsStore.all(this, username),
-        )
-        val progress = MilestonePolicy.progress(metric.value, settings.target) ?: 0
-        val state = MilestonePolicy.performanceState(metric.history)
+        val isSetup = card.actionData == BRIEF_MILESTONE_SETUP_ACTION
+        val settings = if (isSetup) null else milestoneSettings(card)
+        val metric = settings?.let {
+            MilestoneMetricResolver.resolve(
+                context = this,
+                account = username,
+                metric = it.metric,
+                stats = TwidgetStore.currentStats(this, username),
+                history = TwidgetStore.fullHistory(this, username),
+                analytics = AnalyticsClient.cached(this, username),
+                imported = ImportedAnalyticsStore.all(this, username),
+            )
+        }
+        val progress = settings?.let { MilestonePolicy.progress(metric?.value, it.target) } ?: 0
+        val state = metric?.let { MilestonePolicy.performanceState(it.history) }
+            ?: MilestonePerformanceState.NEUTRAL
         val accent = when (state) {
             MilestonePerformanceState.ACCELERATING -> Color.rgb(15, 207, 110)
             MilestonePerformanceState.DECELERATING -> Color.rgb(255, 103, 31)
@@ -702,14 +824,28 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         root.findViewById<TextView>(R.id.milestone_title).text = card.title
         root.findViewById<TextView>(R.id.milestone_message).text = card.body
         val openEditor = View.OnClickListener {
-            reloadOnResume = true
-            startRightSidePopOverActivity(MilestoneGoalActivity.intent(this, username))
+            if (isSetup) {
+                reloadOnResume = true
+                startRightSidePopOverActivity(MilestoneGoalActivity.intent(this, username))
+            } else {
+                MilestoneGoalDialog.show(this, username, settings!!.metric) {
+                    loadBrief(forceEngine = true)
+                }
+            }
         }
         root.setOnClickListener(openEditor)
-        root.findViewById<ImageButton>(R.id.milestone_edit).setOnClickListener(openEditor)
+        root.findViewById<ImageButton>(R.id.milestone_edit).apply {
+            visibility = if (isSetup) View.GONE else View.VISIBLE
+            setOnClickListener(openEditor)
+        }
         root.contentDescription = "${card.title}. ${card.body}"
         return root
     }
+
+    private fun milestoneSettings(card: BriefCard) =
+        MilestoneGoalStore.readAll(this, username)
+            .firstOrNull { it.metric.storageId == card.actionData }
+            ?: MilestoneGoalStore.read(this, username)
 
     private fun radialCard(start: Int, end: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
