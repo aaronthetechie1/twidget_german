@@ -119,8 +119,9 @@ internal object BriefWidgetArtworkRenderer {
             )
             Layout.WIDE_TALL -> drawTallCard(
                 context, canvas, card, account, width, height, primary, secondary,
-                paddingDp = 10, iconSizeDp = 48, titleSizeSp = 26f, bodySizeSp = 16f,
-                titleLines = 1, bodyLines = 2,
+                paddingDp = 18, iconSizeDp = 32, titleSizeSp = 24f, bodySizeSp = 16f,
+                titleLines = 1, bodyLines = 2, iconStartDp = 15, iconTopDp = 21,
+                bottomPaddingDp = 21,
             )
         }
         return bitmap
@@ -168,10 +169,16 @@ internal object BriefWidgetArtworkRenderer {
         bodySizeSp: Float,
         titleLines: Int,
         bodyLines: Int,
+        iconStartDp: Int = paddingDp,
+        iconTopDp: Int = paddingDp,
+        bottomPaddingDp: Int = paddingDp,
     ) {
         val pad = dp(context, paddingDp).toFloat()
-        val iconSize = minOf(dp(context, iconSizeDp).toFloat(), heightPx - pad * 2f)
-        drawStateIcon(context, canvas, card.type, account, pad, pad, iconSize)
+        val iconStart = dp(context, iconStartDp).toFloat()
+        val iconTop = dp(context, iconTopDp).toFloat()
+        val bottomPad = dp(context, bottomPaddingDp).toFloat()
+        val iconSize = minOf(dp(context, iconSizeDp).toFloat(), heightPx - iconTop - bottomPad)
+        drawStateIcon(context, canvas, card.type, account, iconStart, iconTop, iconSize)
 
         val textWidth = widthPx - pad * 2f
         val titlePaint = textPaint(context, 700, titleSizeSp, primary)
@@ -184,7 +191,7 @@ internal object BriefWidgetArtworkRenderer {
         val titleHeight = titleLineHeight * wrappedTitle.size
         val bodyHeight = bodyLineHeight * wrappedBody.size
         val gap = dp(context, 5).toFloat()
-        val blockTop = heightPx - pad - titleHeight - gap - bodyHeight
+        val blockTop = heightPx - bottomPad - titleHeight - gap - bodyHeight
 
         var baseline = blockTop - titlePaint.fontMetrics.top
         wrappedTitle.forEachIndexed { index, line ->
