@@ -38,7 +38,7 @@ class MetricChartView @JvmOverloads constructor(
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_divider)
         style = Paint.Style.FILL
-        alpha = 105
+        this@apply.alpha = 105
     }
     private val tooltipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_card_bg)
@@ -63,13 +63,13 @@ class MetricChartView @JvmOverloads constructor(
     private val areaFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_divider)
         style = Paint.Style.FILL
-        alpha = 35
+        this@apply.alpha = 35
     }
     private val areaStripePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_text_secondary)
         style = Paint.Style.STROKE
         strokeWidth = 2f * resources.displayMetrics.density
-        alpha = 55
+        this@apply.alpha = 55
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_text_secondary)
@@ -77,7 +77,7 @@ class MetricChartView @JvmOverloads constructor(
         strokeWidth = 2f * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
-        alpha = 105
+        this@apply.alpha = 105
     }
     private val linePath = Path()
     private val areaPath = Path()
