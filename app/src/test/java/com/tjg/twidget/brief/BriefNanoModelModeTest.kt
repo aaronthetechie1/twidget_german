@@ -12,8 +12,16 @@ class BriefNanoModelModeTest {
     }
 
     @Test
-    fun unknownStorageIdFallsBackToStableFast() {
-        assertEquals(BriefNanoModelMode.STABLE_FAST, BriefNanoModelMode.fromStorageId(null))
-        assertEquals(BriefNanoModelMode.STABLE_FAST, BriefNanoModelMode.fromStorageId("future_mode"))
+    fun unknownStorageIdFallsBackToAutomaticStableSelection() {
+        assertEquals(BriefNanoModelMode.AUTO_STABLE, BriefNanoModelMode.fromStorageId(null))
+        assertEquals(BriefNanoModelMode.AUTO_STABLE, BriefNanoModelMode.fromStorageId("future_mode"))
+    }
+
+    @Test
+    fun automaticStableSelectionTriesFastThenFull() {
+        assertEquals(
+            listOf(BriefNanoModelMode.STABLE_FAST, BriefNanoModelMode.STABLE_FULL),
+            BriefNanoModelMode.AUTO_STABLE.probeOrder(),
+        )
     }
 }

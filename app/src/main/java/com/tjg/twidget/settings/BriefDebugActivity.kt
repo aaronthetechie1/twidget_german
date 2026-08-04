@@ -157,6 +157,10 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 buildString {
                     append("Mode ${it.mode} · feature ${it.localStatus}")
                     append("\nModel config ${it.nanoModelMode.label}")
+                    it.resolvedNanoModelMode?.let { resolved ->
+                        append("\nResolved model ${resolved.label}")
+                    }
+                    it.nanoProbeAttempts?.let { attempts -> append("\nProbe $attempts") }
                     append("\nML Kit runtime ${if (it.runtimePresent) "present" else "missing"} · cloud key ${if (it.cloudConfigured) "configured" else "missing"}")
                     if (it.localModelName != null || it.localTokenLimit != null) {
                         append("\nModel ${it.localModelName ?: "unknown"} · context ${it.localTokenLimit?.let { limit -> "$limit tokens" } ?: "unknown"}")

@@ -25,14 +25,20 @@ import org.json.JSONObject
 enum class BriefLocalStatus { AVAILABLE, DOWNLOADABLE, DOWNLOADING, UNAVAILABLE }
 
 enum class BriefNanoModelMode(val storageId: String, val label: String) {
+    AUTO_STABLE("auto_stable", "Auto · Stable (Fast → Full)"),
     STABLE_FULL("stable_full", "Stable · Full"),
     STABLE_FAST("stable_fast", "Stable · Fast"),
     PREVIEW_FULL("preview_full", "Preview · Full"),
     PREVIEW_FAST("preview_fast", "Preview · Fast");
 
+    internal fun probeOrder(): List<BriefNanoModelMode> = when (this) {
+        AUTO_STABLE -> listOf(STABLE_FAST, STABLE_FULL)
+        else -> listOf(this)
+    }
+
     companion object {
         fun fromStorageId(value: String?): BriefNanoModelMode =
-            entries.firstOrNull { it.storageId == value } ?: STABLE_FAST
+            entries.firstOrNull { it.storageId == value } ?: AUTO_STABLE
     }
 }
 
@@ -44,6 +50,8 @@ data class BriefAiResult(
 data class BriefAiDiagnostics(
     val mode: BriefProviderMode,
     val nanoModelMode: BriefNanoModelMode,
+    val resolvedNanoModelMode: BriefNanoModelMode?,
+    val nanoProbeAttempts: String?,
     val runtimePresent: Boolean,
     val localStatus: BriefLocalStatus,
     val statusError: String?,
@@ -188,11 +196,35 @@ private data class NanoProbe(
     val error: String?,
     val modelName: String? = null,
     val tokenLimit: Int? = null,
+    val selectedMode: BriefNanoModelMode? = null,
+    val attempts: String? = null,
 )
 
 private object GeminiNanoBriefProvider {
-    suspend fun probe(context: Context): NanoProbe = runCatching {
-        val model = client(context)
+    suspend fun probe(context: Context): NanoProbe {
+        val attempts = mutableListOf<String>()
+        var lastError: String? = null
+        BriefAiDiagnosticsStore.nanoModelMode(context).probeOrder().forEach { mode ->
+            val result = probe(mode)
+            attempts += buildString {
+                append("${mode.label}: ${result.status}")
+                result.error?.let { append(" ($it)") }
+            }
+            if (result.status != BriefLocalStatus.UNAVAILABLE) {
+                return result.copy(attempts = attempts.joinToString(" · "))
+            }
+            if (result.error != null) lastError = result.error
+        }
+        lastError?.let { BriefAiDiagnosticsStore.localFailure(context, it) }
+        return NanoProbe(
+            status = BriefLocalStatus.UNAVAILABLE,
+            error = lastError,
+            attempts = attempts.joinToString(" · "),
+        )
+    }
+
+    private suspend fun probe(mode: BriefNanoModelMode): NanoProbe = runCatching {
+        val model = client(mode)
         try {
             val status = when (model.checkStatus()) {
                 FeatureStatus.AVAILABLE -> BriefLocalStatus.AVAILABLE
@@ -209,14 +241,14 @@ private object GeminiNanoBriefProvider {
                 tokenLimit = if (status == BriefLocalStatus.AVAILABLE) {
                     runCatching { model.getTokenLimit() }.getOrNull()
                 } else null,
+                selectedMode = mode,
             )
         } finally {
             model.close()
         }
     }.getOrElse { error ->
         val reason = "${error.javaClass.simpleName}: ${error.message.orEmpty()}".trim()
-        BriefAiDiagnosticsStore.localFailure(context, reason)
-        NanoProbe(BriefLocalStatus.UNAVAILABLE, reason)
+        NanoProbe(BriefLocalStatus.UNAVAILABLE, reason, selectedMode = mode)
     }
 
     suspend fun generate(context: Context, source: BriefSnapshot): BriefSnapshot? {
@@ -225,8 +257,9 @@ private object GeminiNanoBriefProvider {
             BriefAiDiagnosticsStore.localFailure(context, "Feature status: ${probe.status}")
             return null
         }
+        val selectedMode = probe.selectedMode ?: return null
         return runCatching {
-            val model = client(context)
+            val model = client(selectedMode)
             try {
                 val request = generateContentRequest(
                     TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source)}"),
@@ -279,7 +312,8 @@ private object GeminiNanoBriefProvider {
     }
 
     suspend fun download(context: Context, onStatus: (String) -> Unit): Boolean = runCatching {
-        val model = client(context)
+        val selectedMode = probe(context).selectedMode ?: return@runCatching false
+        val model = client(selectedMode)
         try {
             var complete = false
             var total = 0L
@@ -309,10 +343,12 @@ private object GeminiNanoBriefProvider {
         false
     }
 
-    private fun client(context: Context) = Generation.getClient(
+    private fun client(mode: BriefNanoModelMode) = Generation.getClient(
         generationConfig {
             modelConfig = modelConfig {
-                when (BriefAiDiagnosticsStore.nanoModelMode(context)) {
+                when (mode) {
+                    BriefNanoModelMode.AUTO_STABLE ->
+                        error("Auto mode must be resolved before creating a Gemini Nano client")
                     BriefNanoModelMode.STABLE_FULL -> {
                         releaseStage = ModelReleaseStage.STABLE
                         preference = ModelPreference.FULL
@@ -387,6 +423,8 @@ private object BriefAiDiagnosticsStore {
         return BriefAiDiagnostics(
             mode = mode,
             nanoModelMode = nanoModelMode(context),
+            resolvedNanoModelMode = probe.selectedMode,
+            nanoProbeAttempts = probe.attempts,
             runtimePresent = runCatching { Class.forName("com.google.mlkit.genai.prompt.Generation") }.isSuccess,
             localStatus = probe.status,
             statusError = probe.error,
