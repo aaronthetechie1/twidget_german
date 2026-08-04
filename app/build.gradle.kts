@@ -209,7 +209,7 @@ dependencies {
     implementation("io.github.tribalfs:oneui-design:0.9.13+oneui8")
     implementation("com.airbnb.android:lottie:6.6.2")
     implementation("androidx.work:work-runtime:2.11.2")
-    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("io.github.oneuiproject:icons:1.1.0")
     implementation("sesl.androidx.swiperefreshlayout:swiperefreshlayout:1.2.0-alpha01+1.0.0-sesl8+rev0")
