@@ -32,7 +32,7 @@ enum class BriefNanoModelMode(val storageId: String, val label: String) {
 
     companion object {
         fun fromStorageId(value: String?): BriefNanoModelMode =
-            entries.firstOrNull { it.storageId == value } ?: STABLE_FULL
+            entries.firstOrNull { it.storageId == value } ?: STABLE_FAST
     }
 }
 
