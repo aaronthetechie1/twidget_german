@@ -6,8 +6,12 @@ import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.GenAiException
 import com.google.mlkit.genai.prompt.Candidate
 import com.google.mlkit.genai.prompt.Generation
+import com.google.mlkit.genai.prompt.ModelPreference
+import com.google.mlkit.genai.prompt.ModelReleaseStage
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
+import com.google.mlkit.genai.prompt.generationConfig
+import com.google.mlkit.genai.prompt.modelConfig
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.widget.TwidgetBriefWidget
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +24,18 @@ import org.json.JSONObject
 
 enum class BriefLocalStatus { AVAILABLE, DOWNLOADABLE, DOWNLOADING, UNAVAILABLE }
 
+enum class BriefNanoModelMode(val storageId: String, val label: String) {
+    STABLE_FULL("stable_full", "Stable · Full"),
+    STABLE_FAST("stable_fast", "Stable · Fast"),
+    PREVIEW_FULL("preview_full", "Preview · Full"),
+    PREVIEW_FAST("preview_fast", "Preview · Fast");
+
+    companion object {
+        fun fromStorageId(value: String?): BriefNanoModelMode =
+            entries.firstOrNull { it.storageId == value } ?: STABLE_FULL
+    }
+}
+
 data class BriefAiResult(
     val snapshot: BriefSnapshot,
     val localStatus: BriefLocalStatus,
@@ -27,6 +43,7 @@ data class BriefAiResult(
 
 data class BriefAiDiagnostics(
     val mode: BriefProviderMode,
+    val nanoModelMode: BriefNanoModelMode,
     val runtimePresent: Boolean,
     val localStatus: BriefLocalStatus,
     val statusError: String?,
@@ -114,8 +131,18 @@ object BriefAiCoordinator {
         }
     }
 
-    suspend fun downloadLocalModel(onStatus: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
-        GeminiNanoBriefProvider.download(onStatus)
+    suspend fun downloadLocalModel(
+        context: Context,
+        onStatus: (String) -> Unit,
+    ): Boolean = withContext(Dispatchers.IO) {
+        GeminiNanoBriefProvider.download(context, onStatus)
+    }
+
+    fun nanoModelMode(context: Context): BriefNanoModelMode =
+        BriefAiDiagnosticsStore.nanoModelMode(context)
+
+    fun setNanoModelMode(context: Context, mode: BriefNanoModelMode) {
+        BriefAiDiagnosticsStore.setNanoModelMode(context, mode)
     }
 
     suspend fun diagnostics(context: Context, username: String): BriefAiDiagnostics = withContext(Dispatchers.IO) {
@@ -165,7 +192,7 @@ private data class NanoProbe(
 
 private object GeminiNanoBriefProvider {
     suspend fun probe(context: Context): NanoProbe = runCatching {
-        val model = Generation.getClient()
+        val model = client(context)
         try {
             val status = when (model.checkStatus()) {
                 FeatureStatus.AVAILABLE -> BriefLocalStatus.AVAILABLE
@@ -199,7 +226,7 @@ private object GeminiNanoBriefProvider {
             return null
         }
         return runCatching {
-            val model = Generation.getClient()
+            val model = client(context)
             try {
                 val request = generateContentRequest(
                     TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source)}"),
@@ -251,8 +278,8 @@ private object GeminiNanoBriefProvider {
         }.getOrNull()
     }
 
-    suspend fun download(onStatus: (String) -> Unit): Boolean = runCatching {
-        val model = Generation.getClient()
+    suspend fun download(context: Context, onStatus: (String) -> Unit): Boolean = runCatching {
+        val model = client(context)
         try {
             var complete = false
             var total = 0L
@@ -281,6 +308,31 @@ private object GeminiNanoBriefProvider {
         onStatus("The on-device model isn’t available")
         false
     }
+
+    private fun client(context: Context) = Generation.getClient(
+        generationConfig {
+            modelConfig = modelConfig {
+                when (BriefAiDiagnosticsStore.nanoModelMode(context)) {
+                    BriefNanoModelMode.STABLE_FULL -> {
+                        releaseStage = ModelReleaseStage.STABLE
+                        preference = ModelPreference.FULL
+                    }
+                    BriefNanoModelMode.STABLE_FAST -> {
+                        releaseStage = ModelReleaseStage.STABLE
+                        preference = ModelPreference.FAST
+                    }
+                    BriefNanoModelMode.PREVIEW_FULL -> {
+                        releaseStage = ModelReleaseStage.PREVIEW
+                        preference = ModelPreference.FULL
+                    }
+                    BriefNanoModelMode.PREVIEW_FAST -> {
+                        releaseStage = ModelReleaseStage.PREVIEW
+                        preference = ModelPreference.FAST
+                    }
+                }
+            }
+        },
+    )
 }
 
 private object BriefAiDiagnosticsStore {
@@ -290,6 +342,18 @@ private object BriefAiDiagnosticsStore {
     private const val KEY_OUTCOME = "outcome"
     private const val KEY_LOCAL_FAILURE = "local_failure"
     private const val KEY_LOCAL_DETAIL = "local_detail"
+    private const val KEY_NANO_MODEL_MODE = "nano_model_mode"
+
+    fun nanoModelMode(context: Context): BriefNanoModelMode =
+        BriefNanoModelMode.fromStorageId(prefs(context).getString(KEY_NANO_MODEL_MODE, null))
+
+    fun setNanoModelMode(context: Context, mode: BriefNanoModelMode) {
+        prefs(context).edit()
+            .putString(KEY_NANO_MODEL_MODE, mode.storageId)
+            .remove(KEY_LOCAL_FAILURE)
+            .remove(KEY_LOCAL_DETAIL)
+            .apply()
+    }
 
     fun attempt(context: Context, provider: String) {
         prefs(context).edit()
@@ -322,6 +386,7 @@ private object BriefAiDiagnosticsStore {
         val prefs = prefs(context)
         return BriefAiDiagnostics(
             mode = mode,
+            nanoModelMode = nanoModelMode(context),
             runtimePresent = runCatching { Class.forName("com.google.mlkit.genai.prompt.Generation") }.isSuccess,
             localStatus = probe.status,
             statusError = probe.error,

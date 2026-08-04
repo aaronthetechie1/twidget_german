@@ -427,6 +427,7 @@
         <item quantity="other">%1$d entries · Latest: %2$s · %3$s</item>
     </plurals>
     <string name="brief_debug_nano_category">Gemini Nano diagnostics</string>
+    <string name="brief_debug_nano_model_mode">Nano model configuration</string>
     <string name="brief_debug_nano_checking">Checking Gemini Nano…</string>
     <string name="brief_debug_nano_checking_summary">Querying ML Kit GenAI and Android AICore</string>
     <string name="brief_debug_nano_in_use">Gemini Nano is in use</string>

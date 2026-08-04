@@ -1035,7 +1035,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             var entrancePrepared = false
             try {
                 localStatus = BriefLocalStatus.DOWNLOADING
-                val downloaded = BriefAiCoordinator.downloadLocalModel { }
+                val downloaded = BriefAiCoordinator.downloadLocalModel(this@TwidgetBriefActivity) { }
                 if (!downloaded) {
                     localStatus = BriefLocalStatus.DOWNLOADABLE
                     return@launch

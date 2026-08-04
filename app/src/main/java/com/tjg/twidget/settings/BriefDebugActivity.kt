@@ -22,6 +22,7 @@ import com.tjg.twidget.brief.BriefAiDiagnostics
 import com.tjg.twidget.brief.BriefDebugLog
 import com.tjg.twidget.brief.BriefDebugScenario
 import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefNanoModelMode
 import com.tjg.twidget.brief.BriefOnboardingActivity
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.TwidgetStore
@@ -125,6 +126,24 @@ class BriefDebugFragment : InsetPreferenceFragment() {
         })
 
         screen.addPreference(category(R.string.brief_debug_nano_category))
+        val nanoModelMode = BriefAiCoordinator.nanoModelMode(context)
+        screen.addPreference(ListPreference(context).apply {
+            key = KEY_NANO_MODEL_MODE
+            isPersistent = false
+            title = getString(R.string.brief_debug_nano_model_mode)
+            entries = BriefNanoModelMode.entries.map(BriefNanoModelMode::label).toTypedArray()
+            entryValues = BriefNanoModelMode.entries.map(BriefNanoModelMode::storageId).toTypedArray()
+            value = nanoModelMode.storageId
+            summary = nanoModelMode.label
+            setOnPreferenceChangeListener { _, newValue ->
+                val selected = BriefNanoModelMode.fromStorageId(newValue as String)
+                BriefAiCoordinator.setNanoModelMode(context, selected)
+                summary = selected.label
+                aiDiagnostics = null
+                refreshAiDiagnostics(force = true)
+                true
+            }
+        })
         val diagnostics = aiDiagnostics
         screen.addPreference(Preference(context).apply {
             key = "brief_debug_nano_status"
@@ -137,6 +156,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
             summary = diagnostics?.let {
                 buildString {
                     append("Mode ${it.mode} · feature ${it.localStatus}")
+                    append("\nModel config ${it.nanoModelMode.label}")
                     append("\nML Kit runtime ${if (it.runtimePresent) "present" else "missing"} · cloud key ${if (it.cloudConfigured) "configured" else "missing"}")
                     if (it.localModelName != null || it.localTokenLimit != null) {
                         append("\nModel ${it.localModelName ?: "unknown"} · context ${it.localTokenLimit?.let { limit -> "$limit tokens" } ?: "unknown"}")
@@ -312,6 +332,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
 
     companion object {
         private const val KEY_SCENARIO = "brief_debug_scenario"
+        private const val KEY_NANO_MODEL_MODE = "brief_debug_nano_model_mode"
     }
 }
 
