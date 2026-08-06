@@ -51,7 +51,6 @@ import kotlin.math.roundToLong
 // full-width cards with extra height.
 internal enum class DashboardCardSize(val span: Int, val heightDp: Int) {
     HALF(1, 140),
-    STREAK(1, 112),
     MILESTONE(2, 112),
     FULL(2, 156),
     CHART(2, 260),
@@ -73,7 +72,7 @@ internal enum class DashboardCardType(val id: String, val labelRes: Int, val siz
     X_PROFILE_VISITS("x_profile_visits", R.string.x_profile_visits, DashboardCardSize.HALF),
     X_LIKES_RECEIVED("x_likes_received", R.string.x_likes_received, DashboardCardSize.HALF),
     MILESTONE("milestone", R.string.brief_title, DashboardCardSize.MILESTONE),
-    DAILY_STREAK("daily_streak", R.string.daily_streak, DashboardCardSize.STREAK),
+    DAILY_STREAK("daily_streak", R.string.daily_streak, DashboardCardSize.HALF),
     GROWTH_PACE("growth_pace", R.string.growth_pace, DashboardCardSize.HALF),
     BEST_DAY("best_day", R.string.best_recent_day, DashboardCardSize.HALF),
     MOMENTUM("momentum", R.string.momentum, DashboardCardSize.HALF),

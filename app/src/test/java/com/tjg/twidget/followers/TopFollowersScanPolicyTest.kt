@@ -1,6 +1,8 @@
 package com.tjg.twidget.followers
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
@@ -64,6 +66,41 @@ class TopFollowersScanPolicyTest {
 
         assertFalse(TopFollowersScanPolicy.canStart("2026-07-18", localLateEvening, losAngeles))
         assertTrue(TopFollowersScanPolicy.canStart("2026-07-18", localLateEvening, ZoneId.of("UTC")))
+    }
+
+    @Test
+    fun optedInScansAlwaysSelectTheBridge() {
+        assertEquals(
+            TopFollowersScanSource.BRIDGE,
+            selectTopFollowersScanSource(
+                selectedXApi = false,
+                personalTwitterApis = false,
+                shareHistory = true,
+                fallbackXApi = false,
+            ),
+        )
+        assertEquals(
+            TopFollowersScanSource.BRIDGE,
+            selectTopFollowersScanSource(
+                selectedXApi = false,
+                personalTwitterApis = true,
+                shareHistory = true,
+                fallbackXApi = true,
+            ),
+        )
+    }
+
+    @Test
+    fun directFollowerProvidersRequireExplicitCredentials() {
+        assertEquals(
+            TopFollowersScanSource.TWITTERAPIS,
+            selectTopFollowersScanSource(false, true, false, false),
+        )
+        assertEquals(
+            TopFollowersScanSource.X_API,
+            selectTopFollowersScanSource(true, false, true, true),
+        )
+        assertNull(selectTopFollowersScanSource(false, false, false, false))
     }
 
     private fun millis(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long =

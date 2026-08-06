@@ -1,7 +1,6 @@
 package com.tjg.twidget.providers
 
 import android.content.Context
-import com.tjg.twidget.R
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.SecureCredentialStore
@@ -20,7 +19,6 @@ data class TwitterApisTimelinePage(
 
 enum class TwitterApisAccessSource {
     PERSONAL,
-    APP_DEFAULT,
 }
 
 data class TwitterApisAccess(
@@ -41,16 +39,13 @@ object TwitterApisClient {
     fun hasTopFollowersAccess(context: Context): Boolean = topFollowersAccess(context) != null
 
     fun topFollowersAccess(context: Context): TwitterApisAccess? = selectTopFollowersAccess(
-        personalKey = SecureCredentialStore.read(context, SecureCredentialStore.TWITTERAPIS_API_KEY),
-        appDefaultKey = context.getString(R.string.twitterapis_default_api_key),
+        SecureCredentialStore.read(context, SecureCredentialStore.TWITTERAPIS_API_KEY),
     )
 
-    internal fun selectTopFollowersAccess(personalKey: String, appDefaultKey: String): TwitterApisAccess? {
+    internal fun selectTopFollowersAccess(personalKey: String): TwitterApisAccess? {
         val personal = personalKey.trim()
         if (personal.isNotBlank()) return TwitterApisAccess(personal, TwitterApisAccessSource.PERSONAL)
-        return appDefaultKey.trim().takeIf(String::isNotBlank)?.let {
-            TwitterApisAccess(it, TwitterApisAccessSource.APP_DEFAULT)
-        }
+        return null
     }
 
     fun fetchProfile(context: Context, username: String): ProfileStats {

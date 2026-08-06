@@ -147,8 +147,8 @@
     <string name="source_fxtwitter">FxTwitter</string>
     <string name="source_fxtwitter_summary">Free public FxTwitter API</string>
     <string name="share_history">Contribute to shared history</string>
-    <string name="share_history_summary">Share your public account stats with other Twidget users for better data for everyone. When enabled, heavier fetch tasks run through the Twidget bridge.</string>
-    <string name="share_history_onboarding_summary">Optional: share your public account stats with other Twidget users for better data for everyone. When enabled, heavier fetch tasks run through the Twidget bridge.</string>
+    <string name="share_history_summary">Share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
+    <string name="share_history_onboarding_summary">Optional: share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
     <string name="source_self_hosted">Self-hosted bridge</string>
     <string name="source_self_hosted_summary">Use your own bridge</string>
     <string name="source_x_api">X API</string>
@@ -665,7 +665,8 @@
     <string name="top_followers_scanning">Scanning %1$d followers across %2$d pages…</string>
     <string name="top_followers_complete">Scanned %1$d followers across %2$d paid pages</string>
     <string name="top_followers_scan_title">Start scan?</string>
-    <string name="top_followers_scan_message_trial">The included trial key allows one completed scan per account each day. Add your own key for no Twidget daily limit.</string>
+    <string name="top_followers_scan_message_trial">A personal TwitterAPIs key or compatible official X API credentials runs this scan directly from your device. Shared-history users can use the bridge instead.</string>
+    <string name="top_followers_scan_message_shared">Twidget’s bridge will reuse a recent opted-in scan when available, or scan this public account securely on the server. One completed scan per account is allowed each day.</string>
     <string name="top_followers_scan_message_personal">This scan uses your personal TwitterAPIs key. Twidget applies no daily scan limit, but TwitterAPIs usage charges and provider limits still apply.</string>
     <string name="scan">Scan</string>
     <string name="twitterapis_title">TwitterAPIs · Top followers</string>

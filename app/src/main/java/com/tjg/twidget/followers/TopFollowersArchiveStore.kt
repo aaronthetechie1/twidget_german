@@ -2,6 +2,9 @@ package com.tjg.twidget.followers
 
 import android.content.Context
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.StandardCopyOption
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -53,6 +56,47 @@ object TopFollowersArchiveStore {
     }
 
     @Synchronized
+    fun beginReplacement(context: Context, username: String) {
+        replacementFile(context, username).apply {
+            parentFile?.mkdirs()
+            delete()
+        }
+    }
+
+    @Synchronized
+    fun appendReplacement(context: Context, username: String, users: List<TopFollower>, pageNumber: Int) {
+        if (users.isEmpty()) return
+        replacementFile(context, username).appendText(buildString {
+            users.forEach { follower ->
+                append(followerToJson(follower, pageNumber).toString())
+                append('\n')
+            }
+        })
+    }
+
+    @Synchronized
+    fun commitReplacement(context: Context, username: String) {
+        val pending = replacementFile(context, username)
+        if (!pending.isFile) return
+        val target = archiveFile(context, username).toPath()
+        try {
+            Files.move(
+                pending.toPath(),
+                target,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(pending.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    @Synchronized
+    fun abortReplacement(context: Context, username: String) {
+        replacementFile(context, username).delete()
+    }
+
+    @Synchronized
     fun readAll(context: Context, username: String): List<TopFollower> {
         val file = archiveFile(context, username)
         if (!file.isFile) return emptyList()
@@ -69,6 +113,9 @@ object TopFollowersArchiveStore {
         val clean = username.trim().trimStart('@').lowercase(Locale.US)
         return File(context.filesDir, "$DIR/$clean.jsonl")
     }
+
+    private fun replacementFile(context: Context, username: String): File =
+        File(archiveFile(context, username).parentFile, "${archiveFile(context, username).name}.pending")
 
     private fun followerToJson(follower: TopFollower, pageNumber: Int): JSONObject =
         JSONObject().apply {

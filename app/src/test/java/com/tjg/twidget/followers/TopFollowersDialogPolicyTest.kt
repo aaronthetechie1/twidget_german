@@ -9,7 +9,16 @@ class TopFollowersDialogPolicyTest {
     @Test
     fun addKeyActionIsHiddenForPersonalKeys() {
         assertFalse(shouldShowAddApiKeyAction(TwitterApisAccessSource.PERSONAL))
-        assertTrue(shouldShowAddApiKeyAction(TwitterApisAccessSource.APP_DEFAULT))
         assertTrue(shouldShowAddApiKeyAction(null))
+    }
+
+    @Test
+    fun optedInDialogDescribesTheBridgeEvenWhenAPersonalKeyExists() {
+        assertTrue(
+            selectTopFollowersScanDialogMode(
+                shareHistory = true,
+                accessSource = TwitterApisAccessSource.PERSONAL,
+            ) == TopFollowersScanDialogMode.SHARED,
+        )
     }
 }

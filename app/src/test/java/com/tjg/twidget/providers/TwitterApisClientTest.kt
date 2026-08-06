@@ -9,20 +9,16 @@ import org.junit.Test
 
 class TwitterApisClientTest {
     @Test
-    fun personalKeyTakesPriorityOverAppTrialKey() {
-        val access = TwitterApisClient.selectTopFollowersAccess(" personal ", " trial ")
+    fun personalKeyEnablesDirectTopFollowersAccess() {
+        val access = TwitterApisClient.selectTopFollowersAccess(" personal ")
 
         assertEquals("personal", access?.apiKey)
         assertEquals(TwitterApisAccessSource.PERSONAL, access?.source)
     }
 
     @Test
-    fun appTrialKeyIsUsedOnlyWhenPersonalKeyIsBlank() {
-        val access = TwitterApisClient.selectTopFollowersAccess("  ", " trial ")
-
-        assertEquals("trial", access?.apiKey)
-        assertEquals(TwitterApisAccessSource.APP_DEFAULT, access?.source)
-        assertEquals(null, TwitterApisClient.selectTopFollowersAccess("", ""))
+    fun noProviderCredentialIsEmbeddedInTheApp() {
+        assertEquals(null, TwitterApisClient.selectTopFollowersAccess(""))
     }
 
     @Test

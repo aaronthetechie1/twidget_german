@@ -58,7 +58,7 @@ internal object StreakCardFactory {
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(context, 112)
+            minimumHeight = dp(context, DashboardCardSize.HALF.heightDp)
             setPadding(dp(context, 14), 0, dp(context, 14), 0)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE

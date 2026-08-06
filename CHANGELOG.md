@@ -2,6 +2,51 @@
 
 All notable changes to Twidget are documented here.
 
+## [1.2.0] - 2026-08-06
+
+Twidget 1.2 introduces Twidget Brief, richer goals and history, and a more
+personal visual experience across phones, tablets, foldables, and widgets.
+
+### Added
+
+- Added Twidget Brief, a local-first personal guide that prioritizes account
+  changes, post performance, milestones, scheduled posts, and useful next
+  actions. Supported devices can refine Brief cards with on-device Gemini Nano.
+- Added Brief settings, content controls, diagnostics, refresh behavior, and a
+  dedicated Brief home-screen widget with responsive card, square, strip, and
+  compact layouts.
+- Added milestone goals, daily streaks, longer-range chart history, and a
+  browsable Top Followers experience from the dashboard.
+- Added official X API follower scans for users who provide compatible
+  credentials, alongside the existing TwitterAPIs flow.
+- Added bridge-owned Top Followers scans for opted-in accounts, with durable
+  progress, full-list reuse, pagination, cost controls, and automatic expiry.
+- Added wallpaper-derived and custom app palettes, including controls for
+  accent, surface tint, and intensity.
+- Added richer schedule link previews and improved thread composition controls.
+
+### Changed
+
+- Brief cards now rank by current relevance, retain generated responses, and
+  adapt into independent columns on larger screens.
+- Refined the Brief launch, onboarding, guide, headings, hero, settings, and
+  widgets to make useful content visible sooner and navigation more direct.
+- Polished dashboard milestones, analytics explanations, Top Followers
+  browsing, and tweet composition interactions.
+- Matched the Streak card to the standard smaller one-column card dimensions.
+
+### Fixed
+
+- Hardened Gemini Nano model selection with stable defaults, compatibility
+  handling, automatic fallback, caching, and clearer loading diagnostics.
+- Prevented overdue Buffer posts from appearing as upcoming Brief items.
+- Fixed Brief card ordering, missing editorial summaries and section headings,
+  widget rendering, large-screen tiling, and launch-transition regressions.
+- Improved Top Followers scrolling and corrected several icon, theme, and
+  palette details across light and dark appearances.
+
+[1.2.0]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.1.1...twidget-v1.2.0
+
 ## [1.1.1] - 2026-07-26
 
 Twidget 1.1.1 moves scheduled publishing to Buffer, makes Top Followers scans

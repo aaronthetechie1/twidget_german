@@ -8,14 +8,9 @@ import org.junit.Test
 
 class TopFollowersBridgeCacheTest {
     @Test
-    fun sharedCacheIsStrictlyOptInAndPublishesOnlyCompletedResults() {
-        val completed = TopFollowersState(top = listOf(follower("one", 10)), complete = true)
+    fun sharedCacheIsStrictlyOptIn() {
         assertFalse(TopFollowersSharingPolicy.enabled(false))
         assertTrue(TopFollowersSharingPolicy.enabled(true))
-        assertFalse(TopFollowersSharingPolicy.shouldPublish(false, completed))
-        assertFalse(TopFollowersSharingPolicy.shouldPublish(true, completed.copy(complete = false)))
-        assertFalse(TopFollowersSharingPolicy.shouldPublish(true, completed.copy(top = emptyList())))
-        assertTrue(TopFollowersSharingPolicy.shouldPublish(true, completed))
     }
 
     @Test
@@ -42,12 +37,32 @@ class TopFollowersBridgeCacheTest {
         assertNull(TopFollowersBridgeCodec.decode("{\"top\":[]}"))
     }
 
-    private fun follower(username: String, followers: Long) = TopFollower(
-        id = username,
-        username = username,
-        name = username,
-        followers = followers,
-        verified = false,
-        avatarUrl = "",
-    )
+    @Test
+    fun serverScanStatusAndFullPagesDecodeWithoutClientCredentials() {
+        val running = TopFollowersBridgeCodec.decodeStatus("""
+            {"status":"running","pages":3,"scanned":240,"startedAt":100,"updatedAt":200,"completedAt":0}
+        """.trimIndent())
+        requireNotNull(running)
+        assertTrue(running.scanning)
+        assertFalse(running.complete)
+        assertEquals(240, running.scanned)
+
+        val page = TopFollowersBridgeCodec.decodePage("""
+            {
+              "status":"complete","pages":4,"scanned":2,"total":2,"cachedAt":300,
+              "followers":[
+                {"id":"1","username":"one","name":"One","followers":20,"verified":true,"avatar":"","scanIndex":0,"mutual":true},
+                {"id":"2","username":"two","name":"Two","followers":10,"verified":false,"avatar":"","scanIndex":1,"mutual":null}
+              ],
+              "nextOffset":null
+            }
+        """.trimIndent())
+        requireNotNull(page)
+        assertTrue(page.state.complete)
+        assertEquals(300, page.state.completedAt)
+        assertEquals(listOf("one", "two"), page.followers.map { it.username })
+        assertEquals(true, page.followers.first().mutual)
+        assertNull(page.nextOffset)
+        assertNull(TopFollowersBridgeCodec.decodeStatus("{\"status\":\"queued\"}"))
+    }
 }

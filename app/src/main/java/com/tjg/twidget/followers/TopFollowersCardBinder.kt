@@ -285,12 +285,18 @@ internal class TopFollowersCardBinder(
 
     private fun showStartDialog(account: String) {
         val accessSource = TwitterApisClient.topFollowersAccess(activity)?.source
-        val personalKey = accessSource == TwitterApisAccessSource.PERSONAL
+        val dialogMode = selectTopFollowersScanDialogMode(
+            shareHistory = TwidgetStore.settings(activity).shareHistory,
+            accessSource = accessSource,
+        )
         val builder = AlertDialog.Builder(activity)
             .setTitle(R.string.top_followers_scan_title)
             .setMessage(
-                if (personalKey) R.string.top_followers_scan_message_personal
-                else R.string.top_followers_scan_message_trial,
+                when (dialogMode) {
+                    TopFollowersScanDialogMode.SHARED -> R.string.top_followers_scan_message_shared
+                    TopFollowersScanDialogMode.PERSONAL -> R.string.top_followers_scan_message_personal
+                    TopFollowersScanDialogMode.UNAVAILABLE -> R.string.top_followers_scan_message_trial
+                },
             )
             // AppCompat lays buttons out neutral, negative, positive in LTR.
             .setNeutralButton(R.string.cancel, null)
@@ -302,7 +308,8 @@ internal class TopFollowersCardBinder(
     }
 
     private fun startScan(account: String) {
-        if (!TwitterApisClient.hasTopFollowersAccess(activity) &&
+        if (!TwidgetStore.settings(activity).shareHistory &&
+            !TwitterApisClient.hasTopFollowersAccess(activity) &&
             !XApiClient.hasCredentials(TwidgetStore.settings(activity))
         ) {
             Toast.makeText(activity, R.string.top_followers_api_key_required, Toast.LENGTH_LONG).show()
@@ -384,8 +391,23 @@ internal class TopFollowersCardBinder(
     private val rippleColor get() = (primaryColor and 0x00FFFFFF) or 0x24000000
 }
 
+internal enum class TopFollowersScanDialogMode {
+    SHARED,
+    PERSONAL,
+    UNAVAILABLE,
+}
+
+internal fun selectTopFollowersScanDialogMode(
+    shareHistory: Boolean,
+    accessSource: TwitterApisAccessSource?,
+): TopFollowersScanDialogMode = when {
+    shareHistory -> TopFollowersScanDialogMode.SHARED
+    accessSource == TwitterApisAccessSource.PERSONAL -> TopFollowersScanDialogMode.PERSONAL
+    else -> TopFollowersScanDialogMode.UNAVAILABLE
+}
+
 internal fun shouldShowAddApiKeyAction(source: TwitterApisAccessSource?): Boolean =
-    source != TwitterApisAccessSource.PERSONAL
+    source == null
 
 internal object TopFollowersProgress {
     fun percentage(scanned: Int, total: Long?): Int? {

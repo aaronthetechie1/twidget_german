@@ -1,5 +1,6 @@
 import java.io.File
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -73,9 +74,6 @@ val cloudinaryCloudName = providers.gradleProperty("cloudinaryCloudName").orNull
 val cloudinaryUploadPreset = providers.gradleProperty("cloudinaryUploadPreset").orNull
     ?: System.getenv("CLOUDINARY_UPLOAD_PRESET")
     ?: ""
-val twitterApisDefaultApiKey = providers.gradleProperty("twitterApisDefaultApiKey").orNull
-    ?: System.getenv("TWITTERAPIS_DEFAULT_API_KEY")
-    ?: ""
 require(debugNumber > 0) { "prereleaseNumber must be greater than zero" }
 require(betaNumber > 0) { "betaNumber must be greater than zero" }
 require(debugNumber <= 79) {
@@ -108,7 +106,6 @@ android {
         resValue("string", "buffer_oauth_client_id", bufferOAuthClientId)
         resValue("string", "cloudinary_cloud_name", cloudinaryCloudName)
         resValue("string", "cloudinary_upload_preset", cloudinaryUploadPreset)
-        resValue("string", "twitterapis_default_api_key", twitterApisDefaultApiKey)
         resValue(
             "string",
             "buffer_oauth_redirect_uri",
@@ -171,8 +168,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
