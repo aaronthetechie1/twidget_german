@@ -107,7 +107,7 @@ internal class TopFollowersCardBinder(
             minimumHeight = dp(424)
             background = rounded(cardColor, 28f)
             clipToOutline = true
-            addView(header(progressTitle, account, refreshEnabled = false, stopEnabled = true),
+            addView(header(progressTitle, account, openBrowserEnabled = false, stopEnabled = true),
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
             state.top.take(5).forEachIndexed { index, follower ->
                 addView(resultRow(index + 1, follower, divider = true),
@@ -141,7 +141,7 @@ internal class TopFollowersCardBinder(
             if (canBrowse) {
                 setOnClickListener { openBrowse(account) }
             }
-            addView(header(activity.getString(R.string.top_followers_results_title), account, refreshEnabled = true),
+            addView(header(activity.getString(R.string.top_followers_results_title), account, openBrowserEnabled = true),
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
             state.top.take(5).forEachIndexed { index, follower ->
                 addView(resultRow(index + 1, follower, index < 4),
@@ -162,7 +162,7 @@ internal class TopFollowersCardBinder(
     private fun header(
         title: String,
         account: String,
-        refreshEnabled: Boolean,
+        openBrowserEnabled: Boolean,
         stopEnabled: Boolean = false,
     ): View {
         return LinearLayout(activity).apply {
@@ -173,11 +173,16 @@ internal class TopFollowersCardBinder(
             addView(ImageView(activity).apply {
                 setImageDrawable(AppCompatResources.getDrawable(
                     activity,
-                    if (stopEnabled) R.drawable.ic_dashboard_edit_close else OneUiIconR.drawable.ic_oui_refresh,
+                    if (stopEnabled) {
+                        R.drawable.ic_dashboard_edit_close
+                    } else {
+                        OneUiIconR.drawable.ic_oui_keyboard_arrow_right
+                    },
                 ))
-                imageTintList = ColorStateList.valueOf(primaryColor)
-                setPadding(dp(8), dp(8), dp(8), dp(8))
-                val actionEnabled = refreshEnabled || stopEnabled
+                imageTintList = ColorStateList.valueOf(if (stopEnabled) primaryColor else secondaryColor)
+                val iconPadding = if (stopEnabled) 8 else 11
+                setPadding(dp(iconPadding), dp(iconPadding), dp(iconPadding), dp(iconPadding))
+                val actionEnabled = openBrowserEnabled || stopEnabled
                 isEnabled = actionEnabled
                 alpha = if (actionEnabled) 1f else 0.7f
                 isClickable = actionEnabled
@@ -190,11 +195,11 @@ internal class TopFollowersCardBinder(
                     )
                 }
                 contentDescription = activity.getString(
-                    if (stopEnabled) R.string.top_followers_stop_scan else R.string.top_followers_refresh,
+                    if (stopEnabled) R.string.top_followers_stop_scan else R.string.top_followers_view_all,
                 )
                 when {
                     stopEnabled -> setOnClickListener { stopScan(account) }
-                    refreshEnabled -> setOnClickListener { showStartDialog(account) }
+                    openBrowserEnabled -> setOnClickListener { openBrowse(account) }
                 }
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
         }

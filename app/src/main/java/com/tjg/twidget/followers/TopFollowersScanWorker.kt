@@ -285,18 +285,59 @@ class TopFollowersScanWorker(context: Context, params: WorkerParameters) : Worke
             username: String,
             restart: Boolean,
             dailyLimitEnabledOverride: Boolean? = null,
+        ): TopFollowersScanStart = enqueueWithSource(
+            context = context,
+            username = username,
+            restart = restart,
+            dailyLimitEnabledOverride = dailyLimitEnabledOverride,
+            sourceOverride = null,
+        )
+
+        /** Explicit user refreshes prefer a linked on-device API over the shared bridge. */
+        internal fun enqueueLinkedApiRefresh(
+            context: Context,
+            username: String,
+        ): TopFollowersScanStart {
+            val source = linkedApiScanSource(context) ?: return TopFollowersScanStart.NO_API_KEY
+            return enqueueWithSource(
+                context = context,
+                username = username,
+                restart = true,
+                dailyLimitEnabledOverride = false,
+                sourceOverride = source,
+            )
+        }
+
+        internal fun linkedApiScanSource(context: Context): TopFollowersScanSource? {
+            val settings = TwidgetStore.settings(context)
+            return selectLinkedApiScanSource(
+                selectedXApi = XApiClient.hasCredentials(settings) &&
+                    settings.dataSource == TwidgetStore.DATA_SOURCE_X_API,
+                personalTwitterApis = TwitterApisClient.topFollowersAccess(context)?.source ==
+                    TwitterApisAccessSource.PERSONAL,
+                fallbackXApi = XApiClient.hasCredentials(settings),
+            )
+        }
+
+        private fun enqueueWithSource(
+            context: Context,
+            username: String,
+            restart: Boolean,
+            dailyLimitEnabledOverride: Boolean?,
+            sourceOverride: TopFollowersScanSource?,
         ): TopFollowersScanStart {
             val clean = username.trim().trimStart('@')
             if (clean.isBlank()) return TopFollowersScanStart.ALREADY_SCANNED_TODAY
             val settings = TwidgetStore.settings(context)
             val twitterAccess = TwitterApisClient.topFollowersAccess(context)
             val hasXAccess = XApiClient.hasCredentials(settings)
-            val source = selectTopFollowersScanSource(
+            val selectedSource = sourceOverride ?: selectTopFollowersScanSource(
                 selectedXApi = hasXAccess && settings.dataSource == TwidgetStore.DATA_SOURCE_X_API,
                 personalTwitterApis = twitterAccess?.source == TwitterApisAccessSource.PERSONAL,
                 shareHistory = settings.shareHistory,
                 fallbackXApi = hasXAccess,
-            )?.wireValue ?: return TopFollowersScanStart.NO_API_KEY
+            )
+            val source = selectedSource?.wireValue ?: return TopFollowersScanStart.NO_API_KEY
             val runId = UUID.randomUUID().toString()
             val startResult = if (restart) {
                 TopFollowersStore.tryStartScan(
@@ -363,6 +404,17 @@ internal fun selectTopFollowersScanSource(
     fallbackXApi -> TopFollowersScanSource.X_API
     else -> null
 }
+
+internal fun selectLinkedApiScanSource(
+    selectedXApi: Boolean,
+    personalTwitterApis: Boolean,
+    fallbackXApi: Boolean,
+): TopFollowersScanSource? = selectTopFollowersScanSource(
+    selectedXApi = selectedXApi,
+    personalTwitterApis = personalTwitterApis,
+    shareHistory = false,
+    fallbackXApi = fallbackXApi,
+)
 
 internal object TopFollowersRetryPolicy {
     private val delaysMs = longArrayOf(2_000L, 4_000L, 8_000L, 16_000L, 30_000L)

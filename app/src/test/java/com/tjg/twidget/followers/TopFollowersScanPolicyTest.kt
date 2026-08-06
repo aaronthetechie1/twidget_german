@@ -103,6 +103,27 @@ class TopFollowersScanPolicyTest {
         assertNull(selectTopFollowersScanSource(false, false, false, false))
     }
 
+    @Test
+    fun explicitRefreshUsesLinkedApiAndNeverSelectsTheBridge() {
+        assertEquals(
+            TopFollowersScanSource.TWITTERAPIS,
+            selectLinkedApiScanSource(
+                selectedXApi = false,
+                personalTwitterApis = true,
+                fallbackXApi = false,
+            ),
+        )
+        assertEquals(
+            TopFollowersScanSource.X_API,
+            selectLinkedApiScanSource(
+                selectedXApi = true,
+                personalTwitterApis = true,
+                fallbackXApi = true,
+            ),
+        )
+        assertNull(selectLinkedApiScanSource(false, false, false))
+    }
+
     private fun millis(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long =
         LocalDateTime.of(year, month, day, hour, minute)
             .atZone(london)

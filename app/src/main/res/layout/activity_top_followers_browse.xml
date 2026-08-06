@@ -13,35 +13,41 @@
     app:showNavButtonAsBack="true"
     app:title="@string/top_followers_browser_title">
 
-    <FrameLayout
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/top_followers_browse_refresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingStart="10dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="10dp"
         app:layout_location="main_content">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/top_followers_browse_list"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:fadeScrollbars="true"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:scrollbarStyle="insideOverlay"
-            android:scrollbars="vertical" />
+            android:paddingStart="10dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="10dp">
 
-        <TextView
-            android:id="@+id/top_followers_browse_empty"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:padding="24dp"
-            android:text="@string/top_followers_browser_empty"
-            android:textColor="@color/oneui_text_secondary"
-            android:textSize="16sp"
-            android:visibility="gone" />
-    </FrameLayout>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/top_followers_browse_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:fadeScrollbars="true"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:scrollbarStyle="insideOverlay"
+                android:scrollbars="vertical" />
+
+            <TextView
+                android:id="@+id/top_followers_browse_empty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:padding="24dp"
+                android:text="@string/top_followers_browser_empty"
+                android:textColor="@color/oneui_text_secondary"
+                android:textSize="16sp"
+                android:visibility="gone" />
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 </dev.oneuiproject.oneui.layout.ToolbarLayout>

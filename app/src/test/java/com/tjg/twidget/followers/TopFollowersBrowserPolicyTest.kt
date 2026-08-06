@@ -59,6 +59,29 @@ class TopFollowersBrowserPolicyTest {
         assertTrue(TopFollowerAvatarLoadPolicy.shouldLoad(true, "person", null))
     }
 
+    @Test
+    fun incompleteSharedArchivesHydrateAutomatically() {
+        assertTrue(TopFollowersBrowserRefreshPolicy.shouldAutoRefresh(true, 5, 274))
+        assertFalse(TopFollowersBrowserRefreshPolicy.shouldAutoRefresh(true, 274, 274))
+        assertFalse(TopFollowersBrowserRefreshPolicy.shouldAutoRefresh(false, 5, 274))
+    }
+
+    @Test
+    fun explicitRefreshRescansWithALinkedKeyOtherwiseDownloadsFromBridge() {
+        assertEquals(
+            TopFollowersBrowserRefreshMode.LINKED_API_RESCAN,
+            selectTopFollowersBrowserRefreshMode(linkedApiAvailable = true, shareHistory = true),
+        )
+        assertEquals(
+            TopFollowersBrowserRefreshMode.BRIDGE_DOWNLOAD,
+            selectTopFollowersBrowserRefreshMode(linkedApiAvailable = false, shareHistory = true),
+        )
+        assertEquals(
+            TopFollowersBrowserRefreshMode.UNAVAILABLE,
+            selectTopFollowersBrowserRefreshMode(linkedApiAvailable = false, shareHistory = false),
+        )
+    }
+
     private fun follower(
         username: String,
         name: String,
