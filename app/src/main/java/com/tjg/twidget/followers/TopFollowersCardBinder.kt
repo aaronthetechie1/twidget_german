@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.net.Uri
@@ -136,11 +137,6 @@ internal class TopFollowersCardBinder(
             minimumHeight = dp(384)
             background = rounded(cardColor, 28f)
             clipToOutline = true
-            isClickable = canBrowse
-            isFocusable = canBrowse
-            if (canBrowse) {
-                setOnClickListener { openBrowse(account) }
-            }
             addView(header(activity.getString(R.string.top_followers_results_title), account, openBrowserEnabled = true),
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
             state.top.take(5).forEachIndexed { index, follower ->
@@ -168,6 +164,17 @@ internal class TopFollowersCardBinder(
         return LinearLayout(activity).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(20), 0, dp(12), 0)
+            if (openBrowserEnabled) {
+                isClickable = true
+                isFocusable = true
+                foreground = RippleDrawable(
+                    ColorStateList.valueOf(rippleColor),
+                    null,
+                    ColorDrawable(Color.WHITE),
+                )
+                contentDescription = "$title. ${activity.getString(R.string.top_followers_view_all)}"
+                setOnClickListener { openBrowse(account) }
+            }
             addView(label(title, 13f, secondaryColor, 700).apply { gravity = Gravity.CENTER_VERTICAL },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
             addView(ImageView(activity).apply {
@@ -182,24 +189,18 @@ internal class TopFollowersCardBinder(
                 imageTintList = ColorStateList.valueOf(if (stopEnabled) primaryColor else secondaryColor)
                 val iconPadding = if (stopEnabled) 8 else 11
                 setPadding(dp(iconPadding), dp(iconPadding), dp(iconPadding), dp(iconPadding))
-                val actionEnabled = openBrowserEnabled || stopEnabled
-                isEnabled = actionEnabled
-                alpha = if (actionEnabled) 1f else 0.7f
-                isClickable = actionEnabled
-                isFocusable = actionEnabled
-                if (actionEnabled) {
+                isClickable = stopEnabled
+                isFocusable = stopEnabled
+                if (stopEnabled) {
                     background = RippleDrawable(
                         ColorStateList.valueOf(rippleColor),
                         null,
                         rounded(cardColor, 20f),
                     )
-                }
-                contentDescription = activity.getString(
-                    if (stopEnabled) R.string.top_followers_stop_scan else R.string.top_followers_view_all,
-                )
-                when {
-                    stopEnabled -> setOnClickListener { stopScan(account) }
-                    openBrowserEnabled -> setOnClickListener { openBrowse(account) }
+                    contentDescription = activity.getString(R.string.top_followers_stop_scan)
+                    setOnClickListener { stopScan(account) }
+                } else {
+                    contentDescription = null
                 }
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
         }
