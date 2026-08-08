@@ -728,6 +728,17 @@
     <string name="brief_posting_guidance_explainer">Next post guidance offers one evidence-based action at a time: follow up on a recent standout, test a stronger posting window, or revisit a format that has worked for you. It stays hidden until Twidget has enough recent original tweets to support the suggestion.</string>
     <string name="brief_categories_empty_body">Choose the updates you want to see in Brief settings.</string>
     <string name="brief_ai_studio_key">AI Studio API key</string>
+    <string name="brief_api_key_required_title">AI setup required</string>
+    <string name="brief_api_key_required_body">Gemini Nano isn’t available on this device. To use Your Brief, add a Gemini API key from Google AI Studio.</string>
+    <string name="brief_api_key_settings_body">Create or manage a Gemini API key in Google AI Studio, then paste it below.</string>
+    <string name="brief_api_key_get_link">Get an API key from Google AI Studio</string>
+    <string name="brief_api_key_hint">Gemini API key</string>
+    <string name="brief_api_key_save">Save key</string>
+    <string name="brief_api_key_required_error">Enter an API key to continue.</string>
+    <string name="brief_api_key_open_failed">Couldn’t open Google AI Studio.</string>
+    <string name="brief_provider_required_title">Your Brief needs an AI provider</string>
+    <string name="brief_provider_required_body">Gemini Nano isn’t available and no AI Studio API key is configured. Add a key to continue.</string>
+    <string name="brief_provider_required_action">Add API key</string>
     <string name="brief_provider_auto_short">Auto</string>
     <string name="brief_settings_debug">Debug</string>
     <string name="brief_ai_disclaimer">AI information</string>

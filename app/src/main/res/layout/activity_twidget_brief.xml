@@ -108,6 +108,48 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
+    <LinearLayout
+        android:id="@+id/brief_provider_required"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="36dp"
+        android:paddingEnd="36dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sec"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/brief_provider_required_title"
+            android:textColor="@color/oneui_text_primary"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="sec"
+            android:gravity="center"
+            android:text="@string/brief_provider_required_body"
+            android:textColor="@color/oneui_text_secondary"
+            android:textSize="14sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/brief_provider_required_action"
+            style="@style/OneUI.ContainedButton"
+            android:layout_width="180dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="20dp"
+            android:text="@string/brief_provider_required_action"
+            android:textAllCaps="false"
+            android:theme="@style/OneUI.ContainedPrimaryColorButtonTheme" />
+    </LinearLayout>
+
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/brief_loading"
         android:layout_width="50dp"

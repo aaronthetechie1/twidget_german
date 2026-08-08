@@ -132,6 +132,7 @@ object TwidgetStore {
     private const val KEY_ACCOUNTS = "accounts"
     private const val KEY_DASHBOARD_CARDS = "dashboard_cards"
     private const val KEY_DASHBOARD_CARDS_MIGRATED = "dashboard_cards_migrated_v6"
+    private const val KEY_DASHBOARD_BRIEF_FIRST_MIGRATED = "dashboard_brief_first_migrated_v1"
     private const val KEY_HISTORY_MIGRATION_VERSION = "history_migration_version"
     private const val KEY_DEBUG_MENU = "debug_menu_unlocked"
     private const val KEY_FAKE_UPDATE = "debug_fake_update"
@@ -146,9 +147,9 @@ object TwidgetStore {
     private const val HISTORY_MIGRATION_VERSION = 5
     private val LEGACY_SEEDED_FOLLOWER_GAINS = listOf(18L, 9L, 21L, 15L, 14L, 26L)
     val DEFAULT_DASHBOARD_CARDS = listOf(
+        "milestone",
         "followers",
         "top_followers",
-        "milestone",
         "daily_streak",
         "follower_ratio",
         "engagement_rate",
@@ -446,15 +447,27 @@ object TwidgetStore {
             }.getOrNull()
         }
         var resolved = resolveDashboardCards(saved, DEFAULT_DASHBOARD_CARDS)
-        if (saved != null && !store.getBoolean(KEY_DASHBOARD_CARDS_MIGRATED, false)) {
-            val merged = (resolved + listOf("milestone", "daily_streak"))
-                .filter { it in DEFAULT_DASHBOARD_CARDS }
-                .distinct()
-            if (merged != resolved) {
-                saveDashboardCards(context, merged)
-                resolved = merged
+        if (!store.getBoolean(KEY_DASHBOARD_CARDS_MIGRATED, false)) {
+            if (saved != null) {
+                val merged = (resolved + listOf("milestone", "daily_streak"))
+                    .filter { it in DEFAULT_DASHBOARD_CARDS }
+                    .distinct()
+                if (merged != resolved) {
+                    saveDashboardCards(context, merged)
+                    resolved = merged
+                }
             }
             store.edit().putBoolean(KEY_DASHBOARD_CARDS_MIGRATED, true).apply()
+        }
+        if (!store.getBoolean(KEY_DASHBOARD_BRIEF_FIRST_MIGRATED, false)) {
+            if (saved != null) {
+                val reordered = prioritizeDashboardCard(resolved, "milestone")
+                if (reordered != resolved) {
+                    saveDashboardCards(context, reordered)
+                    resolved = reordered
+                }
+            }
+            store.edit().putBoolean(KEY_DASHBOARD_BRIEF_FIRST_MIGRATED, true).apply()
         }
         return resolved
     }
@@ -1041,3 +1054,6 @@ object TwidgetStore {
 
 internal fun resolveDashboardCards(saved: List<String>?, available: List<String>): List<String> =
     saved?.filter { it in available }?.distinct() ?: available
+
+internal fun prioritizeDashboardCard(cards: List<String>, cardId: String): List<String> =
+    if (cardId in cards) listOf(cardId) + cards.filterNot { it == cardId } else cards

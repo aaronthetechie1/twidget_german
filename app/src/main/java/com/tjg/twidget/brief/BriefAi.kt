@@ -24,6 +24,9 @@ import org.json.JSONObject
 
 enum class BriefLocalStatus { AVAILABLE, DOWNLOADABLE, DOWNLOADING, UNAVAILABLE }
 
+internal fun briefRequiresApiKey(localStatus: BriefLocalStatus, cloudApiKey: String): Boolean =
+    localStatus == BriefLocalStatus.UNAVAILABLE && cloudApiKey.isBlank()
+
 enum class BriefNanoModelMode(val storageId: String, val label: String) {
     AUTO_STABLE("auto_stable", "Auto · Stable (Fast → Full)"),
     STABLE_FULL("stable_full", "Stable · Full"),

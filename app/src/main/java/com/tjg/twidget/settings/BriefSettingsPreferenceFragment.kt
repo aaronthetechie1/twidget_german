@@ -4,15 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Outline
 import android.os.Bundle
-import android.text.InputType
 import android.view.View
 import android.view.ViewOutlineProvider
-import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceViewHolder
 import com.tjg.twidget.R
+import com.tjg.twidget.brief.BriefApiKeyDialog
 import com.tjg.twidget.brief.BriefProviderMode
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.BriefStore
@@ -92,24 +91,19 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(EditTextPreference(context).apply {
+        screen.addPreference(Preference(context).apply {
             key = "brief_cloud_api_key_pref"
             title = getString(R.string.brief_ai_studio_key)
-            isPersistent = false
             isVisible = provider != BriefProviderMode.LOCAL
             val current = BriefSettingsStore.cloudApiKey(context)
-            text = current
             summary = if (current.isBlank()) null else getString(R.string.brief_cloud_key_configured)
-            setOnBindEditTextListener { editor ->
-                editor.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                editor.setSelectAllOnFocus(true)
-            }
-            setOnPreferenceChangeListener { preference, value ->
-                val key = (value as String).trim()
-                BriefSettingsStore.setCloudApiKey(context, key)
-                BriefStore.resetAi(context, account)
-                preference.summary = if (key.isBlank()) null else {
-                    getString(R.string.brief_cloud_key_configured)
+            setOnPreferenceClickListener {
+                BriefApiKeyDialog.show(requireActivity(), required = false) { key ->
+                    BriefStore.resetAi(context, account)
+                    summary = if (key.isBlank()) null else {
+                        getString(R.string.brief_cloud_key_configured)
+                    }
+                    listView.post { buildScreen() }
                 }
                 true
             }

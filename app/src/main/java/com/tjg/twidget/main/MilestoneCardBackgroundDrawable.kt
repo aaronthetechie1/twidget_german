@@ -3,6 +3,7 @@ package com.tjg.twidget.main
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
+import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RadialGradient
@@ -46,6 +47,10 @@ internal class MilestoneCardBackgroundDrawable(
     override fun setColorFilter(colorFilter: ColorFilter?) {
         paint.colorFilter = colorFilter
         invalidateSelf()
+    }
+
+    override fun getOutline(outline: Outline) {
+        outline.setRoundRect(bounds, radiusPx)
     }
 
     @Suppress("DEPRECATION")

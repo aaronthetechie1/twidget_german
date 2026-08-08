@@ -79,6 +79,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var entranceSections: List<View> = emptyList()
     private var titleColorAnimator: ValueAnimator? = null
     private var backgroundAnimator: ValueAnimator? = null
+    private var providerSetupRequired = false
+    private var apiKeyPromptShown = false
+    private var apiKeyDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +98,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 intent.getStringExtra(EXTRA_DEBUG_SCENARIO),
             )
         }
+        apiKeyPromptShown = intent.getBooleanExtra(EXTRA_API_KEY_PROMPT_SHOWN, false)
         BriefSettingsStore.setEnabled(this, true)
 
         bindChrome()
@@ -106,7 +110,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun loadInitialBrief() {
-        if (intent.getBooleanExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, false)) {
+        if (intent.getBooleanExtra(EXTRA_FROM_ONBOARDING, false) ||
+            intent.getBooleanExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, false)
+        ) {
             awaitLaunchGeneration()
             return
         }
@@ -121,7 +127,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     null
                 }
             }
-            if (cached != null) {
+            if (cached != null && cached.first.providerUsed != BriefProviderUsed.TEMPLATE) {
                 render(cached.first, cached.second)
                 prepareBriefEntrance()
                 setLoading(false)
@@ -182,8 +188,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     }
                     BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
                 }
-                render(result.snapshot)
                 localStatus = result.localStatus
+                if (showProviderSetupIfRequired(result)) return@launch
+                render(result.snapshot)
                 prepareBriefEntrance()
                 entrancePrepared = true
             } finally {
@@ -237,8 +244,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 } else {
                     BriefAiResult(source, BriefLocalStatus.UNAVAILABLE)
                 }
-                if (result.snapshot != renderedSnapshot) render(result.snapshot)
                 localStatus = result.localStatus
+                if (showProviderSetupIfRequired(result)) return@launch
+                if (result.snapshot != renderedSnapshot) render(result.snapshot)
                 if (animateOnComplete && renderedSnapshot != null) {
                     prepareBriefEntrance()
                     entrancePrepared = true
@@ -251,6 +259,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     override fun onDestroy() {
+        apiKeyDialog?.dismiss()
+        apiKeyDialog = null
         titleColorAnimator?.cancel()
         titleColorAnimator = null
         backgroundAnimator?.cancel()
@@ -259,13 +269,17 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun setLoading(loading: Boolean) {
-        findViewById<View>(R.id.brief_scroll).visibility = if (loading) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.brief_scroll).visibility =
+            if (!loading && !providerSetupRequired) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.brief_provider_required).visibility =
+            if (!loading && providerSetupRequired) View.VISIBLE else View.GONE
         findViewById<LottieAnimationView>(R.id.brief_loading).apply {
             visibility = if (loading) View.VISIBLE else View.GONE
             if (loading) playAnimation() else cancelAnimation()
         }
-        findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = !loading
-        findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = !loading
+        val contentEnabled = !loading && !providerSetupRequired
+        findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = contentEnabled
+        findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = contentEnabled
     }
 
     private fun bindChrome() {
@@ -277,6 +291,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setOnClickListener { finish() }
         }
         findViewById<TextView>(R.id.brief_footer_account).text = "@$username"
+        findViewById<View>(R.id.brief_provider_required_action).setOnClickListener {
+            showRequiredApiKeyDialog()
+        }
         findViewById<ImageButton>(R.id.brief_footer_info).apply {
             setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_info_outline))
             imageTintList = tint
@@ -290,6 +307,39 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     Intent(this@TwidgetBriefActivity, BriefSettingsActivity::class.java),
                 )
             }
+        }
+    }
+
+    private fun showProviderSetupIfRequired(result: BriefAiResult): Boolean {
+        val required = debugScenario == BriefDebugScenario.REAL && briefRequiresApiKey(
+            result.localStatus,
+            BriefSettingsStore.cloudApiKey(this),
+        )
+        providerSetupRequired = required
+        if (!required) return false
+
+        setLoading(false)
+        if (intent.getBooleanExtra(EXTRA_FROM_ONBOARDING, false) && !apiKeyPromptShown) {
+            apiKeyPromptShown = true
+            showRequiredApiKeyDialog()
+        }
+        return true
+    }
+
+    private fun showRequiredApiKeyDialog() {
+        if (apiKeyDialog?.isShowing == true) return
+        apiKeyDialog = BriefApiKeyDialog.show(this, required = true) {
+            BriefSettingsStore.setProvider(this, BriefProviderMode.AUTO)
+            BriefStore.resetAi(this, username)
+            providerSetupRequired = false
+            loadBrief(
+                forceEngine = true,
+                forceAi = true,
+                showSpinner = true,
+                animateOnComplete = true,
+            )
+        }.also { dialog ->
+            dialog.setOnDismissListener { apiKeyDialog = null }
         }
     }
 
@@ -1207,6 +1257,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         private const val EXTRA_FORCE_REFRESH = "brief_force_refresh"
         private const val EXTRA_WAIT_FOR_LAUNCH_GENERATION = "brief_wait_for_launch_generation"
         private const val EXTRA_FROM_ONBOARDING = "brief_from_onboarding"
+        private const val EXTRA_API_KEY_PROMPT_SHOWN = "brief_api_key_prompt_shown"
 
         fun intent(context: Context, username: String): Intent =
             if (BriefSettingsStore.onboardingComplete(context)) {
@@ -1220,10 +1271,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             username: String,
             waitForLaunchGeneration: Boolean = false,
             fromOnboarding: Boolean = false,
+            apiKeyPromptAlreadyShown: Boolean = false,
         ) = Intent(context, TwidgetBriefActivity::class.java)
             .putExtra(EXTRA_USERNAME, username)
             .putExtra(EXTRA_WAIT_FOR_LAUNCH_GENERATION, waitForLaunchGeneration)
             .putExtra(EXTRA_FROM_ONBOARDING, fromOnboarding)
+            .putExtra(EXTRA_API_KEY_PROMPT_SHOWN, apiKeyPromptAlreadyShown)
 
         fun debugIntent(context: Context, username: String, scenario: BriefDebugScenario) =
             contentIntent(context, username).putExtra(EXTRA_DEBUG_SCENARIO, scenario.storageId)

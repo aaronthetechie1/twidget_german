@@ -7,15 +7,18 @@ import android.os.Bundle
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.lifecycle.lifecycleScope
 import com.tjg.twidget.R
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
 import dev.oneuiproject.oneui.R as OneUiIconR
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.launch
 
 class BriefOnboardingActivity : FoldablePopOverActivity() {
     private lateinit var username: String
     private lateinit var generation: Deferred<BriefAiResult>
+    private var apiKeyPromptShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +35,7 @@ class BriefOnboardingActivity : FoldablePopOverActivity() {
         applyEdgeToEdgeInsets(findViewById(R.id.brief_onboarding_root))
         bindChrome()
         generation = BriefLaunchGeneration.start(this, username, restartIfComplete = true)
+        watchGenerationForApiKeyRequirement()
     }
 
     override fun allowsPopOverPresentation(): Boolean = false
@@ -57,9 +61,33 @@ class BriefOnboardingActivity : FoldablePopOverActivity() {
                     username,
                     waitForLaunchGeneration = waitForGeneration,
                     fromOnboarding = true,
+                    apiKeyPromptAlreadyShown = apiKeyPromptShown,
                 ),
             )
             finish()
+        }
+    }
+
+    private fun watchGenerationForApiKeyRequirement() {
+        lifecycleScope.launch {
+            val result = runCatching { generation.await() }.getOrNull() ?: return@launch
+            if (isFinishing || isDestroyed || apiKeyPromptShown || !briefRequiresApiKey(
+                    result.localStatus,
+                    BriefSettingsStore.cloudApiKey(this@BriefOnboardingActivity),
+                )
+            ) {
+                return@launch
+            }
+            apiKeyPromptShown = true
+            BriefApiKeyDialog.show(this@BriefOnboardingActivity, required = true) {
+                BriefSettingsStore.setProvider(this@BriefOnboardingActivity, BriefProviderMode.AUTO)
+                BriefStore.resetAi(this@BriefOnboardingActivity, username)
+                generation = BriefLaunchGeneration.start(
+                    this@BriefOnboardingActivity,
+                    username,
+                    restartIfComplete = true,
+                )
+            }
         }
     }
 
