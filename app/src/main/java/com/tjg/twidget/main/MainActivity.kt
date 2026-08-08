@@ -39,8 +39,6 @@ import com.tjg.twidget.update.AppUpdateManager
 import com.tjg.twidget.widget.RefreshWorker
 import com.tjg.twidget.widget.TwidgetWidget
 import dev.oneuiproject.oneui.R as OneUiIconR
-import dev.oneuiproject.oneui.layout.Badge
-import dev.oneuiproject.oneui.layout.DrawerLayout
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 
 class MainActivity : ScheduleQueueHostActivity() {
@@ -263,12 +261,9 @@ class MainActivity : ScheduleQueueHostActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    // Orange dots on the drawer affordance and its settings cog while an app
-    // update is available, mirroring official Samsung apps.
+    // Show one native update dot. One UI moves it from the collapsed drawer
+    // affordance to the settings button when the drawer is expanded.
     private fun updateSettingsBadge() {
-        findViewById<DrawerLayout>(R.id.main_toolbar_layout).setHeaderButtonBadge(
-            if (TwidgetStore.updateAvailable(this)) Badge.DOT else Badge.NONE
-        )
         if (::drawerController.isInitialized) drawerController.updateNavigationBadge()
     }
 

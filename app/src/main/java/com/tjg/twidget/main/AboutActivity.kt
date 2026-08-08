@@ -54,6 +54,7 @@ class AboutActivity : FoldablePopOverActivity() {
     private var availableRelease: AppRelease? = null
     private var pendingInstallApk: File? = null
     private var waitingForInstallPermission = false
+    private var heroHeightUpdater: (() -> Unit)? = null
 
     private val updateChannel: UpdateChannel
         get() = savedUpdateChannel(this)
@@ -291,7 +292,7 @@ class AboutActivity : FoldablePopOverActivity() {
         }
         var appliedProportion = -1f
 
-        val updateHeight = {
+        val updateHeight: () -> Unit = {
             if (root.height > 0 && header.measuredHeight > 0) {
                 val topMargin = (header.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
                 val breathingRoom = (HERO_BREATHING_ROOM_DP * resources.displayMetrics.density).toInt()
@@ -307,9 +308,17 @@ class AboutActivity : FoldablePopOverActivity() {
                 }
             }
         }
+        heroHeightUpdater = updateHeight
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
         header.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
         root.post { updateHeight() }
+    }
+
+    private fun requestHeroHeightUpdate() {
+        findViewById<View>(R.id.about_header_content).apply {
+            requestLayout()
+            post { heroHeightUpdater?.invoke() }
+        }
     }
 
     // Seven taps on the version number unlock the hidden debug menu in
@@ -402,26 +411,32 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun showUpdateChecking() {
+        findViewById<View>(R.id.about_update_action).visibility = View.VISIBLE
         findViewById<AppCompatButton>(R.id.about_update_button).visibility = View.GONE
         findViewById<ImageView>(R.id.about_update_spinner).apply {
             visibility = View.VISIBLE
             setImageResource(R.drawable.oneui_spinner)
             OneUiSpinner.loop(this)
         }
+        requestHeroHeightUpdate()
     }
 
     private fun showUpdateAvailable(release: AppRelease) {
         hideUpdateSpinner()
+        findViewById<View>(R.id.about_update_action).visibility = View.VISIBLE
         findViewById<AppCompatButton>(R.id.about_update_button).apply {
             contentDescription = getString(R.string.update_to_version, release.version.toString())
             isEnabled = true
             visibility = View.VISIBLE
         }
+        requestHeroHeightUpdate()
     }
 
     private fun hideUpdateUi() {
         hideUpdateSpinner()
         findViewById<AppCompatButton>(R.id.about_update_button).visibility = View.GONE
+        findViewById<View>(R.id.about_update_action).visibility = View.GONE
+        requestHeroHeightUpdate()
     }
 
     private fun hideUpdateSpinner() {
@@ -607,7 +622,7 @@ class AboutActivity : FoldablePopOverActivity() {
         private const val DEFAULT_HERO_HEIGHT_PROPORTION = 0.5f
         private const val LARGE_SCREEN_HERO_HEIGHT_PROPORTION = 0.58f
         private const val MAX_HERO_HEIGHT_PROPORTION = 0.9f
-        private const val HERO_BREATHING_ROOM_DP = 8
+        private const val HERO_BREATHING_ROOM_DP = 24
 
         private const val DEBUG_UNLOCK_TAPS = 7
         private const val HEADER_ICON_EASTER_EGG_TAPS = 7
