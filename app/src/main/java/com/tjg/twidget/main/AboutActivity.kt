@@ -15,6 +15,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
@@ -278,10 +279,37 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun setupResponsiveHeroHeight() {
-        if (resources.configuration.smallestScreenWidthDp >= LARGE_SCREEN_MIN_WIDTH_DP) {
-            findViewById<AppBarLayout>(R.id.about_app_bar)
-                .seslSetCustomHeightProportion(true, LARGE_SCREEN_HERO_HEIGHT_PROPORTION)
+        val root = findViewById<View>(R.id.about_root)
+        val appBar = findViewById<AppBarLayout>(R.id.about_app_bar)
+        val header = findViewById<View>(R.id.about_header_content)
+        val baseProportion = if (
+            resources.configuration.smallestScreenWidthDp >= LARGE_SCREEN_MIN_WIDTH_DP
+        ) {
+            LARGE_SCREEN_HERO_HEIGHT_PROPORTION
+        } else {
+            DEFAULT_HERO_HEIGHT_PROPORTION
         }
+        var appliedProportion = -1f
+
+        val updateHeight = {
+            if (root.height > 0 && header.measuredHeight > 0) {
+                val topMargin = (header.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
+                val breathingRoom = (HERO_BREATHING_ROOM_DP * resources.displayMetrics.density).toInt()
+                val requiredHeight = appBar.paddingTop + topMargin + header.measuredHeight + breathingRoom
+                val requiredProportion = requiredHeight.toFloat() / root.height
+                val nextProportion = requiredProportion.coerceIn(
+                    baseProportion,
+                    MAX_HERO_HEIGHT_PROPORTION,
+                )
+                if (abs(nextProportion - appliedProportion) > 0.001f) {
+                    appliedProportion = nextProportion
+                    appBar.seslSetCustomHeightProportion(true, nextProportion)
+                }
+            }
+        }
+        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
+        header.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
+        root.post { updateHeight() }
     }
 
     // Seven taps on the version number unlock the hidden debug menu in
@@ -576,7 +604,10 @@ class AboutActivity : FoldablePopOverActivity() {
         }
 
         private const val LARGE_SCREEN_MIN_WIDTH_DP = 600
+        private const val DEFAULT_HERO_HEIGHT_PROPORTION = 0.5f
         private const val LARGE_SCREEN_HERO_HEIGHT_PROPORTION = 0.58f
+        private const val MAX_HERO_HEIGHT_PROPORTION = 0.9f
+        private const val HERO_BREATHING_ROOM_DP = 8
 
         private const val DEBUG_UNLOCK_TAPS = 7
         private const val HEADER_ICON_EASTER_EGG_TAPS = 7

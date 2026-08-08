@@ -3,8 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_brief_pill_surface"
-    android:paddingHorizontal="14dp"
-    android:paddingVertical="10dp">
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="6dp">
 
     <TextView
         android:layout_width="match_parent"
@@ -15,6 +15,6 @@
         android:maxLines="2"
         android:text="@string/brief_preview_title"
         android:textColor="#FF000000"
-        android:textSize="16sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 </FrameLayout>

@@ -44,6 +44,7 @@
             app:statusBarScrim="@android:color/transparent">
 
             <LinearLayout
+                android:id="@+id/about_header_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="?attr/actionBarSize"

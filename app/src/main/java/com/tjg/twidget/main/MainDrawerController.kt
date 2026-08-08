@@ -17,6 +17,7 @@ import com.tjg.twidget.analytics.AnalyticsImportActivity
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.ProfileStats
 import com.tjg.twidget.data.TwidgetStore
+import com.tjg.twidget.notices.NoticeBadgeDrawable
 import com.tjg.twidget.settings.SettingsActivity
 import com.tjg.twidget.ui.EdgeToEdgeActivity
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -134,6 +135,12 @@ internal class MainDrawerController(
         }
     }
 
+    fun updateNavigationBadge() {
+        if (!isEditMode()) {
+            renderDrawerNavigation(activity.findViewById(drawerLayoutId))
+        }
+    }
+
     private fun renderEditModeNavigation(layout: DrawerLayout) {
         if (!showingEditNavigation) {
             layout.setExpanded(expanded = false, animate = true)
@@ -167,8 +174,7 @@ internal class MainDrawerController(
             showingEditNavigation = false
         }
         layout.showNavigationButton = true
-        val drawerIcon = AppCompatResources.getDrawable(activity, OneUiDesignR.drawable.oui_des_ic_ab_drawer)
-        layout.setNavigationButtonIcon(drawerIcon)
+        layout.setNavigationButtonIcon(drawerIcon())
         layout.setNavigationButtonTooltip(
             activity.getString(OneUiDesignR.string.oui_des_navigation_drawer),
         )
@@ -179,9 +185,25 @@ internal class MainDrawerController(
                 navigationIcon = null
                 setNavigationOnClickListener(null)
             } else {
-                navigationIcon = drawerIcon
+                navigationIcon = drawerIcon()
                 setNavigationOnClickListener { layout.setDrawerOpen(true, true) }
             }
+        }
+    }
+
+    private fun drawerIcon(): Drawable? {
+        val icon = AppCompatResources.getDrawable(
+            activity,
+            OneUiDesignR.drawable.oui_des_ic_ab_drawer,
+        ) ?: return null
+        return if (TwidgetStore.updateAvailable(activity)) {
+            NoticeBadgeDrawable(
+                icon,
+                activity.getColor(R.color.notice_badge_orange),
+                activity.resources.displayMetrics.density,
+            )
+        } else {
+            icon
         }
     }
 

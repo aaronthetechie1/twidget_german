@@ -456,13 +456,15 @@ internal class MainDashboardBinder(
                 allowSparseAverage = card == DashboardCardType.FOLLOWERS &&
                     fullHistory.any { it.imported && it.followersKnown },
             )
-            val openHistory = {
-                if (!editModeController.editMode) {
-                    activity.startActivity(MetricChartActivity.intent(activity, account, card.id))
+            if (METRIC_HISTORY_DRILL_DOWN_ENABLED) {
+                val openHistory = {
+                    if (!editModeController.editMode) {
+                        activity.startActivity(MetricChartActivity.intent(activity, account, card.id))
+                    }
                 }
+                root.setOnClickListener { openHistory() }
+                root.findViewById<MetricChartView>(chartId)?.onChartTapListener = openHistory
             }
-            root.setOnClickListener { openHistory() }
-            root.findViewById<MetricChartView>(chartId)?.onChartTapListener = openHistory
         }
     }
 
@@ -1019,6 +1021,10 @@ internal class MainDashboardBinder(
         )
     }
 }
+
+// Keep the compact dashboard charts visible in 1.2, but do not expose the
+// unfinished full-history page from Followers, Following, Posts, or Likes.
+private const val METRIC_HISTORY_DRILL_DOWN_ENABLED = false
 
 internal fun DashboardCardType.requiresAnalyticsImport(): Boolean = when (this) {
     DashboardCardType.X_IMPRESSIONS,

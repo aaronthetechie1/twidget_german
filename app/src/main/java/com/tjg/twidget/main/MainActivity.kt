@@ -263,12 +263,13 @@ class MainActivity : ScheduleQueueHostActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    // Orange dot on the drawer's settings cog while an app update is
-    // available, mirroring official Samsung apps.
+    // Orange dots on the drawer affordance and its settings cog while an app
+    // update is available, mirroring official Samsung apps.
     private fun updateSettingsBadge() {
         findViewById<DrawerLayout>(R.id.main_toolbar_layout).setHeaderButtonBadge(
             if (TwidgetStore.updateAvailable(this)) Badge.DOT else Badge.NONE
         )
+        if (::drawerController.isInitialized) drawerController.updateNavigationBadge()
     }
 
     private fun checkReleasesOnLaunch() {
