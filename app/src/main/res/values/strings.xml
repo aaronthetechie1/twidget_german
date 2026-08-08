@@ -98,11 +98,8 @@
     <string name="cooling">Cooling</string>
     <string name="flat">Flat</string>
     <string name="to_next_milestone">%1$s to %2$s</string>
-    <string name="milestone_section">Milestone</string>
     <string name="milestone_target">Follower milestone</string>
-    <string name="milestone_target_summary">%1$s of %2$s followers</string>
     <string name="milestone_target_hint">100 or One Hundred</string>
-    <string name="milestone_target_cleared">No custom milestone set</string>
     <string name="milestone_progress_percent">%1$d%%</string>
     <string name="milestone_invalid_target">Enter a valid follower milestone such as 100 or One Hundred.</string>
     <string name="milestone_target_below_followers">Your milestone must be higher than your current follower count (%1$s).</string>
@@ -112,7 +109,6 @@
     <string name="milestone_use_auto">Use auto milestone</string>
     <string name="milestone_edit_button">Edit</string>
     <string name="milestone_show_percent">Show progress percentage</string>
-    <string name="milestone_show_percent_summary">Shows the percentage above the progress bar on the milestone card</string>
     <string name="milestone_unknown_followers">Follower count unavailable</string>
     <string name="daily_streak">Daily streak</string>
     <string name="daily_streak_active_today">Active today</string>
