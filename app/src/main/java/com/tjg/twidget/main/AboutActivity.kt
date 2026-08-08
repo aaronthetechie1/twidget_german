@@ -296,7 +296,14 @@ class AboutActivity : FoldablePopOverActivity() {
             if (root.height > 0 && header.measuredHeight > 0) {
                 val topMargin = (header.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
                 val breathingRoom = (HERO_BREATHING_ROOM_DP * resources.displayMetrics.density).toInt()
-                val requiredHeight = appBar.paddingTop + topMargin + header.measuredHeight + breathingRoom
+                // SESL AppBarLayout injects its own extended bottom padding even when the
+                // layout XML declares none. Include it or the scrolling sibling starts over
+                // the final part of the header on shorter and foldable displays.
+                val requiredHeight = appBar.paddingTop +
+                    appBar.paddingBottom +
+                    topMargin +
+                    header.measuredHeight +
+                    breathingRoom
                 val requiredProportion = requiredHeight.toFloat() / root.height
                 val nextProportion = requiredProportion.coerceIn(
                     baseProportion,
