@@ -315,6 +315,11 @@
     <string name="update_download_failed">Couldn\'t download the update.</string>
     <string name="update_install_permission">Allow Twidget to install updates, then return to continue.</string>
     <string name="update_invalid_apk">The downloaded update isn\'t a valid Twidget package.</string>
+    <string name="update_notification_title">Twidget update available</string>
+    <string name="update_notification_body">Version %1$s is ready to install.</string>
+    <string name="update_notification_channel_description">Notifications when a new Twidget version is available</string>
+    <string name="update_remind_later">Remind me later</string>
+    <string name="update_install_now">Install now</string>
     <string name="oneui_project">One UI Project</string>
     <string name="link_tjg">https://tjg.gg</string>
     <string name="link_kingowen">https://x.com/KingOwenFYI</string>

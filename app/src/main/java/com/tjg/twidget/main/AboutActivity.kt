@@ -41,6 +41,7 @@ import com.tjg.twidget.update.AppRelease
 import com.tjg.twidget.update.AppUpdateManager
 import com.tjg.twidget.update.AppVersion
 import com.tjg.twidget.update.UpdateChannel
+import com.tjg.twidget.update.UpdateNotificationHelper
 import dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout
 import dev.oneuiproject.oneui.widget.CardItemView
 import java.io.File
@@ -54,12 +55,16 @@ class AboutActivity : FoldablePopOverActivity() {
     private var availableRelease: AppRelease? = null
     private var pendingInstallApk: File? = null
     private var waitingForInstallPermission = false
+    private var requestedInstallVersion: String? = null
 
     private val updateChannel: UpdateChannel
         get() = savedUpdateChannel(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedInstallVersion = intent.getStringExtra(EXTRA_INSTALL_VERSION)
+            ?.takeIf(String::isNotBlank)
+        if (requestedInstallVersion != null) UpdateNotificationHelper.cancel(this)
         setContentView(R.layout.activity_about)
         applySystemBarInsets()
         setupToolbar()
@@ -166,6 +171,22 @@ class AboutActivity : FoldablePopOverActivity() {
         if (waitingForInstallPermission && packageManager.canRequestPackageInstalls()) {
             waitingForInstallPermission = false
             pendingInstallApk?.let(::launchPackageInstaller)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        requestedInstallVersion = intent.getStringExtra(EXTRA_INSTALL_VERSION)
+            ?.takeIf(String::isNotBlank)
+        if (requestedInstallVersion == null) return
+        UpdateNotificationHelper.cancel(this)
+        val release = availableRelease
+        if (release != null && release.version.toString() == requestedInstallVersion) {
+            requestedInstallVersion = null
+            downloadUpdate(release)
+        } else {
+            checkForUpdates(updateChannel)
         }
     }
 
@@ -369,6 +390,7 @@ class AboutActivity : FoldablePopOverActivity() {
             val release = fakeRelease()
             availableRelease = release
             showUpdateAvailable(release)
+            maybeInstallRequestedUpdate(release)
             finishPullRefresh()
             return
         }
@@ -394,7 +416,12 @@ class AboutActivity : FoldablePopOverActivity() {
                 }
                 val release = result.getOrNull()
                 availableRelease = release
-                if (release == null) hideUpdateUi() else showUpdateAvailable(release)
+                if (release == null) {
+                    hideUpdateUi()
+                } else {
+                    showUpdateAvailable(release)
+                    maybeInstallRequestedUpdate(release)
+                }
                 finishPullRefresh()
             }
         }
@@ -489,6 +516,13 @@ class AboutActivity : FoldablePopOverActivity() {
     private fun showDownloadFailure(release: AppRelease) {
         showUpdateAvailable(release)
         Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show()
+    }
+
+    private fun maybeInstallRequestedUpdate(release: AppRelease) {
+        if (requestedInstallVersion != release.version.toString()) return
+        requestedInstallVersion = null
+        UpdateNotificationHelper.cancel(this)
+        downloadUpdate(release)
     }
 
     private fun isValidUpdateApk(apk: File, release: AppRelease): Boolean {
@@ -600,6 +634,13 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     companion object {
+        private const val EXTRA_INSTALL_VERSION = "install_update_version"
+
+        fun installUpdateIntent(context: Context, version: String): Intent =
+            Intent(context, AboutActivity::class.java)
+                .putExtra(EXTRA_INSTALL_VERSION, version)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
         internal fun savedUpdateChannel(context: Context): UpdateChannel {
             val preferences = context.getSharedPreferences("AboutActivity", MODE_PRIVATE)
             val installedVersion = context.packageManager

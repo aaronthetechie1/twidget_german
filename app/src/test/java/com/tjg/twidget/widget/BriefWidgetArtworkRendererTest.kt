@@ -78,6 +78,41 @@ class BriefWidgetArtworkRendererTest {
     }
 
     @Test
+    fun compactTallCardsUseSmallerTypeToPreserveTwoDescriptionLines() {
+        val square = BriefWidgetArtworkRenderer.tallCardMetrics(162f, 176f)
+        val threeColumn = BriefWidgetArtworkRenderer.tallCardMetrics(270f, 176f)
+
+        assertEquals(18f, square.titleSizeSp)
+        assertEquals(12f, square.bodySizeSp)
+        assertEquals(20f, threeColumn.titleSizeSp)
+        assertEquals(12f, threeColumn.bodySizeSp)
+    }
+
+    @Test
+    fun stripTextUsesTheRealFontBoundsForVerticalCentering() {
+        assertEquals(
+            46f,
+            BriefWidgetArtworkRenderer.centeredFirstBaseline(
+                height = 76f,
+                fontTop = -20f,
+                fontBottom = 4f,
+                lineHeight = 24f,
+                lineCount = 1,
+            ),
+        )
+        assertEquals(
+            34f,
+            BriefWidgetArtworkRenderer.centeredFirstBaseline(
+                height = 76f,
+                fontTop = -20f,
+                fontBottom = 4f,
+                lineHeight = 24f,
+                lineCount = 2,
+            ),
+        )
+    }
+
+    @Test
     fun oneUiFollowerEmphasisUsesBoldRatherThanExtraBold() {
         assertEquals(700, WidgetArtworkRenderer.ONE_UI_EMPHASIS_WEIGHT)
     }

@@ -282,6 +282,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".update.UpdateReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".schedule.ScheduleReminderReceiver"
             android:exported="false" />
 

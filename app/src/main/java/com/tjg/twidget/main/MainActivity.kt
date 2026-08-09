@@ -36,6 +36,8 @@ import com.tjg.twidget.schedule.ScheduleComposeActivity
 import com.tjg.twidget.schedule.ScheduleQueueHostActivity
 import com.tjg.twidget.ui.startRightSidePopOverActivity
 import com.tjg.twidget.update.AppUpdateManager
+import com.tjg.twidget.update.UpdateCheckWorker
+import com.tjg.twidget.update.UpdateNotificationHelper
 import com.tjg.twidget.widget.RefreshWorker
 import com.tjg.twidget.widget.TwidgetWidget
 import dev.oneuiproject.oneui.R as OneUiIconR
@@ -147,6 +149,7 @@ class MainActivity : ScheduleQueueHostActivity() {
                     AppExecutors.execute {
                         TwidgetStore.migrateStoredHistories(applicationContext)
                         RefreshWorker.schedule(applicationContext)
+                        UpdateCheckWorker.schedule(applicationContext)
                     }
                     render()
                     if (savedInstanceState == null) checkReleasesOnLaunch()
@@ -282,6 +285,8 @@ class MainActivity : ScheduleQueueHostActivity() {
                     check.update != null,
                     check.update?.version?.toString(),
                 )
+                check.update?.let { UpdateNotificationHelper.showIfNeeded(appContext, it) }
+                    ?: UpdateNotificationHelper.cancel(appContext)
                 // The debug channel uses a quota-free release sidecar and does
                 // not refresh notices through the rate-limited GitHub API.
                 if (check.notices.isNotEmpty()) ReleaseNoticesStore.save(appContext, check.notices)

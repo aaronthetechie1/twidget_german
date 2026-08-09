@@ -45,16 +45,19 @@ internal object BriefWidgetArtworkRenderer {
     }
 
     /** Proportions used by Samsung's Now Brief medium/tall widget. */
-    internal fun tallCardMetrics(widthDp: Float, heightDp: Float) = TallCardMetrics(
-        iconInsetDp = 14f,
-        textInsetDp = 16f,
-        bottomInsetDp = 16f,
-        iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
-        titleSizeSp = 20f,
-        bodySizeSp = 14f,
-        textGapDp = 6f,
-        titleWeight = 600,
-    )
+    internal fun tallCardMetrics(widthDp: Float, heightDp: Float): TallCardMetrics {
+        val compactWidth = widthDp < 300f
+        return TallCardMetrics(
+            iconInsetDp = 14f,
+            textInsetDp = 16f,
+            bottomInsetDp = 16f,
+            iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
+            titleSizeSp = if (widthDp <= 230f) 18f else 20f,
+            bodySizeSp = if (compactWidth) 12f else 14f,
+            textGapDp = 6f,
+            titleWeight = 600,
+        )
+    }
 
     @DrawableRes
     fun supportingIcon(type: BriefCardType): Int = when (type) {
@@ -177,8 +180,14 @@ internal object BriefWidgetArtworkRenderer {
         val paint = textPaint(context, fontFamily, 700, sizeSp, color)
         val lines = wrap(title, paint, width, maxLines)
         val lineHeight = paint.textSize * 1.13f
-        val blockHeight = lineHeight * lines.size
-        val firstBaseline = (height - blockHeight) / 2f - paint.fontMetrics.top
+        val metrics = paint.fontMetrics
+        val firstBaseline = centeredFirstBaseline(
+            height = height.toFloat(),
+            fontTop = metrics.top,
+            fontBottom = metrics.bottom,
+            lineHeight = lineHeight,
+            lineCount = lines.size,
+        )
         lines.forEachIndexed { index, line ->
             val shown = ellipsize(line, paint, width)
             canvas.drawText(
@@ -188,6 +197,18 @@ internal object BriefWidgetArtworkRenderer {
                 paint,
             )
         }
+    }
+
+    internal fun centeredFirstBaseline(
+        height: Float,
+        fontTop: Float,
+        fontBottom: Float,
+        lineHeight: Float,
+        lineCount: Int,
+    ): Float {
+        val additionalLinesHeight = (lineCount.coerceAtLeast(1) - 1) * lineHeight
+        val blockHeight = fontBottom - fontTop + additionalLinesHeight
+        return (height - blockHeight) / 2f - fontTop
     }
 
     private fun drawTallCard(
