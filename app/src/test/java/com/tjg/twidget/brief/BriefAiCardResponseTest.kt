@@ -65,4 +65,20 @@ class BriefAiCardResponseTest {
         assertEquals("You gained 10 followers.", result.snapshot?.cards?.first()?.body)
         assertEquals(1, result.appliedCards)
     }
+
+    @Test
+    fun aiSummaryIsSentenceCasedAndStoredForEveryBriefSurface() {
+        val result = BriefAiCardResponse.apply(
+            source.copy(followersToday = 1),
+            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week."}]""",
+            BriefProviderUsed.LOCAL,
+        )
+
+        assertEquals("Your growth is building", result.snapshot?.headline)
+        assertEquals("You gained 1 follower today and 10 followers this week.", result.snapshot?.subheading)
+        assertEquals(
+            BriefEditorialSummary("Your growth is building", "You gained 1 follower today and 10 followers this week."),
+            result.snapshot?.let(BriefEditorialSummary::from),
+        )
+    }
 }

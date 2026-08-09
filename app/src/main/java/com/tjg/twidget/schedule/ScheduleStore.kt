@@ -173,13 +173,7 @@ class ScheduleStore(context: Context) {
         account.trim().trimStart('@').lowercase()
 
     private fun sortPosts(posts: List<ScheduledPost>): List<ScheduledPost> =
-        posts.sortedWith(
-            compareByDescending<ScheduledPost> {
-                it.pinned && ScheduleQueuePolicy.canPin(it.status)
-            }
-                .thenBy { it.scheduledAt ?: Long.MAX_VALUE }
-                .thenByDescending { it.updatedAt },
-        )
+        ScheduleQueuePolicy.order(posts)
 
     private fun sortTrashPosts(posts: List<ScheduledPost>): List<ScheduledPost> =
         posts.sortedByDescending { it.deletedAt ?: 0L }

@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefCard
 import com.tjg.twidget.brief.BriefCardType
+import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefSnapshot
 import com.tjg.twidget.followers.TopFollowersStore
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -66,6 +67,11 @@ internal object BriefWidgetArtworkRenderer {
             body = context.getString(R.string.brief_widget_empty_body),
             score = 0,
         )
+        val summary = snapshot?.let(BriefEditorialSummary::from)
+        val displayCard = card.copy(
+            title = summary?.title ?: card.title,
+            body = summary?.body ?: card.body,
+        )
         val widgetLayout = layout(width / density, height / density)
         val primary = if (dark) Color.WHITE else Color.rgb(18, 18, 20)
         val secondary = primary
@@ -74,7 +80,7 @@ internal object BriefWidgetArtworkRenderer {
             Layout.COMPACT_STRIP -> drawCenteredTitle(
                 context = context,
                 canvas = canvas,
-                title = card.title,
+                title = displayCard.title,
                 left = dp(context, 14).toFloat(),
                 width = width - dp(context, 28).toFloat(),
                 height = height,
@@ -88,7 +94,7 @@ internal object BriefWidgetArtworkRenderer {
                 drawStateIcon(
                     context,
                     canvas,
-                    card.type,
+                    displayCard.type,
                     account,
                     pad,
                     (height - iconSize) / 2f,
@@ -98,7 +104,7 @@ internal object BriefWidgetArtworkRenderer {
                 drawCenteredTitle(
                     context = context,
                     canvas = canvas,
-                    title = card.title,
+                    title = displayCard.title,
                     left = textLeft,
                     width = width - textLeft - pad,
                     height = height,
@@ -108,17 +114,17 @@ internal object BriefWidgetArtworkRenderer {
                 )
             }
             Layout.SQUARE -> drawTallCard(
-                context, canvas, card, account, width, height, primary, secondary,
+                context, canvas, displayCard, account, width, height, primary, secondary,
                 paddingDp = 10, iconSizeDp = 48, titleSizeSp = 18f, bodySizeSp = 12f,
                 titleLines = 2, bodyLines = 2,
             )
             Layout.MEDIUM_TALL -> drawTallCard(
-                context, canvas, card, account, width, height, primary, secondary,
+                context, canvas, displayCard, account, width, height, primary, secondary,
                 paddingDp = 10, iconSizeDp = 48, titleSizeSp = 22f, bodySizeSp = 14f,
                 titleLines = 1, bodyLines = 1,
             )
             Layout.WIDE_TALL -> drawTallCard(
-                context, canvas, card, account, width, height, primary, secondary,
+                context, canvas, displayCard, account, width, height, primary, secondary,
                 paddingDp = 18, iconSizeDp = 32, titleSizeSp = 24f, bodySizeSp = 16f,
                 titleLines = 1, bodyLines = 2, iconStartDp = 15, iconTopDp = 21,
                 bottomPaddingDp = 21,

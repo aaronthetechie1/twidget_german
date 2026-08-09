@@ -3,6 +3,7 @@ package com.tjg.twidget.brief
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BriefUpcomingPrivacyTest {
@@ -37,5 +38,7 @@ class BriefUpcomingPrivacyTest {
 
         assertFalse(promptFor(snapshot).contains(secret))
         assertFalse(localPromptFor(snapshot).contains(secret))
+        assertTrue(promptFor(snapshot).contains("__brief_summary__"))
+        assertTrue(localPromptFor(snapshot).contains("Use sentence case, never Title Case"))
     }
 }

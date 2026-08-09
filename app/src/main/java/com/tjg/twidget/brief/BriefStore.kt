@@ -27,6 +27,8 @@ object BriefStore {
                     providerUsed = BriefProviderUsed.TEMPLATE,
                     providerMessage = "Built on device from your Twidget data",
                     aiGeneratedAt = 0L,
+                    headline = "",
+                    subheading = "",
                 ),
             )
         }
@@ -43,6 +45,8 @@ object BriefStore {
         put("posts", snapshot.posts)
         put("followersToday", snapshot.followersToday)
         put("followersWeek", snapshot.followersWeek)
+        put("headline", snapshot.headline)
+        put("subheading", snapshot.subheading)
         put("engineVersion", snapshot.engineVersion)
         put("contextFingerprint", snapshot.contextFingerprint)
         put("providerUsed", snapshot.providerUsed.name)
@@ -105,6 +109,8 @@ object BriefStore {
             posts = root.optLong("posts"),
             followersToday = root.optLong("followersToday"),
             followersWeek = root.optLong("followersWeek"),
+            headline = root.optString("headline"),
+            subheading = root.optString("subheading"),
             cards = buildList {
                 for (index in 0 until cardsJson.length()) {
                     val card = cardsJson.getJSONObject(index)

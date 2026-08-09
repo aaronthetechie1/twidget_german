@@ -15,6 +15,7 @@ import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefEngine
+import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
@@ -105,7 +106,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
             snapshot: com.tjg.twidget.brief.BriefSnapshot?,
         ): RemoteViews {
             val oneRow = height <= 110
-            val card = snapshot?.cards?.firstOrNull()
+            val summary = snapshot?.let(BriefEditorialSummary::from)
             val settings = TwidgetStore.widgetSettings(context, id)
             val dark = isDark(context, settings.colorMode)
             val base = if (dark) 16 else 255
@@ -138,7 +139,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                 )
                 setContentDescription(
                     android.R.id.background,
-                    listOfNotNull(card?.title, card?.body).joinToString(". ")
+                    listOfNotNull(summary?.title, summary?.body).joinToString(". ")
                         .ifBlank { context.getString(R.string.brief_widget_empty_title) },
                 )
                 if (account.isNotBlank()) {

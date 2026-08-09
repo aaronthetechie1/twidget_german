@@ -36,7 +36,7 @@ import kotlin.math.roundToInt
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 11
+    private const val ENGINE_VERSION = 12
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -68,6 +68,12 @@ object BriefEngine {
 
         val evaluation = evaluate(context, clean, stats, analytics, followerState, previous, upcomingTweets)
 
+        val editorial = BriefEditorialSummary.from(
+            cards = evaluation.selected,
+            followersToday = evaluation.report.followersToday,
+            followersWeek = evaluation.report.followersWeek,
+            upcomingTweets = upcomingTweets.size,
+        )
         val rebuilt = BriefSnapshot(
             username = clean,
             generatedAt = System.currentTimeMillis(),
@@ -80,6 +86,8 @@ object BriefEngine {
             followersToday = evaluation.report.followersToday,
             followersWeek = evaluation.report.followersWeek,
             cards = evaluation.selected,
+            headline = editorial.title,
+            subheading = editorial.body,
             upcomingTweets = upcomingTweets,
             topFollowerRanks = evaluation.currentRanks,
             engineVersion = ENGINE_VERSION,
@@ -172,7 +180,7 @@ object BriefEngine {
                 id = "summary-steady",
                 type = BriefCardType.SUMMARY,
                 title = "Everything looks steady",
-                body = "You have ${format(stats.followersCount)} followers. Keep showing up and Twidget will watch for the next meaningful change.",
+                body = "You have ${formatFollowers(stats.followersCount)}. Keep showing up and Twidget will watch for the next meaningful change.",
                 score = 50,
                 rankSignals = BriefRankSignals(contextRelevance = 0.35, timeRelevance = 0.35),
             )
@@ -219,8 +227,8 @@ object BriefEngine {
             else -> "Momentum is building"
         }
         val body = when {
-            today > 0 -> "You gained ${format(today)} followers today and ${format(week.coerceAtLeast(today))} over the last week."
-            else -> "You gained ${format(week)} followers over the last week."
+            today > 0 -> "You gained ${formatFollowers(today)} today and ${formatFollowers(week.coerceAtLeast(today))} over the last week."
+            else -> "You gained ${formatFollowers(week)} over the last week."
         }
         val score = BriefRankingPolicy.growth(today, week, weeklyPercent)
         return BriefCard(
@@ -293,7 +301,7 @@ object BriefEngine {
             "slowdown",
             BriefCardType.SLOWDOWN,
             "Growth has slowed down",
-            "Your recent pace is ${format(abs(prior - recent))} followers behind the previous few days. A fresh post could help restart it.",
+            "Your recent pace is ${formatFollowers(abs(prior - recent))} behind the previous few days. A fresh post could help restart it.",
             BriefRankingPolicy.slowdown(recent, prior, today),
             rankSignals = BriefRankSignals(contextRelevance = 0.92, timeRelevance = 0.95),
         )
@@ -482,7 +490,7 @@ object BriefEngine {
             "top-follower-${followerKey(follower)}",
             BriefCardType.TOP_FOLLOWER,
             title,
-            "${follower.name.ifBlank { "@${follower.username}" }} has ${format(follower.followers)} followers.$movement",
+            "${follower.name.ifBlank { "@${follower.username}" }} has ${formatFollowers(follower.followers)}.$movement",
             if (newScan && oldRank == null) 92 else 76,
             rankSignals = BriefRankSignals(
                 contextRelevance = if (newScan) 0.85 else 0.55,
@@ -541,6 +549,9 @@ object BriefEngine {
         }
 
     private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+
+    private fun formatFollowers(value: Long): String =
+        "${format(value)} ${if (value == 1L) "follower" else "followers"}"
 }
 
 internal object BriefSchedulePolicy {

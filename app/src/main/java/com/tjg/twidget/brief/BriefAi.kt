@@ -493,12 +493,23 @@ private object GeminiCloudBriefProvider {
 
 private const val SYSTEM_INSTRUCTION =
     "You write a concise, personal social guide focused on the user's next useful move. " +
-        "You may only reword the supplied factual cards and must preserve their order. " +
-        "Never add numbers, names, causes, predictions, or claims. Keep titles under 45 characters and bodies " +
-        "under 150 characters. Be warm and direct, never shaming. Return only a JSON array."
+        "You may only reword the supplied factual Brief summary and cards and must preserve their order. " +
+        "Never add numbers, names, causes, predictions, or claims. Use sentence case for every title: capitalise " +
+        "only the first word and proper nouns, never every major word. Use 'follower' for exactly 1 and " +
+        "'followers' for every other count. Keep titles under 45 characters and bodies under 150 characters. " +
+        "Be warm and direct, never shaming. Return only a JSON array."
+
+private const val SUMMARY_ID = "__brief_summary__"
 
 internal fun promptFor(source: BriefSnapshot): String {
+    val summary = BriefEditorialSummary.from(source)
     val input = JSONArray().apply {
+        put(JSONObject().apply {
+            put("id", SUMMARY_ID)
+            put("title", summary.title)
+            put("body", summary.body)
+            put("kind", "brief_summary")
+        })
         source.cards.forEach { card ->
             put(JSONObject().apply {
                 put("id", card.id)
@@ -508,12 +519,20 @@ internal fun promptFor(source: BriefSnapshot): String {
             })
         }
     }
-    return "Rewrite these ordered cards without reordering them. Keep each id unchanged. Return objects with exactly id, title, and body: $input"
+    return "Rewrite the Brief summary and ordered cards without reordering them. Keep each id unchanged. " +
+        "The brief_summary object supplies the shared dashboard, widget, and expanded-page headline and subheading. " +
+        "Return objects with exactly id, title, and body: $input"
 }
 
 internal fun localPromptFor(source: BriefSnapshot): String {
-    val outputCount = minOf(3, source.cards.size)
+    val outputCount = minOf(2, source.cards.size)
+    val summary = BriefEditorialSummary.from(source)
     val input = JSONArray().apply {
+        put(JSONObject().apply {
+            put("i", SUMMARY_ID)
+            put("t", summary.title)
+            put("b", summary.body)
+        })
         source.cards.forEach { card ->
             put(JSONObject().apply {
                 put("i", card.id)
@@ -525,9 +544,9 @@ internal fun localPromptFor(source: BriefSnapshot): String {
     }
     return """
         ## TASK
-        Rewrite the first $outputCount cards in the supplied order.
+        Rewrite the Brief summary and first $outputCount cards in the supplied order.
         ## RULES
-        Preserve card order. Keep every id and numeric fact unchanged. Title max 32 characters. Body max 80 characters.
+        Preserve order. Keep every id and numeric fact unchanged. Use sentence case, never Title Case. Use "follower" for 1 and "followers" otherwise. Title max 32 characters. Body max 80 characters.
         ## OUTPUT
         JSON array only, using exactly these keys: [{"i":"id","t":"title","b":"body"}]
         ## CARDS
@@ -549,12 +568,31 @@ internal object BriefAiCardResponse {
         val array = runCatching { JSONArray(raw.substring(start, end + 1)) }.getOrNull()
             ?: return Result(null, 0, "Response JSON was malformed")
         val originals = source.cards.associateBy(BriefCard::id)
+        val originalSummary = BriefEditorialSummary.from(source)
         val seen = mutableSetOf<String>()
         val replacements = mutableMapOf<String, BriefCard>()
+        var headline = originalSummary.title
+        var subheading = originalSummary.body
+        var summaryApplied = false
         var applied = 0
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index) ?: continue
             val id = item.optString("id").ifBlank { item.optString("i") }
+            if (id == SUMMARY_ID && seen.add(id)) {
+                val title = item.optString("title").ifBlank { item.optString("t") }
+                    .trim().takeIf { it.length in 1..60 } ?: originalSummary.title
+                val body = item.optString("body").ifBlank { item.optString("b") }
+                    .trim().takeIf { it.length in 1..180 } ?: originalSummary.body
+                if (numericFacts("${originalSummary.title} ${originalSummary.body}") == numericFacts("$title $body")) {
+                    headline = BriefCopyPolicy.sentenceCase(
+                        title,
+                        "${originalSummary.title} ${originalSummary.body}",
+                    )
+                    subheading = BriefCopyPolicy.correctFollowerGrammar(body)
+                    summaryApplied = true
+                }
+                continue
+            }
             val original = originals[id] ?: continue
             if (!seen.add(id)) continue
             val title = item.optString("title").ifBlank { item.optString("t") }
@@ -562,21 +600,64 @@ internal object BriefAiCardResponse {
             val body = item.optString("body").ifBlank { item.optString("b") }
                 .trim().takeIf { it.length in 1..180 } ?: original.body
             val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
-            replacements[id] = if (factual) original.copy(title = title, body = body) else original
+            replacements[id] = if (factual) {
+                original.copy(
+                    title = BriefCopyPolicy.sentenceCase(title, "${original.title} ${original.body}"),
+                    body = BriefCopyPolicy.correctFollowerGrammar(body),
+                )
+            } else {
+                original
+            }
             applied++
         }
         val rewritten = source.cards.map { replacements[it.id] ?: it }
-        if (applied == 0) return Result(null, 0, "Response contained no recognised card ids")
+        if (!summaryApplied && applied == 0) return Result(null, 0, "Response contained no recognised ids")
         val generatedAt = System.currentTimeMillis()
         return Result(
             snapshot = source.copy(
                 generatedAt = generatedAt,
                 cards = rewritten,
+                headline = headline,
+                subheading = subheading,
                 providerUsed = provider,
                 aiGeneratedAt = generatedAt,
             ),
             appliedCards = applied,
         )
+    }
+}
+
+internal object BriefCopyPolicy {
+    private val word = Regex("[A-Za-z][A-Za-z’'-]*")
+    private val singularFollower = Regex("\\b1 followers\\b", RegexOption.IGNORE_CASE)
+
+    fun sentenceCase(value: String, source: String = ""): String {
+        val clean = value.trim()
+        if (clean.isBlank()) return clean
+        val protected = word.findAll(source)
+            .withIndex()
+            .filter { (index, match) ->
+                val token = match.value
+                token.length > 1 && (token.all(Char::isUpperCase) || (index > 0 && token.first().isUpperCase()))
+            }
+            .map { it.value.value }
+            .map(String::lowercase)
+            .toSet() + setOf("twidget", "buffer", "gemini", "nano")
+        var index = 0
+        return word.replace(clean) { match ->
+            val token = match.value
+            val replacement = when {
+                index++ == 0 -> token.replaceFirstChar(Char::uppercase)
+                token.all(Char::isUpperCase) -> token
+                token.lowercase() in protected -> token
+                else -> token.replaceFirstChar(Char::lowercase)
+            }
+            replacement
+        }
+    }
+
+    fun correctFollowerGrammar(value: String): String = singularFollower.replace(value) { match ->
+        if (match.value.first().isUpperCase()) "1 Follower" else "1 follower"
     }
 }
 
@@ -646,9 +727,16 @@ internal object BriefAiCachePolicy {
             }
         }
         val aiGeneratedAt = previous.aiGeneratedAt.takeIf { it > 0L } ?: previous.generatedAt
+        val previousSummary = BriefEditorialSummary.from(previous)
+        val refreshedSummary = BriefEditorialSummary.from(refreshed)
+        val summaryFactsStillMatch = previous.headline.isNotBlank() && previous.subheading.isNotBlank() &&
+            numericFacts("${previousSummary.title} ${previousSummary.body}") ==
+            numericFacts("${refreshedSummary.title} ${refreshedSummary.body}")
         return refreshed.copy(
             generatedAt = previous.generatedAt,
             cards = mergedCards,
+            headline = if (summaryFactsStillMatch) previous.headline else refreshed.headline,
+            subheading = if (summaryFactsStillMatch) previous.subheading else refreshed.subheading,
             providerUsed = previous.providerUsed,
             providerMessage = previous.providerMessage,
             aiGeneratedAt = aiGeneratedAt,

@@ -32,6 +32,7 @@ import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.XAnalyticsMovement
 import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefCardType
+import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -344,6 +345,7 @@ internal class MainDashboardBinder(
     private fun createBriefCard(stats: ProfileStats, account: String): View {
         val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
         val snapshot = BriefEngine.rebuild(activity, account)
+        val summary = BriefEditorialSummary.from(snapshot)
         val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
             id = "empty",
             type = BriefCardType.SUMMARY,
@@ -369,14 +371,14 @@ internal class MainDashboardBinder(
                 if (iconRes == null) 4 else 12,
             )
         }
-        root.findViewById<TextView>(R.id.brief_dashboard_title).text = hero.title
-        root.findViewById<TextView>(R.id.brief_dashboard_message).text = hero.body
+        root.findViewById<TextView>(R.id.brief_dashboard_title).text = summary.title
+        root.findViewById<TextView>(R.id.brief_dashboard_message).text = summary.body
         root.background = MilestoneCardBackgroundDrawable(
             glowColor = activity.getColor(R.color.brief_dashboard_glow),
             surfaceColor = activity.getColor(R.color.oneui_card_bg),
             radiusPx = activity.dp(28).toFloat(),
         )
-        root.contentDescription = "${activity.getString(R.string.brief_title)}. ${hero.title}. ${hero.body}"
+        root.contentDescription = "${activity.getString(R.string.brief_title)}. ${summary.title}. ${summary.body}"
         root.setOnClickListener {
             if (!editModeController.editMode && isDefaultAccount(account)) {
                 BriefSettingsStore.setEnabled(activity, true)

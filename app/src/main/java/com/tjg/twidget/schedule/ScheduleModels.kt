@@ -130,6 +130,33 @@ object ScheduleQueuePolicy {
             .flatMap { it.media.asSequence() }
             .take(MAX_CARD_MEDIA)
             .toList()
+
+    fun order(posts: List<ScheduledPost>): List<ScheduledPost> = posts.sortedWith(
+        compareBy<ScheduledPost>(::statusPriority)
+            .thenByDescending { it.pinned && canPin(it.status) }
+            .thenBy { if (it.status == ScheduleStatus.SCHEDULED) it.scheduledAt ?: Long.MAX_VALUE else 0L }
+            .thenByDescending {
+                if (it.status in setOf(ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED, ScheduleStatus.DRAFT)) {
+                    it.updatedAt
+                } else {
+                    0L
+                }
+            }
+            .thenByDescending {
+                if (it.status in setOf(ScheduleStatus.PUBLISHED, ScheduleStatus.CANCELLED)) {
+                    it.publishedAt ?: it.scheduledAt ?: it.updatedAt
+                } else {
+                    0L
+                }
+            },
+    )
+
+    private fun statusPriority(post: ScheduledPost): Int = when (post.status) {
+        ScheduleStatus.NEEDS_ACTION, ScheduleStatus.FAILED -> 0
+        ScheduleStatus.SCHEDULED -> 1
+        ScheduleStatus.DRAFT -> 2
+        ScheduleStatus.PUBLISHED, ScheduleStatus.CANCELLED -> 3
+    }
 }
 
 object ScheduleNotificationPolicy {
@@ -140,7 +167,7 @@ object ScheduleNotificationPolicy {
 
     fun shouldNotifyBufferFailed(previous: ScheduledPost?, nextStatus: ScheduleStatus): Boolean =
         previous?.provider == ScheduleProvider.BUFFER &&
-            previous.status == ScheduleStatus.SCHEDULED &&
+            previous.status in setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.PUBLISHED) &&
             nextStatus == ScheduleStatus.NEEDS_ACTION
 }
 

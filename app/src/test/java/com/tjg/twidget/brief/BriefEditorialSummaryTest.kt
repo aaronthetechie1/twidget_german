@@ -26,7 +26,7 @@ class BriefEditorialSummaryTest {
 
         assertEquals("Momentum is building", summary.title)
         assertEquals(
-            "You gained 20 followers today and 40 this week. " +
+            "You gained 20 followers today and 40 followers this week. " +
                 "Your schedule has a useful next step waiting.",
             summary.body,
         )
@@ -50,7 +50,7 @@ class BriefEditorialSummaryTest {
 
         assertEquals("Momentum is building", summary.title)
         assertEquals(
-            "You gained 12 followers today and 22 this week. " +
+            "You gained 12 followers today and 22 followers this week. " +
                 "One recent tweet stood out from your usual performance. " +
                 "There is a meaningful change in your top followers. Your posting rhythm is active.",
             summary.body,
@@ -93,7 +93,7 @@ class BriefEditorialSummaryTest {
 
         assertEquals("Moving closer", summary.title)
         assertEquals(
-            "You gained 12 followers today and 22 this week. " +
+            "You gained 12 followers today and 22 followers this week. " +
                 "That progress brings your goal closer. " +
                 "One recent tweet stood out from your usual performance.",
             summary.body,
@@ -120,6 +120,17 @@ class BriefEditorialSummaryTest {
         )
 
         assertEquals("Momentum is building", summary.title)
-        assertEquals("You gained 12 followers today and 22 this week.", summary.body)
+        assertEquals("You gained 12 followers today and 22 followers this week.", summary.body)
+    }
+
+    @Test
+    fun singularFollowerMovementUsesSingularCopy() {
+        val summary = BriefEditorialSummary.from(
+            cards = emptyList(),
+            followersToday = 1,
+            followersWeek = 1,
+        )
+
+        assertEquals("You gained 1 follower today and 1 follower this week.", summary.body)
     }
 }

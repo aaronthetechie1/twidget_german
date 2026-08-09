@@ -58,13 +58,9 @@ class BufferScheduleSync(
         if (!active.isSuccess) return BufferSyncResult(errors = active.errors.map { it.message })
         val now = System.currentTimeMillis()
         val confirmationStart = existing
-            .filter {
-                it.status == ScheduleStatus.SCHEDULED &&
-                    it.scheduledAt?.let { dueAt -> dueAt <= now + TERMINAL_LOOKAHEAD_MS } == true
-            }
-            .mapNotNull(ScheduledPost::scheduledAt)
+            .mapNotNull { terminalConfirmationTime(it, now) }
             .minOrNull()
-            ?.minus(24 * 60 * 60 * 1000L)
+            ?.minus(TERMINAL_QUERY_PADDING_MS)
         val terminal = confirmationStart?.let {
             client.listPosts(organizationId, channelId, listOf("sent", "error"), it)
         } ?: BufferResult(emptyList())
@@ -77,13 +73,7 @@ class BufferScheduleSync(
             seen += bufferPost.id
             val current = existing.firstOrNull { it.remotePostId == bufferPost.id }
                 ?: existing.firstOrNull { it.matches(bufferPost, channelId) }
-            val status = when (bufferPost.status.lowercase()) {
-                "draft" -> ScheduleStatus.DRAFT
-                "scheduled", "sending" -> ScheduleStatus.SCHEDULED
-                "sent" -> ScheduleStatus.PUBLISHED
-                "error" -> ScheduleStatus.NEEDS_ACTION
-                else -> return@forEach
-            }
+            val status = resolvedStatus(bufferPost.status, bufferPost.dueAt, now) ?: return@forEach
             val local = ScheduledPost(
                 id = current?.id ?: remoteLocalId(bufferPost.id),
                 provider = ScheduleProvider.BUFFER,
@@ -97,12 +87,19 @@ class BufferScheduleSync(
                 errorMessage = if (status == ScheduleStatus.NEEDS_ACTION) "Buffer could not publish this post" else null,
                 createdAt = current?.createdAt ?: bufferPost.createdAt ?: now,
                 updatedAt = now,
-                publishedAt = if (status == ScheduleStatus.PUBLISHED) bufferPost.dueAt ?: current?.publishedAt else current?.publishedAt,
+                publishedAt = when (status) {
+                    ScheduleStatus.PUBLISHED -> bufferPost.dueAt ?: current?.publishedAt
+                    ScheduleStatus.NEEDS_ACTION -> null
+                    else -> current?.publishedAt
+                },
                 pinned = current?.pinned ?: false,
                 deletedAt = current?.deletedAt,
             )
             store.upsert(local)
-            if (ScheduleNotificationPolicy.shouldNotifyBufferPublished(current, status)) {
+            if (
+                bufferPost.status.equals("sent", ignoreCase = true) &&
+                ScheduleNotificationPolicy.shouldNotifyBufferPublished(current, status)
+            ) {
                 ScheduleNotificationHelper.showBufferPublished(appContext, local)
             }
             if (ScheduleNotificationPolicy.shouldNotifyBufferFailed(current, status)) {
@@ -110,6 +107,19 @@ class BufferScheduleSync(
             }
             if (status == ScheduleStatus.SCHEDULED) BufferPublishCheckWorker.enqueue(appContext, local)
             if (current == null) imported++ else updated++
+        }
+
+        existing.filter {
+            shouldAssumePublished(it, seen, now)
+        }.forEach { current ->
+            val published = current.copy(
+                status = ScheduleStatus.PUBLISHED,
+                errorMessage = null,
+                updatedAt = now,
+                publishedAt = current.scheduledAt ?: now,
+            )
+            store.upsert(published)
+            updated++
         }
 
         var removed = 0
@@ -130,7 +140,52 @@ class BufferScheduleSync(
 
     companion object {
         private const val TERMINAL_LOOKAHEAD_MS = 5 * 60 * 1000L
+        private const val TERMINAL_CONFIRMATION_GRACE_MS = 24 * 60 * 60 * 1000L
+        private const val TERMINAL_QUERY_PADDING_MS = 24 * 60 * 60 * 1000L
         internal fun remoteLocalId(postId: String): String = "buffer-post-$postId"
+
+        /**
+         * Recently presumed posts remain in Buffer's terminal-status query long
+         * enough for a later explicit sent/error result to correct the fallback.
+         */
+        internal fun terminalConfirmationTime(post: ScheduledPost, now: Long): Long? = when (post.status) {
+            ScheduleStatus.SCHEDULED -> post.scheduledAt?.takeIf { it <= now + TERMINAL_LOOKAHEAD_MS }
+            ScheduleStatus.PUBLISHED -> (post.publishedAt ?: post.scheduledAt)?.takeIf {
+                now - it in 0L..TERMINAL_CONFIRMATION_GRACE_MS
+            }
+            else -> null
+        }
+
+        /**
+         * Buffer can continue returning a due post as scheduled/sending after its
+         * publishing time. Unless Buffer explicitly reports an error, the local
+         * fallback treats that post as published so it cannot remain upcoming.
+         */
+        internal fun resolvedStatus(remoteStatus: String, dueAt: Long?, now: Long): ScheduleStatus? =
+            when (remoteStatus.lowercase()) {
+                "draft" -> ScheduleStatus.DRAFT
+                "error" -> ScheduleStatus.NEEDS_ACTION
+                "sent" -> ScheduleStatus.PUBLISHED
+                "scheduled", "sending" -> if (dueAt != null && dueAt <= now) {
+                    ScheduleStatus.PUBLISHED
+                } else {
+                    ScheduleStatus.SCHEDULED
+                }
+                else -> null
+            }
+
+        /**
+         * A due post may fall between Buffer's active and terminal result sets.
+         * Absence is not treated as a failure: at its scheduled time we presume it
+         * was published, while a later explicit Buffer error can still correct it.
+         */
+        internal fun shouldAssumePublished(post: ScheduledPost, seen: Set<String>, now: Long): Boolean {
+            val remoteId = post.remotePostId ?: return false
+            return post.provider == ScheduleProvider.BUFFER &&
+                post.status == ScheduleStatus.SCHEDULED &&
+                remoteId !in seen &&
+                post.scheduledAt?.let { it <= now } == true
+        }
 
         /**
          * A just-due post can briefly disappear from Buffer's active list before it

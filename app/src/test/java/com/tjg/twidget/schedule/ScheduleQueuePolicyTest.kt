@@ -46,9 +46,11 @@ class ScheduleQueuePolicyTest {
         val scheduled = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel")
             .copy(status = ScheduleStatus.SCHEDULED)
         val alreadyFailed = scheduled.copy(status = ScheduleStatus.NEEDS_ACTION)
+        val presumedPublished = scheduled.copy(status = ScheduleStatus.PUBLISHED)
         val local = scheduled.copy(provider = ScheduleProvider.LOCAL_REMINDER)
 
         assertTrue(ScheduleNotificationPolicy.shouldNotifyBufferFailed(scheduled, ScheduleStatus.NEEDS_ACTION))
+        assertTrue(ScheduleNotificationPolicy.shouldNotifyBufferFailed(presumedPublished, ScheduleStatus.NEEDS_ACTION))
         assertFalse(ScheduleNotificationPolicy.shouldNotifyBufferFailed(alreadyFailed, ScheduleStatus.NEEDS_ACTION))
         assertFalse(ScheduleNotificationPolicy.shouldNotifyBufferFailed(local, ScheduleStatus.NEEDS_ACTION))
         assertFalse(ScheduleNotificationPolicy.shouldNotifyBufferFailed(scheduled, ScheduleStatus.PUBLISHED))
@@ -65,6 +67,24 @@ class ScheduleQueuePolicyTest {
         )
 
         assertEquals(media.take(4), ScheduleQueuePolicy.cardMedia(post))
+    }
+
+    @Test
+    fun queueOrdersAttentionThenUpcomingThenDraftsThenCompletedPosts() {
+        val base = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel")
+        val posts = listOf(
+            base.copy(id = "old-published", status = ScheduleStatus.PUBLISHED, publishedAt = 10L),
+            base.copy(id = "draft", status = ScheduleStatus.DRAFT, updatedAt = 40L),
+            base.copy(id = "later", status = ScheduleStatus.SCHEDULED, scheduledAt = 30L),
+            base.copy(id = "failed", status = ScheduleStatus.NEEDS_ACTION, updatedAt = 20L),
+            base.copy(id = "recent-published", status = ScheduleStatus.PUBLISHED, publishedAt = 50L),
+            base.copy(id = "sooner", status = ScheduleStatus.SCHEDULED, scheduledAt = 20L),
+        )
+
+        assertEquals(
+            listOf("failed", "sooner", "later", "draft", "recent-published", "old-published"),
+            ScheduleQueuePolicy.order(posts).map(ScheduledPost::id),
+        )
     }
 
     private fun post(provider: ScheduleProvider, accountId: String, accountUsername: String) = ScheduledPost(

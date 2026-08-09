@@ -117,12 +117,19 @@ data class BriefEditorialSummary(
     val body: String,
 ) {
     companion object {
-        fun from(snapshot: BriefSnapshot): BriefEditorialSummary = from(
-            cards = snapshot.cards,
-            followersToday = snapshot.followersToday,
-            followersWeek = snapshot.followersWeek,
-            upcomingTweets = snapshot.upcomingTweets.size,
-        )
+        fun from(snapshot: BriefSnapshot): BriefEditorialSummary {
+            val generatedTitle = snapshot.headline.trim().takeIf(String::isNotBlank)
+            val generatedBody = snapshot.subheading.trim().takeIf(String::isNotBlank)
+            if (generatedTitle != null && generatedBody != null) {
+                return BriefEditorialSummary(generatedTitle, generatedBody)
+            }
+            return from(
+                cards = snapshot.cards,
+                followersToday = snapshot.followersToday,
+                followersWeek = snapshot.followersWeek,
+                upcomingTweets = snapshot.upcomingTweets.size,
+            )
+        }
 
         internal fun from(
             cards: List<BriefCard>,
@@ -190,15 +197,17 @@ data class BriefEditorialSummary(
 
         private fun followerOverview(today: Long, week: Long): String? = when {
             today > 0L && week >= today ->
-                "You gained ${format(today)} followers today and ${format(week)} this week."
-            today > 0L -> "You gained ${format(today)} followers today."
+                "You gained ${followers(today)} today and ${followers(week)} this week."
+            today > 0L -> "You gained ${followers(today)} today."
             today < 0L && week > 0L ->
-                "You are down ${format(-today)} today, but still up ${format(week)} this week."
-            week > 0L -> "Your audience grew by ${format(week)} followers this week."
-            today < 0L -> "You are down ${format(-today)} followers today."
-            week < 0L -> "Your audience is down ${format(-week)} followers this week."
+                "You are down ${followers(-today)} today, but still up ${followers(week)} this week."
+            week > 0L -> "Your audience grew by ${followers(week)} this week."
+            today < 0L -> "You are down ${followers(-today)} today."
+            week < 0L -> "Your audience is down ${followers(-week)} this week."
             else -> null
         }
+
+        private fun followers(value: Long): String = "${format(value)} ${if (value == 1L) "follower" else "followers"}"
 
         private fun format(value: Long): String = java.text.NumberFormat
             .getIntegerInstance()
@@ -232,6 +241,8 @@ data class BriefSnapshot(
     val followersToday: Long,
     val followersWeek: Long,
     val cards: List<BriefCard>,
+    val headline: String = "",
+    val subheading: String = "",
     val upcomingTweets: List<BriefUpcomingTweet> = emptyList(),
     val topFollowerRanks: Map<String, Int>,
     val engineVersion: Int = 0,
