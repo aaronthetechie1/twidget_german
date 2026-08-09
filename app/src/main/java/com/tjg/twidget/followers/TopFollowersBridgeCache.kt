@@ -11,10 +11,23 @@ import org.json.JSONObject
 
 /** Opt-in exchange for completed Top Followers scans in the shared history pool. */
 object TopFollowersBridgeCache {
-    fun fetch(context: Context, username: String): TopFollowersState? {
+    fun fetch(context: Context, username: String, completedAfter: Long = 0L): TopFollowersState? {
         val settings = TwidgetStore.settings(context)
         if (!TopFollowersSharingPolicy.enabled(settings.shareHistory)) return null
-        return fetchCompleted(context, username)
+        val endpoint = TwidgetStore.bridgeEndpoint(settings)
+        val previewResponse = request(
+            context,
+            "GET",
+            "${endpoint.url}/history/${encode(username)}/top-followers",
+            null,
+            endpoint,
+        )
+        if (previewResponse.code == 404) return null
+        val preview = TopFollowersBridgeCodec.decode(
+            HttpTransport.requireSuccess(previewResponse, "Top Followers cache"),
+        ) ?: error("Top Followers bridge returned an invalid ranking")
+        if (preview.completedAt <= completedAfter) return preview
+        return fetchCompleted(context, username, completedAfter)
     }
 
     fun startScan(context: Context, username: String): TopFollowersState {
@@ -57,7 +70,11 @@ object TopFollowersBridgeCache {
         ) ?: error("Top Followers bridge returned an invalid scan status")
     }
 
-    fun fetchCompleted(context: Context, username: String): TopFollowersState? {
+    fun fetchCompleted(
+        context: Context,
+        username: String,
+        completedAfter: Long = 0L,
+    ): TopFollowersState? {
         val settings = TwidgetStore.settings(context)
         if (!TopFollowersSharingPolicy.enabled(settings.shareHistory)) return null
         val endpoint = TwidgetStore.bridgeEndpoint(settings)
@@ -92,6 +109,9 @@ object TopFollowersBridgeCache {
                 val page = TopFollowersBridgeCodec.decodePage(
                     HttpTransport.requireSuccess(response, "Top Followers cache"),
                 ) ?: error("Top Followers bridge returned an invalid page")
+                if (offset == 0 && page.state.completedAt <= completedAfter) {
+                    return page.state.copy(top = rankedTopFollowers(page.followers, TOP_LIMIT))
+                }
                 if (!replacementStarted) {
                     TopFollowersArchiveStore.beginReplacement(context, username)
                     replacementStarted = true

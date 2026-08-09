@@ -7,7 +7,7 @@ import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
-import { prepareTopFollowersCache } from "./top-followers.js";
+import { prepareTopFollowersCache, shouldRefreshTopFollowers } from "./top-followers.js";
 import {
   fetchTwitterApisFollowersPage,
   TopFollowersProviderError,
@@ -38,6 +38,7 @@ const historySampleRetentionDays = envInteger("HISTORY_SAMPLE_RETENTION_DAYS", 0
 const historyInactiveAccountDays = envInteger("HISTORY_INACTIVE_ACCOUNT_DAYS", 0, 0, 36500);
 const historyPruneMs = envInteger("HISTORY_PRUNE_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersFreshMs = envInteger("TOP_FOLLOWERS_FRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
+const topFollowersRefreshMs = envInteger("TOP_FOLLOWERS_REFRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersRetentionDays = envInteger("TOP_FOLLOWERS_RETENTION_DAYS", 30, 1, 365);
 const topFollowersDailyStarts = envInteger("TOP_FOLLOWERS_DAILY_SCAN_LIMIT", 50, 1, 10000);
 const topFollowersDailyStartsPerIp = envInteger("TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP", 3, 1, 1000);
@@ -89,6 +90,7 @@ const oauthSessions = new Map();
 const profileInFlight = new Map();
 const bangerInFlight = new Map();
 const topFollowersJobs = new Map();
+const topFollowersQueue = new Map();
 let topFollowersActive = 0;
 let upstreamActive = 0;
 
@@ -226,6 +228,7 @@ app.get("/health", async (_req, res) => {
       topFollowers: {
         serverScans: Boolean(twitterApisApiKey),
         freshnessHours: topFollowersFreshMs / (60 * 60 * 1000),
+        refreshHours: topFollowersRefreshMs / (60 * 60 * 1000),
         retentionDays: topFollowersRetentionDays,
       },
     },
@@ -497,6 +500,10 @@ app.post("/history/:username/top-followers/scan", async (req, res) => {
     res.status(409).json({ error: "history_account_not_registered" });
     return;
   }
+  const enrollmentMeta = await historyRepository.getMeta(key);
+  if (!enrollmentMeta.topFollowersEnrolledAt) {
+    await historyRepository.setMeta(key, { ...enrollmentMeta, topFollowersEnrolledAt: Date.now() });
+  }
   const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
   if (snapshot && Date.now() - snapshot.completedAt < topFollowersFreshMs) {
     res.json(topFollowersSnapshotResponse(username, snapshot, true));
@@ -547,7 +554,11 @@ app.post("/history/:username/top-followers", requireTopFollowersPublisher, histo
     return;
   }
   const meta = await historyRepository.getMeta(key);
-  await historyRepository.setMeta(key, { ...meta, topFollowers: cached });
+  await historyRepository.setMeta(key, {
+    ...meta,
+    topFollowers: cached,
+    topFollowersEnrolledAt: meta.topFollowersEnrolledAt || Date.now(),
+  });
   await historyRepository.getHistory(key, { touch: true });
   res.status(201).json({ userName: username, ...cached });
 });
@@ -1062,6 +1073,7 @@ async function refreshKnownAccounts() {
   try {
     const today = startOfDay(Date.now());
     const accounts = await historyRepository.listAccounts();
+    await scheduleTopFollowersRefreshes(accounts);
     for (const key of accounts) {
       const samples = await historyRepository.getHistory(key);
       const latest = samples[samples.length - 1];
@@ -1085,6 +1097,31 @@ async function refreshKnownAccounts() {
   }
 }
 
+async function scheduleTopFollowersRefreshes(accounts) {
+  if (!twitterApisApiKey) return;
+  const now = Date.now();
+  for (const key of accounts) {
+    try {
+      const [snapshot, scan, meta] = await Promise.all([
+        historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 1 }),
+        historyRepository.getTopFollowersScan(key),
+        historyRepository.getMeta(key),
+      ]);
+      if (!meta.topFollowersEnrolledAt && !snapshot && !scan && !meta.topFollowers) continue;
+      if (scan?.status === "running") {
+        launchTopFollowersJob(key, key, scan);
+        continue;
+      }
+      if (!shouldRefreshTopFollowers({ snapshot, scan, now, refreshMs: topFollowersRefreshMs })) continue;
+      const started = await historyRepository.startTopFollowersScan(key, crypto.randomUUID());
+      launchTopFollowersJob(key, key, started);
+      console.log(`Daily Top Followers refresh queued for ${key}`);
+    } catch (error) {
+      console.warn(`Unable to queue daily Top Followers refresh for ${key}:`, error?.message || error);
+    }
+  }
+}
+
 async function pruneHistory() {
   const releaseLock = await acquireJobLock("history-prune", historyPruneMs);
   if (!releaseLock) return;
@@ -1103,13 +1140,29 @@ async function pruneHistory() {
 }
 
 function launchTopFollowersJob(key, username, scan) {
-  if (topFollowersJobs.has(key) || topFollowersActive >= topFollowersMaxConcurrent) return;
+  if (topFollowersJobs.has(key) || topFollowersQueue.has(key)) return;
+  topFollowersQueue.set(key, { username, scan });
+  drainTopFollowersQueue();
+}
+
+function drainTopFollowersQueue() {
+  while (topFollowersActive < topFollowersMaxConcurrent && topFollowersQueue.size) {
+    const next = topFollowersQueue.entries().next().value;
+    if (!next) return;
+    const [key, { username, scan }] = next;
+    topFollowersQueue.delete(key);
+    startTopFollowersJob(key, username, scan);
+  }
+}
+
+function startTopFollowersJob(key, username, scan) {
   topFollowersActive += 1;
   const job = runTopFollowersJobWithLock(key, username, scan)
     .catch((error) => console.error(`Top Followers scan crashed for ${key}:`, error))
     .finally(() => {
       topFollowersJobs.delete(key);
       topFollowersActive -= 1;
+      drainTopFollowersQueue();
     });
   topFollowersJobs.set(key, job);
 }

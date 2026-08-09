@@ -48,6 +48,6 @@
             android:includeFontPadding="false"
             android:maxLines="2"
             android:textColor="@color/oneui_text_primary"
-            android:textSize="16sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 </LinearLayout>

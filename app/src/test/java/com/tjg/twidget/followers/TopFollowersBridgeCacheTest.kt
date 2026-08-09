@@ -65,4 +65,37 @@ class TopFollowersBridgeCacheTest {
         assertNull(page.nextOffset)
         assertNull(TopFollowersBridgeCodec.decodeStatus("{\"status\":\"queued\"}"))
     }
+
+    @Test
+    fun findsTheHighestNewFollowerEnteringTheHighRankingSet() {
+        val previous = listOf(follower("existing", 50), follower("old_leader", 100))
+        val current = listOf(follower("new_leader", 1_000), follower("old_leader", 100))
+
+        val result = newHighRankingFollower(previous, current)
+
+        requireNotNull(result)
+        assertEquals("new_leader", result.follower.username)
+        assertEquals(1, result.rank)
+        assertNull(newHighRankingFollower(current, current))
+        assertNull(newHighRankingFollower(emptyList(), current))
+    }
+
+    @Test
+    fun newFollowerNotificationsIncludeRankFiftyButNotFiftyOne() {
+        val previous = (1L..50L).map { rank -> follower("existing_$rank", 1_000L - rank) }
+        val atFifty = previous.take(49) + follower("new_at_50", 1L)
+        val atFiftyOne = previous + follower("new_at_51", 0L)
+
+        assertEquals(50, newHighRankingFollower(previous, atFifty)?.rank)
+        assertNull(newHighRankingFollower(previous, atFiftyOne))
+    }
+
+    private fun follower(username: String, followers: Long) = TopFollower(
+        id = username,
+        username = username,
+        name = username,
+        followers = followers,
+        verified = false,
+        avatarUrl = "",
+    )
 }

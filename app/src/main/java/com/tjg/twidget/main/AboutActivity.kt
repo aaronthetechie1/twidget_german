@@ -54,7 +54,6 @@ class AboutActivity : FoldablePopOverActivity() {
     private var availableRelease: AppRelease? = null
     private var pendingInstallApk: File? = null
     private var waitingForInstallPermission = false
-    private var heroHeightUpdater: (() -> Unit)? = null
 
     private val updateChannel: UpdateChannel
         get() = savedUpdateChannel(this)
@@ -295,21 +294,23 @@ class AboutActivity : FoldablePopOverActivity() {
         val updateHeight: () -> Unit = {
             if (root.height > 0 && header.measuredHeight > 0) {
                 val topMargin = (header.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin ?: 0
-                val breathingRoomDp = if (
-                    findViewById<View>(R.id.about_update_action).visibility == View.VISIBLE
-                ) {
-                    HERO_UPDATE_BREATHING_ROOM_DP
-                } else {
-                    HERO_BREATHING_ROOM_DP
-                }
-                val breathingRoom = (breathingRoomDp * resources.displayMetrics.density).toInt()
+                val breathingRoom =
+                    (HERO_BREATHING_ROOM_DP * resources.displayMetrics.density).toInt()
+                // The initial half-height app bar can constrain the hero child
+                // before this callback runs. Use the header's designed height as
+                // the floor so that truncated first measurement does not become
+                // the final hero height on short or high-density displays.
+                val headerHeight = maxOf(
+                    header.measuredHeight,
+                    resources.getDimensionPixelSize(R.dimen.about_hero_content_height),
+                )
                 // SESL AppBarLayout injects its own extended bottom padding even when the
                 // layout XML declares none. Include it or the scrolling sibling starts over
                 // the final part of the header on shorter and foldable displays.
                 val requiredHeight = appBar.paddingTop +
                     appBar.paddingBottom +
                     topMargin +
-                    header.measuredHeight +
+                    headerHeight +
                     breathingRoom
                 val requiredProportion = requiredHeight.toFloat() / root.height
                 val nextProportion = requiredProportion.coerceIn(
@@ -322,17 +323,9 @@ class AboutActivity : FoldablePopOverActivity() {
                 }
             }
         }
-        heroHeightUpdater = updateHeight
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
         header.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateHeight() }
         root.post { updateHeight() }
-    }
-
-    private fun requestHeroHeightUpdate() {
-        findViewById<View>(R.id.about_header_content).apply {
-            requestLayout()
-            post { heroHeightUpdater?.invoke() }
-        }
     }
 
     // Seven taps on the version number unlock the hidden debug menu in
@@ -432,7 +425,6 @@ class AboutActivity : FoldablePopOverActivity() {
             setImageResource(R.drawable.oneui_spinner)
             OneUiSpinner.loop(this)
         }
-        requestHeroHeightUpdate()
     }
 
     private fun showUpdateAvailable(release: AppRelease) {
@@ -443,14 +435,14 @@ class AboutActivity : FoldablePopOverActivity() {
             isEnabled = true
             visibility = View.VISIBLE
         }
-        requestHeroHeightUpdate()
     }
 
     private fun hideUpdateUi() {
         hideUpdateSpinner()
         findViewById<AppCompatButton>(R.id.about_update_button).visibility = View.GONE
-        findViewById<View>(R.id.about_update_action).visibility = View.GONE
-        requestHeroHeightUpdate()
+        // Keep the reserved action slot in the layout so the icon, title and
+        // version never move when an update check changes state.
+        findViewById<View>(R.id.about_update_action).visibility = View.INVISIBLE
     }
 
     private fun hideUpdateSpinner() {
@@ -535,6 +527,7 @@ class AboutActivity : FoldablePopOverActivity() {
 
     private fun setupCollapsingContent() {
         val content = findViewById<View>(R.id.about_content)
+        val header = findViewById<View>(R.id.about_header_content)
         val hint = findViewById<View>(R.id.about_swipe_hint)
         val gradientFade = findViewById<View>(R.id.about_gradient_fade)
         content.alpha = 0f
@@ -543,6 +536,9 @@ class AboutActivity : FoldablePopOverActivity() {
                 val range = appBar.totalScrollRange.coerceAtLeast(1)
                 val progress = abs(verticalOffset).toFloat() / range
                 content.alpha = ((progress - 0.25f) / 0.55f).coerceIn(0f, 1f)
+                // Clear the fixed hero before it passes behind the pinned,
+                // transparent toolbar during collapse.
+                header.alpha = (1f - progress * 2f).coerceIn(0f, 1f)
                 // The gradient belongs to the expanded hero; scrolling settles
                 // the page onto the plain One UI background.
                 // Let the hero recede early in the scroll, leaving the settled
@@ -637,7 +633,6 @@ class AboutActivity : FoldablePopOverActivity() {
         private const val LARGE_SCREEN_HERO_HEIGHT_PROPORTION = 0.58f
         private const val MAX_HERO_HEIGHT_PROPORTION = 0.9f
         private const val HERO_BREATHING_ROOM_DP = 24
-        private const val HERO_UPDATE_BREATHING_ROOM_DP = 128
 
         private const val DEBUG_UNLOCK_TAPS = 7
         private const val HEADER_ICON_EASTER_EGG_TAPS = 7

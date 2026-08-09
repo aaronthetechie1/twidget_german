@@ -88,27 +88,29 @@ object TweetPerformanceExplainer {
         analytics: PostAnalytics,
         direction: TweetPerformanceDirection,
     ): TweetPerformanceExplanation {
+        val engagementRatio = ratio(post.engagements.toDouble(), analytics.medianEngagements)
         val viewRatio = ratio(post.views.toDouble(), analytics.medianViews)
-        val postRate = if (post.views > 0L) post.engagements.toDouble() / post.views else 0.0
-        val rateRatio = ratio(postRate, analytics.engagementRate)
-        val shareRatio = ratio((post.reposts + post.quotes).toDouble(), analytics.medianShares)
         val replyRatio = ratio(post.replies.toDouble(), analytics.medianReplies)
         val likeRatio = ratio(post.likes.toDouble(), analytics.medianLikes)
+        val quoteRatio = ratio(post.quotes.toDouble(), median(analytics.recentPosts.map(PostSummary::quotes)))
+        val retweetRatio = ratio(post.reposts.toDouble(), median(analytics.recentPosts.map(PostSummary::reposts)))
 
         val observations = when (direction) {
             TweetPerformanceDirection.STRONG -> buildList {
+                if (engagementRatio >= 1.25) add("It generated more engagements than your weekly baseline.")
                 if (viewRatio >= 1.5) add("It reached substantially more people than your typical tweet this week.")
-                if (rateRatio >= 1.25) add("Viewers interacted at a higher rate than usual.")
-                if (shareRatio >= 1.5 && post.reposts + post.quotes >= 2) add("Sharing contributed more strongly than on your other tweets.")
-                if (replyRatio >= 1.5 && post.replies >= 2) add("It generated more conversation than your weekly baseline.")
                 if (likeRatio >= 1.5 && post.likes >= 2) add("It drew more likes than your typical tweet this week.")
+                if (quoteRatio >= 1.5 && post.quotes >= 2) add("It earned more quote tweets than your weekly baseline.")
+                if (retweetRatio >= 1.5 && post.reposts >= 2) add("It earned more retweets than your weekly baseline.")
+                if (replyRatio >= 1.5 && post.replies >= 2) add("It generated more conversation than your weekly baseline.")
             }
             TweetPerformanceDirection.QUIET -> buildList {
+                if (engagementRatio in 0.0..0.75) add("It generated fewer engagements than your weekly baseline.")
                 if (viewRatio in 0.0..0.65) add("It reached fewer people than your typical tweet this week.")
-                if (rateRatio in 0.0..0.75 && post.views > 0L) add("Reach converted into fewer interactions than usual.")
-                if (shareRatio in 0.0..0.65) add("It generated fewer shares than your weekly baseline.")
-                if (replyRatio in 0.0..0.65) add("It generated less conversation than your typical tweet.")
                 if (likeRatio in 0.0..0.65) add("It drew fewer likes than your weekly norm.")
+                if (quoteRatio in 0.0..0.65) add("It earned fewer quote tweets than your weekly baseline.")
+                if (retweetRatio in 0.0..0.65) add("It earned fewer retweets than your weekly baseline.")
+                if (replyRatio in 0.0..0.65) add("It generated less conversation than your typical tweet.")
             }
         }
         val body = observations.distinct().take(2).joinToString(" ").ifBlank {
@@ -134,4 +136,12 @@ object TweetPerformanceExplainer {
 
     private fun ratio(value: Double, baseline: Double): Double =
         if (baseline > 0.0 && baseline.isFinite()) value / baseline else 1.0
+
+    private fun median(values: List<Long>): Double {
+        if (values.isEmpty()) return 0.0
+        val sorted = values.sorted()
+        val middle = sorted.size / 2
+        return if (sorted.size % 2 == 1) sorted[middle].toDouble()
+        else (sorted[middle - 1].toDouble() + sorted[middle]) / 2.0
+    }
 }

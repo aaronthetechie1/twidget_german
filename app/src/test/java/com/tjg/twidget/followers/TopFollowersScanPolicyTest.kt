@@ -69,38 +69,16 @@ class TopFollowersScanPolicyTest {
     }
 
     @Test
-    fun optedInScansAlwaysSelectTheBridge() {
-        assertEquals(
-            TopFollowersScanSource.BRIDGE,
-            selectTopFollowersScanSource(
-                selectedXApi = false,
-                personalTwitterApis = false,
-                shareHistory = true,
-                fallbackXApi = false,
-            ),
-        )
-        assertEquals(
-            TopFollowersScanSource.BRIDGE,
-            selectTopFollowersScanSource(
-                selectedXApi = false,
-                personalTwitterApis = true,
-                shareHistory = true,
-                fallbackXApi = true,
-            ),
-        )
-    }
-
-    @Test
     fun directFollowerProvidersRequireExplicitCredentials() {
         assertEquals(
             TopFollowersScanSource.TWITTERAPIS,
-            selectTopFollowersScanSource(false, true, false, false),
+            selectTopFollowersScanSource(false, true, false),
         )
         assertEquals(
             TopFollowersScanSource.X_API,
-            selectTopFollowersScanSource(true, false, true, true),
+            selectTopFollowersScanSource(true, false, true),
         )
-        assertNull(selectTopFollowersScanSource(false, false, false, false))
+        assertNull(selectTopFollowersScanSource(false, false, false))
     }
 
     @Test

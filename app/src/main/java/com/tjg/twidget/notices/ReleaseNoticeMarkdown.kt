@@ -96,13 +96,15 @@ object ReleaseNoticeMarkdown {
         val start = output.length
         output.append(marker).append(' ')
         appendInline(context, output, content)
+        // Paragraph spans must include the terminating newline. Ending the
+        // span before it made Android drop the hanging indent on later wraps.
+        output.append('\n')
         output.setSpan(
             LeadingMarginSpan.Standard(dp(context, 14 + depth * 12), dp(context, 28 + depth * 12)),
             start,
             output.length,
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
-        output.append('\n')
     }
 
     private fun appendQuote(context: Context, output: SpannableStringBuilder, content: String) {

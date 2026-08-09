@@ -372,13 +372,14 @@ internal class MainDashboardBinder(
             )
         }
         root.findViewById<TextView>(R.id.brief_dashboard_title).text = summary.title
-        root.findViewById<TextView>(R.id.brief_dashboard_message).text = summary.body
+        root.findViewById<TextView>(R.id.brief_dashboard_message).text = summary.shortDescription
         root.background = MilestoneCardBackgroundDrawable(
             glowColor = activity.getColor(R.color.brief_dashboard_glow),
             surfaceColor = activity.getColor(R.color.oneui_card_bg),
             radiusPx = activity.dp(28).toFloat(),
         )
-        root.contentDescription = "${activity.getString(R.string.brief_title)}. ${summary.title}. ${summary.body}"
+        root.contentDescription =
+            "${activity.getString(R.string.brief_title)}. ${summary.title}. ${summary.shortDescription}"
         root.setOnClickListener {
             if (!editModeController.editMode && isDefaultAccount(account)) {
                 BriefSettingsStore.setEnabled(activity, true)

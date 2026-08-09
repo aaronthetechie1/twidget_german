@@ -26,9 +26,6 @@ import androidx.core.widget.TextViewCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.MainActivity
-import com.tjg.twidget.providers.TwitterApisClient
-import com.tjg.twidget.providers.XApiClient
-import com.tjg.twidget.providers.TwitterApisAccessSource
 import com.tjg.twidget.settings.SettingsAdvancedActivity
 import com.tjg.twidget.ui.OneUiSpinner
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -44,7 +41,8 @@ internal class TopFollowersCardBinder(
     fun create(account: String): View {
         val state = TopFollowersStore.read(activity, account)
         return when {
-            state.scanning && TopFollowersActiveScans.isActive(account) -> scanningCard(account, state)
+            state.scanning && TopFollowersActiveScans.isActive(account) &&
+                TopFollowersScanWorker.linkedApiScanSource(activity) != null -> scanningCard(account, state)
             state.complete && state.top.isNotEmpty() -> resultsCard(account, state)
             else -> notScannedCard(account, state)
         }
@@ -79,7 +77,13 @@ internal class TopFollowersCardBinder(
                 topMargin = dp(40)
             })
             addView(Button(activity).apply {
-                text = activity.getString(R.string.top_followers_start_scan)
+                val linkedApi = TopFollowersScanWorker.linkedApiScanSource(activity)
+                val shareHistory = TwidgetStore.settings(activity).shareHistory
+                text = activity.getString(when {
+                    linkedApi != null -> R.string.top_followers_start_scan
+                    shareHistory -> R.string.top_followers_find_with_bridge
+                    else -> R.string.top_followers_add_api_key
+                })
                 isAllCaps = false
                 textSize = 20f
                 setTextColor(Color.WHITE)
@@ -87,7 +91,13 @@ internal class TopFollowersCardBinder(
                 stateListAnimator = null
                 elevation = dp(8).toFloat()
                 background = rounded(accentColor, 28f)
-                setOnClickListener { showStartDialog(account) }
+                setOnClickListener {
+                    when {
+                        linkedApi != null -> showStartDialog(account)
+                        shareHistory -> requestBridgeScan(account)
+                        else -> openApiKeySettings()
+                    }
+                }
                 contentDescription = if (state.error.isBlank()) text else "${text}. ${state.error}"
             }, frameParams(206, 60).apply {
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -290,34 +300,35 @@ internal class TopFollowersCardBinder(
     }
 
     private fun showStartDialog(account: String) {
-        val accessSource = TwitterApisClient.topFollowersAccess(activity)?.source
-        val dialogMode = selectTopFollowersScanDialogMode(
-            shareHistory = TwidgetStore.settings(activity).shareHistory,
-            accessSource = accessSource,
-        )
+        val source = TopFollowersScanWorker.linkedApiScanSource(activity)
+        val dialogMode = selectTopFollowersScanDialogMode(source)
         val builder = AlertDialog.Builder(activity)
             .setTitle(R.string.top_followers_scan_title)
             .setMessage(
                 when (dialogMode) {
-                    TopFollowersScanDialogMode.SHARED -> R.string.top_followers_scan_message_shared
-                    TopFollowersScanDialogMode.PERSONAL -> R.string.top_followers_scan_message_personal
+                    TopFollowersScanDialogMode.TWITTERAPIS -> R.string.top_followers_scan_message_personal
+                    TopFollowersScanDialogMode.X_API -> R.string.top_followers_scan_message_x_api
                     TopFollowersScanDialogMode.UNAVAILABLE -> R.string.top_followers_scan_message_trial
                 },
             )
             // AppCompat lays buttons out neutral, negative, positive in LTR.
             .setNeutralButton(R.string.cancel, null)
             .setPositiveButton(R.string.top_followers_start) { _, _ -> startScan(account) }
-        if (shouldShowAddApiKeyAction(accessSource)) {
+        if (shouldShowAddApiKeyAction(source)) {
             builder.setNegativeButton(R.string.top_followers_add_api_key) { _, _ -> openApiKeySettings() }
         }
         builder.show()
     }
 
+    private fun requestBridgeScan(account: String) {
+        if (!TwidgetStore.settings(activity).shareHistory) return
+        requestNotificationPermission()
+        TopFollowersBridgeSyncWorker.enqueueScanRequest(activity, account)
+        Toast.makeText(activity, R.string.top_followers_bridge_scan_requested, Toast.LENGTH_LONG).show()
+    }
+
     private fun startScan(account: String) {
-        if (!TwidgetStore.settings(activity).shareHistory &&
-            !TwitterApisClient.hasTopFollowersAccess(activity) &&
-            !XApiClient.hasCredentials(TwidgetStore.settings(activity))
-        ) {
+        if (TopFollowersScanWorker.linkedApiScanSource(activity) == null) {
             Toast.makeText(activity, R.string.top_followers_api_key_required, Toast.LENGTH_LONG).show()
             openApiKeySettings()
             return
@@ -398,21 +409,20 @@ internal class TopFollowersCardBinder(
 }
 
 internal enum class TopFollowersScanDialogMode {
-    SHARED,
-    PERSONAL,
+    TWITTERAPIS,
+    X_API,
     UNAVAILABLE,
 }
 
 internal fun selectTopFollowersScanDialogMode(
-    shareHistory: Boolean,
-    accessSource: TwitterApisAccessSource?,
+    source: TopFollowersScanSource?,
 ): TopFollowersScanDialogMode = when {
-    shareHistory -> TopFollowersScanDialogMode.SHARED
-    accessSource == TwitterApisAccessSource.PERSONAL -> TopFollowersScanDialogMode.PERSONAL
+    source == TopFollowersScanSource.TWITTERAPIS -> TopFollowersScanDialogMode.TWITTERAPIS
+    source == TopFollowersScanSource.X_API -> TopFollowersScanDialogMode.X_API
     else -> TopFollowersScanDialogMode.UNAVAILABLE
 }
 
-internal fun shouldShowAddApiKeyAction(source: TwitterApisAccessSource?): Boolean =
+internal fun shouldShowAddApiKeyAction(source: TopFollowersScanSource?): Boolean =
     source == null
 
 internal object TopFollowersProgress {

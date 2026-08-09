@@ -36,7 +36,7 @@ import kotlin.math.roundToInt
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 12
+    private const val ENGINE_VERSION = 14
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -88,6 +88,7 @@ object BriefEngine {
             cards = evaluation.selected,
             headline = editorial.title,
             subheading = editorial.body,
+            shortDescription = editorial.shortDescription,
             upcomingTweets = upcomingTweets,
             topFollowerRanks = evaluation.currentRanks,
             engineVersion = ENGINE_VERSION,
@@ -357,11 +358,16 @@ object BriefEngine {
                 target,
                 settings.metric.goalNoun,
             )
+            val preciseBody = if (progress in 75..99) {
+                BriefGoalCopy.remainingBody(settings.metric, value, settings.target)
+            } else {
+                message.body
+            }
             BriefCard(
                 id = "milestone-${settings.metric.storageId}-${settings.target}",
                 type = BriefCardType.MILESTONE,
                 title = message.title,
-                body = message.body,
+                body = preciseBody,
                 score = BriefRankingPolicy.milestone(progress, state),
                 actionData = settings.metric.storageId,
                 rankSignals = BriefRankSignals(
@@ -552,6 +558,37 @@ object BriefEngine {
 
     private fun formatFollowers(value: Long): String =
         "${format(value)} ${if (value == 1L) "follower" else "followers"}"
+}
+
+internal object BriefGoalCopy {
+    fun remainingBody(metric: MilestoneMetric, current: Double, target: Double): String {
+        val remaining = (target - current).coerceAtLeast(0.0)
+        val amount = when (metric) {
+            MilestoneMetric.FOLLOWERS -> count(remaining, "follower")
+            MilestoneMetric.VERIFIED_FOLLOWERS -> count(remaining, "verified follower")
+            MilestoneMetric.IMPRESSIONS -> count(remaining, "impression")
+            MilestoneMetric.ENGAGEMENT_RATE -> {
+                val points = remaining * 100.0
+                val formatted = NumberFormat.getNumberInstance().apply {
+                    maximumFractionDigits = 1
+                    minimumFractionDigits = 0
+                }.format(points)
+                "$formatted percentage ${if (points == 1.0) "point" else "points"}"
+            }
+        }
+        val targetLabel = if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
+            "${(target * 100).toInt()}%"
+        } else {
+            NumberFormat.getIntegerInstance().format(target.toLong())
+        }
+        return "You’re $amount away from your $targetLabel ${metric.goalNoun} goal."
+    }
+
+    private fun count(value: Double, noun: String): String {
+        val roundedUp = kotlin.math.ceil(value).toLong()
+        val formatted = NumberFormat.getIntegerInstance().format(roundedUp)
+        return "$formatted ${if (roundedUp == 1L) noun else "${noun}s"}"
+    }
 }
 
 internal object BriefSchedulePolicy {

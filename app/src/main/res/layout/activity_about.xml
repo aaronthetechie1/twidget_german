@@ -46,7 +46,7 @@
             <LinearLayout
                 android:id="@+id/about_header_content"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="@dimen/about_hero_content_height"
                 android:layout_marginTop="?attr/actionBarSize"
                 android:gravity="top|center_horizontal"
                 android:orientation="vertical"
@@ -54,8 +54,7 @@
                 android:paddingEnd="24dp"
                 android:paddingBottom="16dp"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                app:isCustomTitle="true">
+                android:clipToPadding="false">
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/about_header_icon"
@@ -91,11 +90,11 @@
                 <FrameLayout
                     android:id="@+id/about_update_action"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="72dp"
                     android:clipChildren="false"
                     android:clipToPadding="false"
                     android:paddingTop="24dp"
-                    android:visibility="gone">
+                    android:visibility="invisible">
 
                     <ImageView
                         android:id="@+id/about_update_spinner"

@@ -17,6 +17,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.SearchView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -185,10 +186,20 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private fun refreshFollowers(showOutcome: Boolean) {
         if (refreshing) return
         when (refreshMode()) {
-            TopFollowersBrowserRefreshMode.LINKED_API_RESCAN -> startLinkedApiRescan(showOutcome)
+            TopFollowersBrowserRefreshMode.LINKED_API_RESCAN -> confirmLinkedApiRescan(showOutcome)
             TopFollowersBrowserRefreshMode.BRIDGE_DOWNLOAD -> refreshArchive(showOutcome)
             TopFollowersBrowserRefreshMode.UNAVAILABLE -> refreshView.isRefreshing = false
         }
+    }
+
+    private fun confirmLinkedApiRescan(showOutcome: Boolean) {
+        refreshView.isRefreshing = false
+        AlertDialog.Builder(this)
+            .setTitle(R.string.top_followers_browser_rescan_title)
+            .setMessage(R.string.top_followers_browser_rescan_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.top_followers_start) { _, _ -> startLinkedApiRescan(showOutcome) }
+            .show()
     }
 
     private fun startLinkedApiRescan(showOutcome: Boolean) {
@@ -228,7 +239,12 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             runOnUiThread { finishArchiveRefresh(generation, null, showOutcome) }
         }) {
             val refreshed = runCatching {
-                TopFollowersBridgeCache.fetchCompleted(this, username)
+                TopFollowersBridgeSync.refresh(
+                    this,
+                    username,
+                    notifyChanges = false,
+                    forceArchiveRefresh = true,
+                )
                     ?: error("Top Followers archive is not available")
                 TopFollowersArchiveStore.readAll(this, username)
                     .takeIf { it.isNotEmpty() }

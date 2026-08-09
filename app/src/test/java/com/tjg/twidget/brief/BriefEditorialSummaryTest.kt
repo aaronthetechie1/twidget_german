@@ -30,6 +30,7 @@ class BriefEditorialSummaryTest {
                 "Your schedule has a useful next step waiting.",
             summary.body,
         )
+        assertEquals("Up 20 today and 40 this week.", summary.shortDescription)
         assertFalse(summary.body.contains(guide.body))
     }
 
@@ -68,6 +69,7 @@ class BriefEditorialSummaryTest {
             "Twidget is watching for your next meaningful account update.",
             summary.body,
         )
+        assertEquals("Watching for your next meaningful update.", summary.shortDescription)
     }
 
     @Test

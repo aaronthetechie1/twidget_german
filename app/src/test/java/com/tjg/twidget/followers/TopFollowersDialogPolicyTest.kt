@@ -1,6 +1,5 @@
 package com.tjg.twidget.followers
 
-import com.tjg.twidget.providers.TwitterApisAccessSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,17 +7,15 @@ import org.junit.Test
 class TopFollowersDialogPolicyTest {
     @Test
     fun addKeyActionIsHiddenForPersonalKeys() {
-        assertFalse(shouldShowAddApiKeyAction(TwitterApisAccessSource.PERSONAL))
+        assertFalse(shouldShowAddApiKeyAction(TopFollowersScanSource.TWITTERAPIS))
         assertTrue(shouldShowAddApiKeyAction(null))
     }
 
     @Test
-    fun optedInDialogDescribesTheBridgeEvenWhenAPersonalKeyExists() {
-        assertTrue(
-            selectTopFollowersScanDialogMode(
-                shareHistory = true,
-                accessSource = TwitterApisAccessSource.PERSONAL,
-            ) == TopFollowersScanDialogMode.SHARED,
-        )
+    fun scanDialogDescribesTheLinkedProvider() {
+        assertTrue(selectTopFollowersScanDialogMode(TopFollowersScanSource.TWITTERAPIS) ==
+            TopFollowersScanDialogMode.TWITTERAPIS)
+        assertTrue(selectTopFollowersScanDialogMode(TopFollowersScanSource.X_API) ==
+            TopFollowersScanDialogMode.X_API)
     }
 }

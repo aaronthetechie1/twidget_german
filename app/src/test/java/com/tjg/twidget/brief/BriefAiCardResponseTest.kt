@@ -70,15 +70,32 @@ class BriefAiCardResponseTest {
     fun aiSummaryIsSentenceCasedAndStoredForEveryBriefSurface() {
         val result = BriefAiCardResponse.apply(
             source.copy(followersToday = 1),
-            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week."}]""",
+            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week.","s":"Up 1 today and 10 this week."}]""",
             BriefProviderUsed.LOCAL,
         )
 
         assertEquals("Your growth is building", result.snapshot?.headline)
         assertEquals("You gained 1 follower today and 10 followers this week.", result.snapshot?.subheading)
+        assertEquals("Up 1 today and 10 this week.", result.snapshot?.shortDescription)
         assertEquals(
-            BriefEditorialSummary("Your growth is building", "You gained 1 follower today and 10 followers this week."),
+            BriefEditorialSummary(
+                "Your growth is building",
+                "You gained 1 follower today and 10 followers this week.",
+                "Up 1 today and 10 this week.",
+            ),
             result.snapshot?.let(BriefEditorialSummary::from),
         )
+    }
+
+    @Test
+    fun inventedCompactFactsFallBackWithoutDiscardingTheAiSummary() {
+        val result = BriefAiCardResponse.apply(
+            source,
+            """[{"i":"__brief_summary__","t":"Momentum is building","b":"You gained 2 followers today and 10 followers this week.","s":"Up 99 followers today."}]""",
+            BriefProviderUsed.LOCAL,
+        )
+
+        assertNotNull(result.snapshot)
+        assertEquals("Up 2 today and 10 this week.", result.snapshot?.shortDescription)
     }
 }

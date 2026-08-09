@@ -51,7 +51,7 @@ internal object BriefWidgetArtworkRenderer {
         bottomInsetDp = 16f,
         iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
         titleSizeSp = 20f,
-        bodySizeSp = 16f,
+        bodySizeSp = 12f,
         textGapDp = 2f,
         titleWeight = 600,
     )
@@ -95,7 +95,7 @@ internal object BriefWidgetArtworkRenderer {
         val summary = snapshot?.let(BriefEditorialSummary::from)
         val displayCard = card.copy(
             title = summary?.title ?: card.title,
-            body = summary?.body ?: card.body,
+            body = summary?.shortDescription ?: card.body,
         )
         val widgetLayout = layout(width / density, height / density)
         val primary = if (dark) Color.WHITE else Color.rgb(18, 18, 20)
@@ -313,7 +313,7 @@ internal object BriefWidgetArtworkRenderer {
             typeface = if (fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
                 TwidgetFonts.googleSansFlex(context, weight)
             } else {
-                TwidgetFonts.oneUiSans(context, weight)
+                TwidgetFonts.oneUiSansVariable(context, weight)
             }
             setFontVariationSettings("'wght' $weight")
         }

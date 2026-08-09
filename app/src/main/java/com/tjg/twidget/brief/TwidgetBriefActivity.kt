@@ -343,19 +343,16 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun followerChartCard(card: BriefCard): View = LinearLayout(this).apply {
+    private fun followerChartCard(): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setBackgroundResource(R.drawable.brief_card_background)
         setPadding(0, dp(16), 0, 0)
-        addView(primaryText(card.body, 14f).apply {
-            setPadding(dp(19), 0, dp(19), 0)
-        })
 
         val stats = TwidgetStore.currentStats(this@TwidgetBriefActivity, username)
         addView(LinearLayout(this@TwidgetBriefActivity).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(20), dp(12), dp(20), 0)
+            setPadding(dp(20), 0, dp(20), 0)
             addView(ImageView(this@TwidgetBriefActivity).apply {
                 setImageDrawable(AppCompatResources.getDrawable(this@TwidgetBriefActivity, OneUiIconR.drawable.ic_oui_community))
                 imageTintList = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
@@ -430,23 +427,27 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
-            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer_2, post.views)
-            addMetric(this, OneUiIconR.drawable.ic_oui_message_outline, post.replies)
-            addMetric(this, OneUiIconR.drawable.ic_oui_repeat, post.reposts)
-            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes)
+            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer, post.engagements, "Engagements")
+            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer_2, post.views, "Impressions")
+            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes, "Likes")
+            addMetric(this, OneUiIconR.drawable.ic_oui_message_outline, post.quotes, "Quote tweets")
+            addMetric(this, OneUiIconR.drawable.ic_oui_repeat, post.reposts, "Retweets")
         }, matchWrap(top = 10))
     }
 
-    private fun addMetric(row: LinearLayout, iconRes: Int, value: Long) {
+    private fun addMetric(row: LinearLayout, iconRes: Int, value: Long, label: String) {
         row.addView(LinearLayout(this).apply {
             gravity = Gravity.CENTER
             orientation = LinearLayout.HORIZONTAL
+            contentDescription = "$label: ${TwidgetStore.compactNumber(value)}"
             addView(ImageView(context).apply {
                 setImageDrawable(AppCompatResources.getDrawable(context, iconRes))
                 imageTintList = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(18), dp(18)))
             addView(primaryText(TwidgetStore.compactNumber(value), 14f).apply {
                 setPadding(dp(4), 0, 0, 0)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
     }
@@ -819,6 +820,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val explanationAsHeading = hasFetchedPost || card.type in setOf(
             BriefCardType.SCHEDULE_GUIDE,
             BriefCardType.POSTING_GUIDE,
+            BriefCardType.GROWTH,
+            BriefCardType.SLOWDOWN,
         )
         if (explanationAsHeading) {
             addView(sectionLabel(card.body).apply {
@@ -835,7 +838,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 titleOverride = card.title,
                 detailOverride = card.body,
             )
-            BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard(card)
+            BriefCardType.GROWTH, BriefCardType.SLOWDOWN -> followerChartCard()
             BriefCardType.POST -> analytics?.best?.let { postCard(it) }
                 ?: genericCard(card)
             BriefCardType.WORST_POST -> analytics?.worst?.let { postCard(it) }
@@ -884,10 +887,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                         R.string.brief_goal_reached_heading,
                         settings.metric.goalNoun,
                     )
-                    progress >= 75 -> getString(
-                        R.string.brief_goal_close_heading,
-                        settings.metric.goalNoun,
-                    )
+                    progress >= 75 -> "You’re $progress% to your goal"
                     else -> getString(R.string.brief_goal_heading, settings.metric.goalNoun)
                 }
             }
@@ -921,7 +921,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         gravity = Gravity.CENTER_VERTICAL
         orientation = LinearLayout.HORIZONTAL
 
-        val open = View.OnClickListener { performCardAction(card) }
+        val openPrimary = View.OnClickListener { performCardAction(card) }
+        val openSchedule = View.OnClickListener { openScheduledTweets() }
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(20), 0, dp(20), 0)
@@ -930,7 +931,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             applyBriefCardRipple()
             isClickable = card.action != BriefCardAction.NONE
             isFocusable = isClickable
-            if (isClickable) setOnClickListener(open)
+            if (isClickable) setOnClickListener(openPrimary)
             addView(primaryText(actionLabel(card) ?: card.title, 18f, bold = true))
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
             marginEnd = dp(10)
@@ -943,10 +944,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setBackgroundResource(R.drawable.brief_guide_action_button)
             clipToOutline = true
             applyBriefCardRipple()
-            contentDescription = actionLabel(card) ?: card.title
-            isClickable = card.action != BriefCardAction.NONE
-            isFocusable = isClickable
-            if (isClickable) setOnClickListener(open)
+            contentDescription = "Open scheduled tweets"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener(openSchedule)
         }, LinearLayout.LayoutParams(dp(52), dp(52)))
     }
 
@@ -960,13 +961,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun performCardAction(card: BriefCard) {
         when (card.action) {
             BriefCardAction.NONE -> Unit
-            BriefCardAction.OPEN_SCHEDULER -> {
-                reloadOnResume = true
-                startRightSidePopOverActivity(
-                    Intent(this, ScheduleActivity::class.java)
-                        .putExtra(ScheduleActivity.EXTRA_USERNAME, username),
-                )
-            }
+            BriefCardAction.OPEN_SCHEDULER -> openScheduledTweets()
             BriefCardAction.COMPOSE_TWEET -> {
                 reloadOnResume = true
                 startRightSidePopOverActivity(
@@ -978,6 +973,14 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 .takeIf { it.startsWith("https://") || it.startsWith("http://") }
                 ?.let { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
         }
+    }
+
+    private fun openScheduledTweets() {
+        reloadOnResume = true
+        startRightSidePopOverActivity(
+            Intent(this, ScheduleActivity::class.java)
+                .putExtra(ScheduleActivity.EXTRA_USERNAME, username),
+        )
     }
 
     private fun View.applyBriefCardRipple() {

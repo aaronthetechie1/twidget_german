@@ -30,7 +30,7 @@ npm test
 - `GET /history/:username/top-followers` — reads a completed shared ranking.
 - `GET /history/:username/top-followers/all` — paginates the latest completed server-owned follower list.
 - `GET /history/:username/top-followers/scan` — reads durable server-scan progress.
-- `POST /history/:username/top-followers/scan` — starts or resumes a bounded server-owned scan for an already opted-in account, or reuses a fresh snapshot.
+- `POST /history/:username/top-followers/scan` — starts or resumes a bounded server-owned scan for an already opted-in account, or reuses a fresh snapshot. Current clients use this only for the first user-requested ranking; subsequent refreshes are bridge-scheduled.
 - `POST /history/:username/top-followers` — legacy trusted-publisher compatibility route; requires `TOP_FOLLOWERS_PUBLISH_TOKEN` on a public bridge or `BRIDGE_API_TOKEN` on a private bridge.
 - `POST /history/:username/analytics-import` — reconstructs X Analytics movements and admits gap days only when live and stored follower anchors match within a tight margin.
 - `DELETE /admin/history/:username` — operator-only permanent deletion; hidden unless `HISTORY_ADMIN_TOKEN` is configured.
@@ -58,11 +58,15 @@ Android sends the configured bridge token as both a Bearer token and the legacy
 `X-Rettiwt-Api-Key` header. Do not ship a private token inside a publicly
 distributed APK.
 
-Top Followers provider credentials remain server-side. Ordinary app installs
-can only request a scan for an account already registered through the explicit
-shared-history opt-in; they cannot submit follower rows. Global daily-start,
-per-request, upstream-concurrency, page-cost, freshness, and retention limits
-bound public work. The legacy ranking write remains fail-closed behind
+Top Followers provider credentials remain server-side. When a shared-history
+user first asks to find their top follower, that request enrolls the account in
+server-owned refreshes once per `TOP_FOLLOWERS_REFRESH_HOURS` (24 hours by
+default), including while phones are offline. Accounts that only participate in
+pooled metric history are not scanned until that explicit first request.
+Ordinary app installs cannot submit follower rows. Initial client requests have
+global and per-IP daily-start limits; scheduled work remains bounded by the
+enrolled-account cap, refresh cadence, upstream concurrency, page cost, and
+retention. The legacy ranking write remains fail-closed behind
 `TOP_FOLLOWERS_PUBLISH_TOKEN` for compatibility and must never be exposed to an
 app install.
 
@@ -155,8 +159,9 @@ controls include:
 - `BRIDGE_API_TOKEN` — optional token for private/self-hosted data routes.
 - `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TWITTERAPIS_API_KEY` — server-only key used for opted-in bridge-owned follower scans.
-- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — snapshot reuse and permanent deletion windows.
-- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP`, `TOP_FOLLOWERS_MAX_CONCURRENT`, `TOP_FOLLOWERS_MAX_PAGES` — provider-cost and concurrency bounds.
+- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — request reuse, scheduled refresh, and permanent deletion windows.
+- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — initial client-request budgets.
+- `TOP_FOLLOWERS_MAX_CONCURRENT`, `TOP_FOLLOWERS_MAX_PAGES` — scheduled and requested provider-work bounds.
 - `TRUST_PROXY_HOPS` — exact reverse-proxy hop count; Railway uses `1`.
 - `RATE_LIMIT_*`, `EXPENSIVE_RATE_LIMIT_MAX` — request budgets; shared when Redis is configured.
 - `REDIS_URL` — shared rate limits, response caches, and scheduled-job locks.

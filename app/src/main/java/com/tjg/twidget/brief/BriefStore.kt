@@ -29,6 +29,7 @@ object BriefStore {
                     aiGeneratedAt = 0L,
                     headline = "",
                     subheading = "",
+                    shortDescription = "",
                 ),
             )
         }
@@ -47,6 +48,7 @@ object BriefStore {
         put("followersWeek", snapshot.followersWeek)
         put("headline", snapshot.headline)
         put("subheading", snapshot.subheading)
+        put("shortDescription", snapshot.shortDescription)
         put("engineVersion", snapshot.engineVersion)
         put("contextFingerprint", snapshot.contextFingerprint)
         put("providerUsed", snapshot.providerUsed.name)
@@ -111,6 +113,7 @@ object BriefStore {
             followersWeek = root.optLong("followersWeek"),
             headline = root.optString("headline"),
             subheading = root.optString("subheading"),
+            shortDescription = root.optString("shortDescription"),
             cards = buildList {
                 for (index in 0 until cardsJson.length()) {
                     val card = cardsJson.getJSONObject(index)

@@ -115,13 +115,19 @@ data class BriefUpcomingTweet(
 data class BriefEditorialSummary(
     val title: String,
     val body: String,
+    val shortDescription: String = body,
 ) {
     companion object {
         fun from(snapshot: BriefSnapshot): BriefEditorialSummary {
             val generatedTitle = snapshot.headline.trim().takeIf(String::isNotBlank)
             val generatedBody = snapshot.subheading.trim().takeIf(String::isNotBlank)
             if (generatedTitle != null && generatedBody != null) {
-                return BriefEditorialSummary(generatedTitle, generatedBody)
+                return BriefEditorialSummary(
+                    generatedTitle,
+                    generatedBody,
+                    snapshot.shortDescription.trim().takeIf(String::isNotBlank)
+                        ?: conciseFallback(snapshot),
+                )
             }
             return from(
                 cards = snapshot.cards,
@@ -192,7 +198,53 @@ data class BriefEditorialSummary(
             }
             val body = facts.joinToString(" ")
                 .ifBlank { "Twidget is watching for your next meaningful account update." }
-            return BriefEditorialSummary(title, body)
+            return BriefEditorialSummary(
+                title = title,
+                body = body,
+                shortDescription = conciseFallback(
+                    followersToday = followersToday,
+                    followersWeek = followersWeek,
+                    types = types,
+                    hasGoal = hasGoal,
+                    upcomingTweets = upcomingTweets,
+                ),
+            )
+        }
+
+        private fun conciseFallback(snapshot: BriefSnapshot): String {
+            val types = snapshot.cards.mapTo(linkedSetOf(), BriefCard::type)
+            return conciseFallback(
+                followersToday = snapshot.followersToday,
+                followersWeek = snapshot.followersWeek,
+                types = types,
+                hasGoal = snapshot.cards.any {
+                    it.type == BriefCardType.MILESTONE &&
+                        it.actionData != BRIEF_MILESTONE_SETUP_ACTION
+                },
+                upcomingTweets = snapshot.upcomingTweets.size,
+            )
+        }
+
+        private fun conciseFallback(
+            followersToday: Long,
+            followersWeek: Long,
+            types: Set<BriefCardType>,
+            hasGoal: Boolean,
+            upcomingTweets: Int,
+        ): String = compactFollowerOverview(followersToday, followersWeek) ?: when {
+            hasGoal -> "Your goal is still in view."
+            BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
+                "Recent tweets brought a win and a lesson."
+            BriefCardType.POST in types -> "One recent tweet stood out."
+            BriefCardType.WORST_POST in types -> "One recent tweet offers a lesson."
+            upcomingTweets == 1 -> "One tweet is scheduled next."
+            upcomingTweets > 1 -> "$upcomingTweets tweets are scheduled next."
+            BriefCardType.TOP_FOLLOWER in types -> "Your top followers have changed."
+            BriefCardType.STREAK in types -> "Your posting rhythm is active."
+            BriefCardType.SCHEDULE_GUIDE in types -> "Your schedule has a useful next step."
+            BriefCardType.POST_FOLLOW_THROUGH in types -> "Your latest tweet offers a useful lesson."
+            BriefCardType.POSTING_GUIDE in types -> "Your recent tweets suggest a next step."
+            else -> "Watching for your next meaningful update."
         }
 
         private fun followerOverview(today: Long, week: Long): String? = when {
@@ -204,6 +256,16 @@ data class BriefEditorialSummary(
             week > 0L -> "Your audience grew by ${followers(week)} this week."
             today < 0L -> "You are down ${followers(-today)} today."
             week < 0L -> "Your audience is down ${followers(-week)} this week."
+            else -> null
+        }
+
+        private fun compactFollowerOverview(today: Long, week: Long): String? = when {
+            today > 0L && week >= today -> "Up ${format(today)} today and ${format(week)} this week."
+            today > 0L -> "Up ${followers(today)} today."
+            today < 0L && week > 0L -> "Down ${format(-today)} today, but up ${format(week)} this week."
+            week > 0L -> "Up ${followers(week)} this week."
+            today < 0L -> "Down ${followers(-today)} today."
+            week < 0L -> "Down ${followers(-week)} this week."
             else -> null
         }
 
@@ -243,6 +305,7 @@ data class BriefSnapshot(
     val cards: List<BriefCard>,
     val headline: String = "",
     val subheading: String = "",
+    val shortDescription: String = "",
     val upcomingTweets: List<BriefUpcomingTweet> = emptyList(),
     val topFollowerRanks: Map<String, Int>,
     val engineVersion: Int = 0,

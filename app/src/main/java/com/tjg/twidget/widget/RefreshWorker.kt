@@ -15,10 +15,8 @@ import androidx.work.WorkerParameters
 import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.data.TwidgetStore
-import com.tjg.twidget.followers.TopFollowersScanWorker
-import com.tjg.twidget.followers.TopFollowersStore
+import com.tjg.twidget.followers.TopFollowersBridgeSync
 import com.tjg.twidget.providers.RettiwtClient
-import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,16 +36,9 @@ class RefreshWorker(context: Context, params: WorkerParameters) : Worker(context
                 TwidgetStore.saveStats(context, RettiwtClient.refresh(context, account))
                 if (BriefSettingsStore.enabled(context) && account.equals(defaultAccount, ignoreCase = true)) {
                     BriefEngine.rebuild(context, account, force = true)
-                    val startedToday = TopFollowersStore.read(context, account).lastStartedDay ==
-                        LocalDate.now().toString()
-                    if (!startedToday) {
-                        TopFollowersScanWorker.enqueue(
-                            context,
-                            account,
-                            restart = true,
-                            dailyLimitEnabledOverride = true,
-                        )
-                    }
+                }
+                if (TwidgetStore.settings(context).shareHistory) {
+                    runCatching { TopFollowersBridgeSync.refresh(context, account, notifyChanges = true) }
                 }
                 anySuccess = true
             }

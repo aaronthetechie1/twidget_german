@@ -39,6 +39,8 @@ class BriefUpcomingPrivacyTest {
         assertFalse(promptFor(snapshot).contains(secret))
         assertFalse(localPromptFor(snapshot).contains(secret))
         assertTrue(promptFor(snapshot).contains("__brief_summary__"))
+        assertTrue(promptFor(snapshot).contains("shortDescription"))
+        assertTrue(localPromptFor(snapshot).contains("\"s\""))
         assertTrue(localPromptFor(snapshot).contains("Use sentence case, never Title Case"))
     }
 }
