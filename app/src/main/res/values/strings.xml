@@ -77,9 +77,9 @@
     <string name="customize_cards">Customize cards</string>
     <string name="add_card">Add card</string>
     <string name="done">Done</string>
-    <string name="edit_home">Edit home</string>
+    <string name="edit_home">Edit dashboard</string>
     <string name="edit_dashboard">Edit dashboard</string>
-    <string name="reset_layout">Reset layout</string>
+    <string name="reset_layout">Reset dashboard layout</string>
     <string name="reset_layout_confirm">Restore the default card layout?</string>
     <string name="add_cards_title">Add cards</string>
     <string name="all_cards_added">All cards are already on your dashboard.</string>

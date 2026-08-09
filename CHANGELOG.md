@@ -2,6 +2,59 @@
 
 All notable changes to Twidget are documented here.
 
+## [1.2.0-beta.2] - 2026-08-09
+
+The second Twidget 1.2 beta makes Brief more consistent and useful, reconciles
+Buffer posts after their scheduled time, improves widget typography, and adds
+proactive update and Top Followers notifications.
+
+### Added
+
+- Added six-hour background update checks with a notification that shows the
+  available version and offers **Remind me later** and **Install now** actions.
+- Added a Google Sans Flex option to the Brief and Followers widgets alongside
+  One UI Sans.
+- Added background bridge syncing for opted-in Top Followers rankings and a
+  notification when a new follower enters the highest-ranked results.
+
+### Changed
+
+- Brief AI now writes sentence-case dashboard headings, expanded-page titles,
+  grammatically correct subheadings, and a separate concise description for
+  the dashboard card and home-screen widget.
+- Refined Brief cards with clearer follower context, correctly routed schedule
+  and composer actions, exact goal progress and remaining-follower copy, and
+  more useful names and explanations for posting and scheduling guidance.
+- Prioritized tweet insights by engagements, impressions, likes, quote tweets,
+  and retweets; quote tweets and retweets are now reported separately instead
+  of being combined as shares.
+- Changing Brief content categories now regenerates the next Brief and excludes
+  disabled categories and their schedule data from the refresh.
+- Reworked Brief and Followers widget typography with accurate variable-font
+  weights, improved heading spacing, responsive two-line descriptions, 12sp
+  body text on narrower tall widgets, and vertically centred one-row layouts.
+- Moved follower-change context out of the chart card so the page summary and
+  follower card no longer repeat the same sentence.
+- Improved Top Followers refresh, rescan confirmation, empty-state guidance,
+  bridge-backed daily ranking updates, and server/client sync behavior.
+
+### Fixed
+
+- Scheduled Buffer posts are now treated as published once their scheduled time
+  passes, moved below upcoming posts and drafts, and removed from upcoming Brief
+  content unless Buffer reports a real publishing error or the post is known not
+  to be live.
+- Fixed follower-goal editing so typed values work with or without grouping
+  commas and do not have to match one of the picker presets.
+- Fixed release-note Markdown so source-wrapped paragraphs and list items flow
+  naturally, with continuation lines aligned beneath the list text.
+- Fixed truncated or repetitive Brief summaries, including singular follower
+  grammar, and kept dashboard/widget descriptions to a useful two-line length.
+- Raised debug-build version codes above the corresponding beta build so debug
+  APKs can be installed over the latest beta without a downgrade error.
+
+[1.2.0-beta.2]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.0-beta.1...twidget-v1.2.0-beta.2
+
 ## [1.2.0] - 2026-08-06
 
 Twidget 1.2 introduces Twidget Brief, richer goals and history, and a more
