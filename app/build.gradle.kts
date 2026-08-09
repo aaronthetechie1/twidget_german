@@ -50,9 +50,11 @@ fun git(vararg args: String): CommandResult = runCatching {
     CommandResult(process.waitFor(), process.inputStream.bufferedReader().use { it.readText().trim() })
 }.getOrElse { CommandResult(-1, "") }
 
-// Debug builds use the commit distance from the base-version change so every
-// main build remains identifiable. Beta releases have their own sequence,
-// supplied by the pre-release workflow, and reset to 1 for each base version.
+// Debug builds use the commit distance from the base-version change in their
+// version name so every build remains identifiable. Their version code uses a
+// fixed slot above every beta, allowing trusted debug APKs to replace betas.
+// Beta releases have their own sequence, supplied by the pre-release workflow,
+// and reset to 1 for each base version.
 val debugNumber = providers.gradleProperty("prereleaseNumber").orNull?.toIntOrNull()
     ?: run {
         val versionFileStatus = git("status", "--porcelain", "--", "version.properties")
@@ -76,16 +78,13 @@ val cloudinaryUploadPreset = providers.gradleProperty("cloudinaryUploadPreset").
     ?: ""
 require(debugNumber > 0) { "prereleaseNumber must be greater than zero" }
 require(betaNumber > 0) { "betaNumber must be greater than zero" }
-require(debugNumber <= 79) {
-    "Debug build number $debugNumber exceeds this version's Play Store slot range; bump versionName"
-}
 require(betaNumber <= 19) {
     "Beta build number $betaNumber exceeds this version's Play Store slot range; bump versionName"
 }
 
 // Reserve 100 monotonically ordered Play Store version-code slots for each
-// semantic version: debug 01-79, beta 80-98, and stable 99. The layout stays
-// below Play's 2,100,000,000 ceiling through version 20.999.999.
+// semantic version: beta 80-98, trusted debug 98, and stable 99. The layout
+// stays below Play's 2,100,000,000 ceiling through version 20.999.999.
 val versionCodeBase =
     versionMajor * 100_000_000 + versionMinor * 100_000 + versionPatch * 100
 val stableVersionCode = versionCodeBase + 99
@@ -179,7 +178,7 @@ kotlin {
 androidComponents {
     onVariants(selector().all()) { variant ->
         val versionCode = when (variant.buildType) {
-            "debug" -> versionCodeBase + debugNumber
+            "debug" -> versionCodeBase + 98
             "beta" -> versionCodeBase + 79 + betaNumber
             else -> stableVersionCode
         }

@@ -70,9 +70,10 @@ Do not create the stable tag manually unless recovering a failed workflow; the
 workflow owns the tag and published asset.
 
 Each semantic version reserves Play Store version-code slots in release order:
-debug builds use 01–79, beta builds use 80–98, and the stable build uses 99.
-After publishing a beta AAB for a semantic version, do not publish a later debug
-AAB for that same version; proceed to another beta or the stable release.
+beta builds use 80–98, trusted debug builds use 98, and the stable build uses
+99. This lets a production-signed debug APK install over any beta of the same
+version while keeping the stable release as the final upgrade. Do not publish
+debug AABs to Play; the debug slot is for local and workflow testing only.
 
 ## Discord release notifications
 
