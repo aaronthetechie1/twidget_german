@@ -159,6 +159,45 @@ object ScheduleQueuePolicy {
     }
 }
 
+object BufferScheduleFallbackPolicy {
+    private const val ALREADY_TERMINAL_DELETE_ERROR = "not allowed to perform this action on post"
+
+    /**
+     * Buffer can leave a post in its scheduled state after the due time. Keep the
+     * app useful offline (and when Buffer's active-post response is stale) by
+     * treating it as published until Buffer explicitly reports an error.
+     *
+     * The FAILED case repairs records produced by older builds when a user tried
+     * to delete an already-published Buffer post and Buffer rejected the request.
+     */
+    fun reconcile(post: ScheduledPost, nowMillis: Long): ScheduledPost {
+        val isDue = post.scheduledAt?.let { it <= nowMillis } == true
+        val isStaleScheduledPost = post.status == ScheduleStatus.SCHEDULED
+        val isRejectedTerminalDelete = post.status == ScheduleStatus.FAILED &&
+            post.errorMessage?.contains(ALREADY_TERMINAL_DELETE_ERROR, ignoreCase = true) == true
+        if (
+            post.provider != ScheduleProvider.BUFFER ||
+            post.deletedAt != null ||
+            !isDue ||
+            (!isStaleScheduledPost && !isRejectedTerminalDelete)
+        ) {
+            return post
+        }
+        return post.copy(
+            status = ScheduleStatus.PUBLISHED,
+            errorMessage = null,
+            publishedAt = post.publishedAt ?: post.scheduledAt,
+            pinned = false,
+            updatedAt = nowMillis,
+        )
+    }
+
+    fun requiresRemoteCancellation(post: ScheduledPost): Boolean =
+        post.provider == ScheduleProvider.BUFFER &&
+            !post.remotePostId.isNullOrBlank() &&
+            post.status !in setOf(ScheduleStatus.PUBLISHED, ScheduleStatus.CANCELLED)
+}
+
 object ScheduleNotificationPolicy {
     fun shouldNotifyBufferPublished(previous: ScheduledPost?, nextStatus: ScheduleStatus): Boolean =
         previous?.provider == ScheduleProvider.BUFFER &&

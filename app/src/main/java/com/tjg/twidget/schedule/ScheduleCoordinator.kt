@@ -117,7 +117,8 @@ class ScheduleCoordinator(
             }
             ScheduleProvider.BUFFER -> {
                 val remoteId = post.remotePostId
-                if (remoteId.isNullOrBlank()) {
+                if (!BufferScheduleFallbackPolicy.requiresRemoteCancellation(post) || remoteId.isNullOrBlank()) {
+                    BufferPublishCheckWorker.cancel(appContext, post.id)
                     val cancelled = store.cancel(post.id, nowMillis) ?: post
                     ScheduleCoordinatorResult(cancelled)
                 } else {

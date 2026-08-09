@@ -87,6 +87,63 @@ class ScheduleQueuePolicyTest {
         )
     }
 
+    @Test
+    fun overdueBufferScheduleIsPresumedPublished() {
+        val scheduled = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel").copy(
+            status = ScheduleStatus.SCHEDULED,
+            scheduledAt = 1_000L,
+            remotePostId = "remote-post",
+            errorMessage = "Old error",
+            pinned = true,
+        )
+
+        val reconciled = BufferScheduleFallbackPolicy.reconcile(scheduled, 1_001L)
+
+        assertEquals(ScheduleStatus.PUBLISHED, reconciled.status)
+        assertEquals(1_000L, reconciled.publishedAt)
+        assertEquals(null, reconciled.errorMessage)
+        assertFalse(reconciled.pinned)
+    }
+
+    @Test
+    fun fallbackDoesNotHideExplicitBufferPublishError() {
+        val needsAction = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel").copy(
+            status = ScheduleStatus.NEEDS_ACTION,
+            scheduledAt = 1_000L,
+            remotePostId = "remote-post",
+            errorMessage = "Buffer could not publish this post",
+        )
+
+        assertEquals(needsAction, BufferScheduleFallbackPolicy.reconcile(needsAction, 2_000L))
+    }
+
+    @Test
+    fun fallbackRepairsRejectedDeleteOfAlreadyPublishedPost() {
+        val failedDelete = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel").copy(
+            status = ScheduleStatus.FAILED,
+            scheduledAt = 1_000L,
+            remotePostId = "remote-post",
+            errorMessage = "Account is not allowed to perform this action on post",
+        )
+
+        val reconciled = BufferScheduleFallbackPolicy.reconcile(failedDelete, 2_000L)
+
+        assertEquals(ScheduleStatus.PUBLISHED, reconciled.status)
+        assertEquals(null, reconciled.errorMessage)
+    }
+
+    @Test
+    fun completedBufferPostsAreDeletedLocally() {
+        val base = post(ScheduleProvider.BUFFER, "thatjoshguy69", "buffer-channel")
+            .copy(remotePostId = "remote-post")
+
+        assertTrue(BufferScheduleFallbackPolicy.requiresRemoteCancellation(base.copy(status = ScheduleStatus.DRAFT)))
+        assertTrue(BufferScheduleFallbackPolicy.requiresRemoteCancellation(base.copy(status = ScheduleStatus.SCHEDULED)))
+        assertTrue(BufferScheduleFallbackPolicy.requiresRemoteCancellation(base.copy(status = ScheduleStatus.NEEDS_ACTION)))
+        assertFalse(BufferScheduleFallbackPolicy.requiresRemoteCancellation(base.copy(status = ScheduleStatus.PUBLISHED)))
+        assertFalse(BufferScheduleFallbackPolicy.requiresRemoteCancellation(base.copy(status = ScheduleStatus.CANCELLED)))
+    }
+
     private fun post(provider: ScheduleProvider, accountId: String, accountUsername: String) = ScheduledPost(
         provider = provider,
         accountId = accountId,

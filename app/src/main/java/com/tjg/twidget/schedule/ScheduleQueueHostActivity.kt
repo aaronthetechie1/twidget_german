@@ -1323,11 +1323,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             onComplete()
             return
         }
-        val remotePosts = posts.filter {
-            it.provider == ScheduleProvider.BUFFER &&
-                !it.remotePostId.isNullOrBlank() &&
-                it.status != ScheduleStatus.CANCELLED
-        }
+        val remotePosts = posts.filter(BufferScheduleFallbackPolicy::requiresRemoteCancellation)
         val localPosts = posts.filterNot { remotePosts.contains(it) }
         if (remotePosts.isEmpty()) {
             localPosts.forEach(::removePostLocally)

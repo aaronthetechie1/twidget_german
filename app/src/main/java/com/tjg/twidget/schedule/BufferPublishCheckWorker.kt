@@ -17,7 +17,10 @@ class BufferPublishCheckWorker(context: Context, workerParams: WorkerParameters)
         val id = inputData.getString(KEY_SCHEDULE_ID)?.takeIf(String::isNotBlank) ?: return Result.failure()
         val store = ScheduleStore(applicationContext)
         val before = store.get(id) ?: return Result.success()
-        if (before.provider != ScheduleProvider.BUFFER || before.status != ScheduleStatus.SCHEDULED) {
+        if (
+            before.provider != ScheduleProvider.BUFFER ||
+            before.status !in setOf(ScheduleStatus.SCHEDULED, ScheduleStatus.PUBLISHED)
+        ) {
             return Result.success()
         }
         val sync = BufferScheduleSync(applicationContext).sync()
