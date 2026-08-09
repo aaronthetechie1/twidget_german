@@ -4,7 +4,7 @@ All notable changes to Twidget are documented here.
 
 ## [1.2.0-beta.2] - 2026-08-09
 
-The second Twidget 1.2 beta makes Brief more consistent and useful, reconciles
+The second Twidget 1.2 beta makes Your Brief more consistent and useful, reconciles
 Buffer posts after their scheduled time, improves widget typography, and adds
 proactive update and Top Followers notifications.
 
@@ -12,26 +12,25 @@ proactive update and Top Followers notifications.
 
 - Added six-hour background update checks with a notification that shows the
   available version and offers **Remind me later** and **Install now** actions.
-- Added a Google Sans Flex option to the Brief and Followers widgets alongside
+- Added a Google Sans Flex option to the Your Brief widget alongside
   One UI Sans.
 - Added background bridge syncing for opted-in Top Followers rankings and a
   notification when a new follower enters the highest-ranked results.
 
 ### Changed
 
-- Brief AI now writes sentence-case dashboard headings, expanded-page titles,
+- Your Brief now writes sentence-case dashboard headings, expanded-page titles,
   grammatically correct subheadings, and a separate concise description for
   the dashboard card and home-screen widget.
-- Refined Brief cards with clearer follower context, correctly routed schedule
+- Refined Your Brief cards with clearer follower context, correctly routed schedule
   and composer actions, exact goal progress and remaining-follower copy, and
   more useful names and explanations for posting and scheduling guidance.
 - Prioritized tweet insights by engagements, impressions, likes, quote tweets,
   and retweets; quote tweets and retweets are now reported separately instead
   of being combined as shares.
-- Changing Brief content categories now regenerates the next Brief and excludes
-  disabled categories and their schedule data from the refresh.
-- Reworked Brief and Followers widget typography with accurate variable-font
-  weights, improved heading spacing, responsive two-line descriptions, 12sp
+- Changing Your Brief content categories now regenerates the next brief and excludes disabled categories and their schedule data from the refresh.
+- Reworked Your Brief and Followers widget typography with accurate variable-font
+  weights, improved heading spacing, responsive two-line descriptions,
   body text on narrower tall widgets, and vertically centred one-row layouts.
 - Moved follower-change context out of the chart card so the page summary and
   follower card no longer repeat the same sentence.
