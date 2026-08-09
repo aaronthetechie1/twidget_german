@@ -135,6 +135,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                         account = account,
                         snapshot = snapshot,
                         dark = dark,
+                        fontFamily = settings.fontFamily,
                     ),
                 )
                 setContentDescription(

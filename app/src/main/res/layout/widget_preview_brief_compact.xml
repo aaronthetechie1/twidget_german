@@ -15,6 +15,6 @@
         android:maxLines="2"
         android:text="@string/brief_preview_title"
         android:textColor="#FF000000"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:textFontWeight="700"
+        android:textSize="12sp" />
 </FrameLayout>

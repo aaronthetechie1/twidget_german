@@ -19,6 +19,8 @@ import kotlin.math.max
 import kotlin.math.min
 
 object WidgetArtworkRenderer {
+    internal const val ONE_UI_EMPHASIS_WEIGHT = 700
+
     fun render(
         context: Context,
         widthPx: Int,
@@ -328,11 +330,11 @@ object WidgetArtworkRenderer {
         }
     }
 
-    // Per-role weights, kept separate for the two families: One UI Sans reads
-    // heavy so its magnitude words sit at ExtraBold across the board, while
+    // Per-role weights, kept separate for the two families. One UI Sans keeps
+    // its emphasized magnitude words at Bold rather than ExtraBold, while
     // Google Sans Flex has a true Black and peaks only on the tens word.
     private fun oneUiWeightFor(role: WordRole): Int = when (role) {
-        WordRole.TENS, WordRole.ONES -> 800
+        WordRole.TENS, WordRole.ONES -> ONE_UI_EMPHASIS_WEIGHT
         WordRole.HUNDRED -> 600
         WordRole.STRONG -> 700
         WordRole.SOFT -> 400

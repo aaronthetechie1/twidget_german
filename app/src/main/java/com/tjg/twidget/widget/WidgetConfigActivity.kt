@@ -78,12 +78,11 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             findViewById<CardItemView>(R.id.logo_row).showTopDivider = false
         } else if (isBriefWidget) {
             // Brief chooses its account, copy, icon and tap destination from the
-            // current dynamic card. Only the shared glass appearance is user
+            // current dynamic card. Its glass appearance and font remain user
             // configurable.
             listOf(
                 R.id.account_separator,
                 R.id.account_group,
-                R.id.font_row,
                 R.id.logo_row,
                 R.id.delta_row,
                 R.id.tap_separator,
@@ -315,6 +314,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                         account = selectedAccount,
                         snapshot = BriefStore.read(this@WidgetConfigActivity, selectedAccount),
                         dark = darkPreview,
+                        fontFamily = fontFamily,
                     ),
                 )
             }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))

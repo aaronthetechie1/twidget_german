@@ -24,6 +24,9 @@ object TwidgetFonts {
 
     private var baseTypeface: Typeface? = null
     private val weightedTypefaces = mutableMapOf<Pair<Int, Boolean>, Typeface>()
+    private var googleRegularTypeface: Typeface? = null
+    private var googleBoldTypeface: Typeface? = null
+    private val googleWeightedTypefaces = mutableMapOf<Pair<Int, Boolean>, Typeface>()
 
     fun oneUiSans(context: Context, weight: Int = 400, italic: Boolean = false): Typeface {
         val key = weight.coerceIn(1, 1_000) to italic
@@ -35,7 +38,13 @@ object TwidgetFonts {
                     key.first >= 400 -> getRegularFont()
                     else -> getLightFont()
                 }
-                if (italic) Typeface.create(seslTypeface, Typeface.ITALIC) else seslTypeface
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    Typeface.create(seslTypeface, key.first, italic)
+                } else if (italic) {
+                    Typeface.create(seslTypeface, Typeface.ITALIC)
+                } else {
+                    seslTypeface
+                }
             } else {
                 val base = baseTypeface ?: (ResourcesCompat.getFont(context, R.font.one_ui_sans)
                     ?: Typeface.DEFAULT).also { baseTypeface = it }
@@ -44,6 +53,24 @@ object TwidgetFonts {
                 } else {
                     Typeface.create(base, if (key.first >= 700) Typeface.BOLD else Typeface.NORMAL)
                 }
+            }
+        }
+    }
+
+    fun googleSansFlex(context: Context, weight: Int = 400, italic: Boolean = false): Typeface {
+        val key = weight.coerceIn(1, 1_000) to italic
+        return googleWeightedTypefaces.getOrPut(key) {
+            val base = if (key.first >= 700) {
+                googleBoldTypeface ?: (ResourcesCompat.getFont(context, R.font.google_sans_flex_bold)
+                    ?: Typeface.DEFAULT).also { googleBoldTypeface = it }
+            } else {
+                googleRegularTypeface ?: (ResourcesCompat.getFont(context, R.font.google_sans_flex_regular)
+                    ?: Typeface.DEFAULT).also { googleRegularTypeface = it }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Typeface.create(base, key.first, italic)
+            } else {
+                Typeface.create(base, if (key.first >= 700) Typeface.BOLD else Typeface.NORMAL)
             }
         }
     }

@@ -15,6 +15,7 @@ import com.tjg.twidget.brief.BriefCard
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefSnapshot
+import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollowersStore
 import com.tjg.twidget.ui.ProfileImageLoader
 import com.tjg.twidget.ui.TwidgetFonts
@@ -24,6 +25,17 @@ import dev.oneuiproject.oneui.R as OneUiIconR
 internal object BriefWidgetArtworkRenderer {
     enum class Layout { COMPACT_STRIP, WIDE_STRIP, SQUARE, MEDIUM_TALL, WIDE_TALL }
 
+    internal data class TallCardMetrics(
+        val iconInsetDp: Float,
+        val textInsetDp: Float,
+        val bottomInsetDp: Float,
+        val iconSizeDp: Float,
+        val titleSizeSp: Float,
+        val bodySizeSp: Float,
+        val textGapDp: Float,
+        val titleWeight: Int,
+    )
+
     fun layout(widthDp: Float, heightDp: Float): Layout = when {
         heightDp <= 110f && widthDp <= 230f -> Layout.COMPACT_STRIP
         heightDp <= 110f -> Layout.WIDE_STRIP
@@ -31,6 +43,18 @@ internal object BriefWidgetArtworkRenderer {
         widthDp < 300f -> Layout.MEDIUM_TALL
         else -> Layout.WIDE_TALL
     }
+
+    /** Proportions used by Samsung's Now Brief medium/tall widget. */
+    internal fun tallCardMetrics(widthDp: Float, heightDp: Float) = TallCardMetrics(
+        iconInsetDp = 14f,
+        textInsetDp = 16f,
+        bottomInsetDp = 16f,
+        iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
+        titleSizeSp = 20f,
+        bodySizeSp = 16f,
+        textGapDp = 2f,
+        titleWeight = 600,
+    )
 
     @DrawableRes
     fun supportingIcon(type: BriefCardType): Int = when (type) {
@@ -54,6 +78,7 @@ internal object BriefWidgetArtworkRenderer {
         account: String,
         snapshot: BriefSnapshot?,
         dark: Boolean,
+        fontFamily: String = TwidgetStore.FONT_ONE_UI_SANS,
     ): Bitmap {
         val width = widthPx.coerceAtLeast(dp(context, 100))
         val height = heightPx.coerceAtLeast(dp(context, 56))
@@ -87,6 +112,7 @@ internal object BriefWidgetArtworkRenderer {
                 sizeSp = 16f,
                 maxLines = 2,
                 color = primary,
+                fontFamily = fontFamily,
             )
             Layout.WIDE_STRIP -> {
                 val pad = dp(context, 14).toFloat()
@@ -111,24 +137,27 @@ internal object BriefWidgetArtworkRenderer {
                     sizeSp = 24f,
                     maxLines = 1,
                     color = primary,
+                    fontFamily = fontFamily,
                 )
             }
-            Layout.SQUARE -> drawTallCard(
-                context, canvas, displayCard, account, width, height, primary, secondary,
-                paddingDp = 10, iconSizeDp = 48, titleSizeSp = 18f, bodySizeSp = 12f,
-                titleLines = 2, bodyLines = 2,
-            )
-            Layout.MEDIUM_TALL -> drawTallCard(
-                context, canvas, displayCard, account, width, height, primary, secondary,
-                paddingDp = 10, iconSizeDp = 48, titleSizeSp = 22f, bodySizeSp = 14f,
-                titleLines = 1, bodyLines = 1,
-            )
-            Layout.WIDE_TALL -> drawTallCard(
-                context, canvas, displayCard, account, width, height, primary, secondary,
-                paddingDp = 18, iconSizeDp = 32, titleSizeSp = 24f, bodySizeSp = 16f,
-                titleLines = 1, bodyLines = 2, iconStartDp = 15, iconTopDp = 21,
-                bottomPaddingDp = 21,
-            )
+            Layout.SQUARE, Layout.MEDIUM_TALL, Layout.WIDE_TALL -> {
+                val metrics = tallCardMetrics(width / density, height / density)
+                drawTallCard(
+                    context, canvas, displayCard, account, width, height, primary, secondary,
+                    paddingDp = metrics.textInsetDp,
+                    iconSizeDp = metrics.iconSizeDp,
+                    titleSizeSp = metrics.titleSizeSp,
+                    bodySizeSp = metrics.bodySizeSp,
+                    titleLines = 2,
+                    bodyLines = 2,
+                    iconStartDp = metrics.iconInsetDp,
+                    iconTopDp = metrics.iconInsetDp,
+                    bottomPaddingDp = metrics.bottomInsetDp,
+                    gapDp = metrics.textGapDp,
+                    titleWeight = metrics.titleWeight,
+                    fontFamily = fontFamily,
+                )
+            }
         }
         return bitmap
     }
@@ -143,8 +172,9 @@ internal object BriefWidgetArtworkRenderer {
         sizeSp: Float,
         maxLines: Int,
         color: Int,
+        fontFamily: String,
     ) {
-        val paint = textPaint(context, 700, sizeSp, color)
+        val paint = textPaint(context, fontFamily, 700, sizeSp, color)
         val lines = wrap(title, paint, width, maxLines)
         val lineHeight = paint.textSize * 1.13f
         val blockHeight = lineHeight * lines.size
@@ -169,26 +199,29 @@ internal object BriefWidgetArtworkRenderer {
         heightPx: Int,
         primary: Int,
         secondary: Int,
-        paddingDp: Int,
-        iconSizeDp: Int,
+        paddingDp: Float,
+        iconSizeDp: Float,
         titleSizeSp: Float,
         bodySizeSp: Float,
         titleLines: Int,
         bodyLines: Int,
-        iconStartDp: Int = paddingDp,
-        iconTopDp: Int = paddingDp,
-        bottomPaddingDp: Int = paddingDp,
+        iconStartDp: Float = paddingDp,
+        iconTopDp: Float = paddingDp,
+        bottomPaddingDp: Float = paddingDp,
+        gapDp: Float = 5f,
+        titleWeight: Int = 700,
+        fontFamily: String,
     ) {
-        val pad = dp(context, paddingDp).toFloat()
-        val iconStart = dp(context, iconStartDp).toFloat()
-        val iconTop = dp(context, iconTopDp).toFloat()
-        val bottomPad = dp(context, bottomPaddingDp).toFloat()
-        val iconSize = minOf(dp(context, iconSizeDp).toFloat(), heightPx - iconTop - bottomPad)
+        val pad = dp(context, paddingDp)
+        val iconStart = dp(context, iconStartDp)
+        val iconTop = dp(context, iconTopDp)
+        val bottomPad = dp(context, bottomPaddingDp)
+        val iconSize = minOf(dp(context, iconSizeDp), heightPx - iconTop - bottomPad)
         drawStateIcon(context, canvas, card.type, account, iconStart, iconTop, iconSize)
 
         val textWidth = widthPx - pad * 2f
-        val titlePaint = textPaint(context, 700, titleSizeSp, primary)
-        val bodyPaint = textPaint(context, 400, bodySizeSp, secondary)
+        val titlePaint = textPaint(context, fontFamily, titleWeight, titleSizeSp, primary)
+        val bodyPaint = textPaint(context, fontFamily, 400, bodySizeSp, secondary)
         val wrappedTitle = wrap(card.title, titlePaint, textWidth, titleLines)
         val body = if (bodyLines <= 2 && widthPx <= dp(context, 300)) compactBody(card.body) else card.body
         val wrappedBody = wrap(body, bodyPaint, textWidth, bodyLines)
@@ -196,7 +229,7 @@ internal object BriefWidgetArtworkRenderer {
         val bodyLineHeight = bodyPaint.textSize * 1.16f
         val titleHeight = titleLineHeight * wrappedTitle.size
         val bodyHeight = bodyLineHeight * wrappedBody.size
-        val gap = dp(context, 5).toFloat()
+        val gap = dp(context, gapDp)
         val blockTop = heightPx - bottomPad - titleHeight - gap - bodyHeight
 
         var baseline = blockTop - titlePaint.fontMetrics.top
@@ -273,11 +306,16 @@ internal object BriefWidgetArtworkRenderer {
         return if (firstSentence.isBlank() || firstSentence.endsWith('.')) firstSentence else "$firstSentence."
     }
 
-    private fun textPaint(context: Context, weight: Int, sizeSp: Float, color: Int) =
+    private fun textPaint(context: Context, fontFamily: String, weight: Int, sizeSp: Float, color: Int) =
         Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             this.color = color
             textSize = sizeSp * context.resources.displayMetrics.scaledDensity
-            typeface = TwidgetFonts.oneUiSans(context, weight)
+            typeface = if (fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
+                TwidgetFonts.googleSansFlex(context, weight)
+            } else {
+                TwidgetFonts.oneUiSans(context, weight)
+            }
+            setFontVariationSettings("'wght' $weight")
         }
 
     private fun wrap(text: String, paint: Paint, width: Float, maxLines: Int): List<String> {
@@ -306,4 +344,7 @@ internal object BriefWidgetArtworkRenderer {
 
     private fun dp(context: Context, value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
+
+    private fun dp(context: Context, value: Float): Float =
+        value * context.resources.displayMetrics.density
 }

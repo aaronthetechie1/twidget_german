@@ -62,4 +62,23 @@ class BriefWidgetArtworkRendererTest {
             BriefWidgetArtworkRenderer.supportingIcon(BriefCardType.TOP_FOLLOWER),
         )
     }
+
+    @Test
+    fun tallCardUsesNowBriefProportions() {
+        val metrics = BriefWidgetArtworkRenderer.tallCardMetrics(352f, 175f)
+
+        assertEquals(14f, metrics.iconInsetDp)
+        assertEquals(16f, metrics.textInsetDp)
+        assertEquals(16f, metrics.bottomInsetDp)
+        assertEquals(42.875f, metrics.iconSizeDp)
+        assertEquals(20f, metrics.titleSizeSp)
+        assertEquals(16f, metrics.bodySizeSp)
+        assertEquals(2f, metrics.textGapDp)
+        assertEquals(600, metrics.titleWeight)
+    }
+
+    @Test
+    fun oneUiFollowerEmphasisUsesBoldRatherThanExtraBold() {
+        assertEquals(700, WidgetArtworkRenderer.ONE_UI_EMPHASIS_WEIGHT)
+    }
 }
