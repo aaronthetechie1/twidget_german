@@ -72,7 +72,7 @@ class BriefWidgetArtworkRendererTest {
         assertEquals(16f, metrics.bottomInsetDp)
         assertEquals(42.875f, metrics.iconSizeDp)
         assertEquals(20f, metrics.titleSizeSp)
-        assertEquals(12f, metrics.bodySizeSp)
+        assertEquals(14f, metrics.bodySizeSp)
         assertEquals(6f, metrics.textGapDp)
         assertEquals(600, metrics.titleWeight)
     }

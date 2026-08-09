@@ -9,6 +9,7 @@ object BriefSettingsStore {
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_PROVIDER = "provider"
     private const val KEY_CONTENT_PREFIX = "content_"
+    private const val KEY_CONTENT_REGENERATION_PENDING = "content_regeneration_pending"
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
 
@@ -38,9 +39,18 @@ object BriefSettingsStore {
         category: BriefContentCategory,
         enabled: Boolean,
     ) {
+        if (contentEnabled(context, category) == enabled) return
         prefs(context).edit()
             .putBoolean(KEY_CONTENT_PREFIX + category.storageId, enabled)
+            .putBoolean(KEY_CONTENT_REGENERATION_PENDING, true)
             .apply()
+    }
+
+    fun contentRegenerationPending(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_CONTENT_REGENERATION_PENDING, false)
+
+    fun clearContentRegenerationPending(context: Context) {
+        prefs(context).edit().putBoolean(KEY_CONTENT_REGENERATION_PENDING, false).apply()
     }
 
     fun enabledContent(context: Context): Set<BriefContentCategory> =

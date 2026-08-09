@@ -82,6 +82,12 @@ enum class BriefContentCategory(val storageId: String) {
         ACCOUNT_GOALS -> type == BriefCardType.MILESTONE
     }
 
+    fun usesScheduledPostData(): Boolean = this in setOf(
+        SCHEDULED_TWEETS,
+        SCHEDULE_HEALTH,
+        POST_FOLLOW_THROUGH,
+    )
+
     companion object {
         fun forCard(type: BriefCardType): BriefContentCategory? =
             entries.firstOrNull { it.includes(type) }
@@ -156,8 +162,11 @@ data class BriefEditorialSummary(
                 cards.isNotEmpty() -> "Your week at a glance"
                 else -> "Your Twidget Brief"
             }
+            val hasFollowerTrendCard = BriefCardType.GROWTH in types || BriefCardType.SLOWDOWN in types
             val facts = buildList {
-                followerOverview(followersToday, followersWeek)?.let(::add)
+                if (!hasFollowerTrendCard) {
+                    followerOverview(followersToday, followersWeek)?.let(::add)
+                }
                 if (hasGoal) {
                     add(
                         if (followersToday > 0L || followersWeek > 0L) {
@@ -197,7 +206,10 @@ data class BriefEditorialSummary(
                 }
             }
             val body = facts.joinToString(" ")
-                .ifBlank { "Twidget is watching for your next meaningful account update." }
+                .ifBlank {
+                    if (hasFollowerTrendCard) "See how your audience changed over the last week."
+                    else "Twidget is watching for your next meaningful account update."
+                }
             return BriefEditorialSummary(
                 title = title,
                 body = body,

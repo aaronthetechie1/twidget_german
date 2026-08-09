@@ -70,12 +70,12 @@ class BriefAiCardResponseTest {
     fun aiSummaryIsSentenceCasedAndStoredForEveryBriefSurface() {
         val result = BriefAiCardResponse.apply(
             source.copy(followersToday = 1),
-            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week.","s":"You gained 1 follower today and 10 this week. Your posting rhythm is active."}]""",
+            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"Your posting rhythm is active.","s":"You gained 1 follower today and 10 this week. Your posting rhythm is active."}]""",
             BriefProviderUsed.LOCAL,
         )
 
         assertEquals("Your growth is building", result.snapshot?.headline)
-        assertEquals("You gained 1 follower today and 10 followers this week.", result.snapshot?.subheading)
+        assertEquals("Your posting rhythm is active.", result.snapshot?.subheading)
         assertEquals(
             "You gained 1 follower today and 10 this week. Your posting rhythm is active.",
             result.snapshot?.shortDescription,
@@ -83,7 +83,7 @@ class BriefAiCardResponseTest {
         assertEquals(
             BriefEditorialSummary(
                 "Your growth is building",
-                "You gained 1 follower today and 10 followers this week.",
+                "Your posting rhythm is active.",
                 "You gained 1 follower today and 10 this week. Your posting rhythm is active.",
             ),
             result.snapshot?.let(BriefEditorialSummary::from),
@@ -94,7 +94,7 @@ class BriefAiCardResponseTest {
     fun inventedCompactFactsFallBackWithoutDiscardingTheAiSummary() {
         val result = BriefAiCardResponse.apply(
             source,
-            """[{"i":"__brief_summary__","t":"Momentum is building","b":"You gained 2 followers today and 10 followers this week.","s":"Up 99 followers today."}]""",
+            """[{"i":"__brief_summary__","t":"Momentum is building","b":"Your posting rhythm is active.","s":"Up 99 followers today."}]""",
             BriefProviderUsed.LOCAL,
         )
 

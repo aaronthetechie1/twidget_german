@@ -51,7 +51,7 @@ internal object BriefWidgetArtworkRenderer {
         bottomInsetDp = 16f,
         iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
         titleSizeSp = 20f,
-        bodySizeSp = 12f,
+        bodySizeSp = 14f,
         textGapDp = 6f,
         titleWeight = 600,
     )

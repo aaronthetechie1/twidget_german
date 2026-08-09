@@ -17,16 +17,12 @@ import androidx.preference.SeslSwitchPreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefContentCategory
-import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefSettingsStore
-import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.brief.BriefVisuals
-import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.main.MilestoneGoalActivity
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import com.tjg.twidget.ui.startRightSidePopOverActivity
-import com.tjg.twidget.widget.TwidgetBriefWidget
 
 class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -133,7 +129,6 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         preference.isIconSpaceReserved = true
         preference.setOnPreferenceChangeListener { _, newValue ->
             BriefSettingsStore.setContentEnabled(context, category, newValue as Boolean)
-            refreshBrief()
             true
         }
     }
@@ -158,16 +153,6 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         BriefContentCategory.SCHEDULE_HEALTH -> R.color.metric_green
         BriefContentCategory.FOLLOWERS,
         BriefContentCategory.SCHEDULED_TWEETS -> R.color.oneui_text_primary
-    }
-
-    private fun refreshBrief() {
-        val context = requireContext().applicationContext
-        val account = TwidgetStore.settings(context).username
-        if (account.isNotBlank()) BriefStore.resetAi(context, account)
-        AppExecutors.execute {
-            if (account.isNotBlank()) BriefEngine.rebuild(context, account, force = true)
-            TwidgetBriefWidget.updateAll(context)
-        }
     }
 
     private fun spacerCategory() = PreferenceCategory(requireContext()).apply {

@@ -27,4 +27,17 @@ class BriefContentCategoryTest {
             .firstOrNull { it == BriefContentCategory.SCHEDULED_TWEETS }
             ?.takeIf { category -> BriefCardType.entries.any(category::includes) })
     }
+
+    @Test
+    fun onlyScheduleCategoriesRequestScheduledPostData() {
+        val expected = setOf(
+            BriefContentCategory.SCHEDULED_TWEETS,
+            BriefContentCategory.SCHEDULE_HEALTH,
+            BriefContentCategory.POST_FOLLOW_THROUGH,
+        )
+
+        assertEquals(expected, BriefContentCategory.entries.filterTo(linkedSetOf()) {
+            it.usesScheduledPostData()
+        })
+    }
 }

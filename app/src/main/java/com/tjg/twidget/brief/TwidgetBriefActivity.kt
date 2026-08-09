@@ -76,6 +76,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var localStatus = BriefLocalStatus.UNAVAILABLE
     private var debugScenario: BriefDebugScenario = BriefDebugScenario.REAL
     private var reloadOnResume = false
+    private var checkContentOnResume = false
     private var entranceSections: List<View> = emptyList()
     private var titleColorAnimator: ValueAnimator? = null
     private var backgroundAnimator: ValueAnimator? = null
@@ -116,7 +117,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             awaitLaunchGeneration()
             return
         }
-        val forceRefresh = intent.getBooleanExtra(EXTRA_FORCE_REFRESH, false)
+        val contentChanged = debugScenario == BriefDebugScenario.REAL &&
+            BriefSettingsStore.contentRegenerationPending(this)
+        val forceRefresh = intent.getBooleanExtra(EXTRA_FORCE_REFRESH, false) || contentChanged
         lifecycleScope.launch {
             val cached = withContext(Dispatchers.IO) {
                 if (!forceRefresh && debugScenario == BriefDebugScenario.REAL) {
@@ -139,6 +142,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     forceAi = forceRefresh,
                     showSpinner = true,
                     animateOnComplete = true,
+                    clearContentPendingOnSuccess = contentChanged,
                 )
             }
         }
@@ -204,7 +208,30 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         super.onResume()
         if (reloadOnResume) {
             reloadOnResume = false
-            loadBrief(forceEngine = true)
+            val contentChanged = debugScenario == BriefDebugScenario.REAL &&
+                BriefSettingsStore.contentRegenerationPending(this)
+            loadBrief(
+                forceEngine = true,
+                forceAi = contentChanged,
+                showSpinner = contentChanged,
+                animateOnComplete = contentChanged,
+                clearContentPendingOnSuccess = contentChanged,
+            )
+            return
+        }
+        if (checkContentOnResume) {
+            checkContentOnResume = false
+            val contentChanged = debugScenario == BriefDebugScenario.REAL &&
+                BriefSettingsStore.contentRegenerationPending(this)
+            if (contentChanged) {
+                loadBrief(
+                    forceEngine = true,
+                    forceAi = true,
+                    showSpinner = true,
+                    animateOnComplete = true,
+                    clearContentPendingOnSuccess = true,
+                )
+            }
         }
     }
 
@@ -213,6 +240,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         forceAi: Boolean = false,
         showSpinner: Boolean = renderedSnapshot == null,
         animateOnComplete: Boolean = showSpinner,
+        clearContentPendingOnSuccess: Boolean = false,
     ) {
         if (showSpinner) setLoading(true)
         lifecycleScope.launch {
@@ -220,10 +248,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             try {
                 val source = withContext(Dispatchers.IO) {
                     if (forceAi) {
-                        // A full regeneration must refresh Buffer first; otherwise
-                        // the engine can faithfully rebuild from a stale local queue.
-                        runCatching {
-                            BufferScheduleSync(this@TwidgetBriefActivity).sync(userInitiated = true)
+                        val content = BriefSettingsStore.enabledContent(this@TwidgetBriefActivity)
+                        if (content.any(BriefContentCategory::usesScheduledPostData)) {
+                            // Refresh Buffer only when an enabled category can use schedule data.
+                            runCatching {
+                                BufferScheduleSync(this@TwidgetBriefActivity).sync(userInitiated = true)
+                            }
                         }
                         BriefStore.resetAi(this@TwidgetBriefActivity, username)
                     }
@@ -247,6 +277,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 localStatus = result.localStatus
                 if (showProviderSetupIfRequired(result)) return@launch
                 if (result.snapshot != renderedSnapshot) render(result.snapshot)
+                if (clearContentPendingOnSuccess) {
+                    BriefSettingsStore.clearContentRegenerationPending(this@TwidgetBriefActivity)
+                }
                 if (animateOnComplete && renderedSnapshot != null) {
                     prepareBriefEntrance()
                     entrancePrepared = true
@@ -303,6 +336,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setImageDrawable(AppCompatResources.getDrawable(context, OneUiIconR.drawable.ic_oui_settings_outline))
             imageTintList = tint
             setOnClickListener {
+                checkContentOnResume = true
                 startRightSidePopOverActivity(
                     Intent(this@TwidgetBriefActivity, BriefSettingsActivity::class.java),
                 )

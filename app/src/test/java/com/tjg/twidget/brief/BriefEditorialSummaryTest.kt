@@ -26,8 +26,7 @@ class BriefEditorialSummaryTest {
 
         assertEquals("Momentum is building", summary.title)
         assertEquals(
-            "You gained 20 followers today and 40 followers this week. " +
-                "Your schedule has a useful next step waiting.",
+            "Your schedule has a useful next step waiting.",
             summary.body,
         )
         assertEquals(
@@ -55,8 +54,7 @@ class BriefEditorialSummaryTest {
 
         assertEquals("Momentum is building", summary.title)
         assertEquals(
-            "You gained 12 followers today and 22 followers this week. " +
-                "One recent tweet stood out from your usual performance. " +
+            "One recent tweet stood out from your usual performance. " +
                 "There is a meaningful change in your top followers. Your posting rhythm is active.",
             summary.body,
         )
@@ -93,14 +91,20 @@ class BriefEditorialSummaryTest {
                 "This tweet got 37K views and 330 likes.",
                 90,
             ),
+            BriefCard(
+                "growth",
+                BriefCardType.GROWTH,
+                "Momentum is building",
+                "You gained 12 followers today and 22 followers over the last week.",
+                85,
+            ),
         )
 
         val summary = BriefEditorialSummary.from(cards, followersToday = 12, followersWeek = 22)
 
         assertEquals("Moving closer", summary.title)
         assertEquals(
-            "You gained 12 followers today and 22 followers this week. " +
-                "That progress brings your goal closer. " +
+            "That progress brings your goal closer. " +
                 "One recent tweet stood out from your usual performance.",
             summary.body,
         )

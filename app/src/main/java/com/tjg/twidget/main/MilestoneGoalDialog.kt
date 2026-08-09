@@ -31,13 +31,28 @@ internal object MilestoneGoalDialog {
         val options = goalOptions(metric, current, existing?.target)
         val content = LayoutInflater.from(activity).inflate(R.layout.dialog_milestone_goal, null)
         val picker = content.findViewById<SeslNumberPicker>(R.id.milestone_number_picker).apply {
+            val initialTarget = existing?.target
+                ?: options.firstOrNull { it > current }
+                ?: options.last()
             displayedValues = null
-            minValue = 0
-            maxValue = options.lastIndex
-            displayedValues = options.map { formatValue(metric, it) }.toTypedArray()
-            value = options.indexOfFirst { it == existing?.target }.takeIf { it >= 0 }
-                ?: options.indexOfFirst { it > current }.takeIf { it >= 0 }
-                ?: options.lastIndex
+            minValue = 1
+            maxValue = pickerMaximum(metric)
+            wrapSelectorWheel = false
+            setFormatter { value -> formatPickerValue(metric, value) }
+            wheelStep(metric, current).takeIf { it > 1 }?.let { step ->
+                setCustomIntervalValue(step)
+                applyWheelCustomInterval(true)
+            }
+            value = targetToPickerValue(metric, initialTarget).coerceIn(minValue, maxValue)
+            setEditTextModeEnabled(true)
+            setOnEditTextModeChangedListener { numberPicker, editing ->
+                if (editing) {
+                    numberPicker.editText.apply {
+                        setText(numberPicker.value.toString())
+                        setSelection(text.length)
+                    }
+                }
+            }
         }
 
         val dialog = AlertDialog.Builder(activity)
@@ -54,7 +69,8 @@ internal object MilestoneGoalDialog {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val target = options.getOrNull(picker.value) ?: return@setOnClickListener
+                if (picker.isEditTextMode) picker.setEditTextMode(false)
+                val target = pickerValueToTarget(metric, picker.value)
                 if (target <= current) {
                     Toast.makeText(activity, R.string.milestone_target_must_exceed, Toast.LENGTH_SHORT)
                         .show()
@@ -120,4 +136,32 @@ internal object MilestoneGoalDialog {
         } else {
             NumberFormat.getIntegerInstance(Locale.getDefault()).format(value.toLong())
         }
+
+    internal fun targetToPickerValue(metric: MilestoneMetric, target: Double): Int =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
+            (target * 100).toInt()
+        } else {
+            target.toLong().coerceAtMost(MilestonePolicy.MAX_TARGET).toInt()
+        }
+
+    internal fun pickerValueToTarget(metric: MilestoneMetric, value: Int): Double =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) value / 100.0 else value.toDouble()
+
+    internal fun formatPickerValue(metric: MilestoneMetric, value: Int): String =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
+            "$value%"
+        } else {
+            NumberFormat.getIntegerInstance(Locale.getDefault()).format(value)
+        }
+
+    private fun pickerMaximum(metric: MilestoneMetric): Int =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) 100 else MilestonePolicy.MAX_TARGET.toInt()
+
+    private fun wheelStep(metric: MilestoneMetric, current: Double): Int {
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) return 1
+        val options = goalOptions(metric, current, saved = null)
+        return options.zipWithNext { first, second -> (second - first).toInt() }
+            .firstOrNull { it > 0 }
+            ?: 1
+    }
 }
