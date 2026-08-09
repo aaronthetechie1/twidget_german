@@ -5,7 +5,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.Spannable
 import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.LeadingMarginSpan
@@ -110,7 +109,7 @@ object ReleaseNoticeMarkdown {
             LeadingMarginSpan.Standard(firstMargin, firstMargin + markerWidth),
             start,
             output.length,
-            Spanned.SPAN_PARAGRAPH,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
         )
     }
 
@@ -120,7 +119,7 @@ object ReleaseNoticeMarkdown {
         appendInline(context, output, content)
         output.append('\n')
         val accent = ContextCompat.getColor(context, R.color.oneui_accent)
-        output.setSpan(QuoteSpan(accent), start, output.length, Spanned.SPAN_PARAGRAPH)
+        output.setSpan(QuoteSpan(accent), start, output.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         output.setSpan(
             ForegroundColorSpan(ContextCompat.getColor(context, R.color.oneui_text_secondary)),
             start,
