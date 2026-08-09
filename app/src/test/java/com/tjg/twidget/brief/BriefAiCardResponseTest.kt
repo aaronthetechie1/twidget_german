@@ -70,18 +70,21 @@ class BriefAiCardResponseTest {
     fun aiSummaryIsSentenceCasedAndStoredForEveryBriefSurface() {
         val result = BriefAiCardResponse.apply(
             source.copy(followersToday = 1),
-            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week.","s":"Up 1 today and 10 this week."}]""",
+            """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"You gained 1 followers today and 10 followers this week.","s":"You gained 1 follower today and 10 this week. Your posting rhythm is active."}]""",
             BriefProviderUsed.LOCAL,
         )
 
         assertEquals("Your growth is building", result.snapshot?.headline)
         assertEquals("You gained 1 follower today and 10 followers this week.", result.snapshot?.subheading)
-        assertEquals("Up 1 today and 10 this week.", result.snapshot?.shortDescription)
+        assertEquals(
+            "You gained 1 follower today and 10 this week. Your posting rhythm is active.",
+            result.snapshot?.shortDescription,
+        )
         assertEquals(
             BriefEditorialSummary(
                 "Your growth is building",
                 "You gained 1 follower today and 10 followers this week.",
-                "Up 1 today and 10 this week.",
+                "You gained 1 follower today and 10 this week. Your posting rhythm is active.",
             ),
             result.snapshot?.let(BriefEditorialSummary::from),
         )
@@ -96,6 +99,9 @@ class BriefAiCardResponseTest {
         )
 
         assertNotNull(result.snapshot)
-        assertEquals("Up 2 today and 10 this week.", result.snapshot?.shortDescription)
+        assertEquals(
+            "You gained 2 followers today and 10 followers this week. Your posting rhythm is active.",
+            result.snapshot?.shortDescription,
+        )
     }
 }

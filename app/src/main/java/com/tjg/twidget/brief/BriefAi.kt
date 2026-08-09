@@ -497,8 +497,9 @@ private const val SYSTEM_INSTRUCTION =
         "Never add numbers, names, causes, predictions, or claims. Use sentence case for every title: capitalise " +
         "only the first word and proper nouns, never every major word. Use 'follower' for exactly 1 and " +
         "'followers' for every other count. Keep titles under 45 characters and bodies under 150 characters. " +
-        "For the brief_summary only, also write a distinct shortDescription under 70 characters for compact " +
-        "surfaces. It must be one sentence and preserve every numeric fact in its supplied value without adding facts. " +
+        "For the brief_summary only, also write a distinct shortDescription of no more than 100 characters for compact " +
+        "surfaces. It may use one or two short sentences, should fill up to two lines when useful, and must preserve " +
+        "every numeric fact in its supplied value without adding facts. " +
         "Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. " +
         "Be warm and direct, never shaming. Return only a JSON array."
 
@@ -552,7 +553,7 @@ internal fun localPromptFor(source: BriefSnapshot): String {
         ## TASK
         Rewrite the Brief summary and first $outputCount cards in the supplied order.
         ## RULES
-        Preserve order. Keep every id and numeric fact unchanged. Use sentence case, never Title Case. Use "follower" for 1 and "followers" otherwise. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct one-sentence compact description in s, max 70 characters, using only the facts supplied in s.
+        Preserve order. Keep every id and numeric fact unchanged. Use sentence case, never Title Case. Use "follower" for 1 and "followers" otherwise. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct compact description in s, max 100 characters and one or two short sentences, using only the facts supplied in s.
         ## OUTPUT
         JSON array only. Cards use [{"i":"id","t":"title","b":"body"}]. The summary also uses "s":"short description".
         ## CARDS
@@ -591,7 +592,7 @@ internal object BriefAiCardResponse {
                 val body = item.optString("body").ifBlank { item.optString("b") }
                     .trim().takeIf { it.length in 1..180 } ?: originalSummary.body
                 val shortBody = item.optString("shortDescription").ifBlank { item.optString("s") }
-                    .trim().takeIf { it.length in 1..70 }
+                    .trim().takeIf { it.length in 1..100 }
                 if (numericFacts("${originalSummary.title} ${originalSummary.body}") == numericFacts("$title $body")) {
                     headline = BriefCopyPolicy.sentenceCase(
                         title,

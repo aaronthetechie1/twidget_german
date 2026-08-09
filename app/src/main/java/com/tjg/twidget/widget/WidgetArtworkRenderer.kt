@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Typeface
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.tjg.twidget.R
@@ -181,10 +180,11 @@ object WidgetArtworkRenderer {
                 this.color = color
                 textSize = sizeSp * density
                 typeface = if (settings.fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                    gsfTypeface(context, weight)
+                    gsfTypeface(context)
                 } else {
-                    oneUiTypeface(context, weight)
+                    oneUiTypeface(context)
                 }
+                setFontVariationSettings("'wght' $weight")
             }
 
         if (mode == TwidgetWidget.LAYOUT_MODE_COMPACT_2X1) {
@@ -367,7 +367,7 @@ object WidgetArtworkRenderer {
         return Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             // Label opacity (0.6) comes straight from the design.
             color = if (role == WordRole.LABEL) withAlpha(primary, 0.6f) else primary
-            typeface = if (gsf) gsfTypeface(context, weight) else oneUiTypeface(context, weight)
+            typeface = if (gsf) gsfTypeface(context) else oneUiTypeface(context)
             setFontVariationSettings(
                 if (gsf) "'wght' $weight, 'wdth' ${gsfWidthFor(role)}" else "'wght' $weight",
             )
@@ -377,29 +377,21 @@ object WidgetArtworkRenderer {
     private fun withAlpha(color: Int, fraction: Float): Int =
         Color.argb((255 * fraction).toInt(), Color.red(color), Color.green(color), Color.blue(color))
 
-    private val gsfWeightCache = mutableMapOf<Int, Typeface>()
-
-    private fun gsfTypeface(context: Context, weight: Int): Typeface =
-        gsfWeightCache.getOrPut(weight) {
-            TwidgetFonts.googleSansFlex(context, weight)
-        }
-
-    private val oneUiWeightCache = mutableMapOf<Int, Typeface>()
+    private fun gsfTypeface(context: Context) =
+        TwidgetFonts.googleSansFlex(context)
 
     // Use the bundled variable face rather than Samsung's system aliases. Some
     // One UI releases map their nominal Bold face closer to ExtraBold.
-    private fun oneUiTypeface(context: Context, weight: Int): Typeface =
-        oneUiWeightCache.getOrPut(weight) {
-            TwidgetFonts.oneUiSansVariable(context, weight)
-        }
+    private fun oneUiTypeface(context: Context) =
+        TwidgetFonts.oneUiSansVariable(context)
 
     private fun textPaint(context: Context, settings: TwidgetWidgetSettings, color: Int, bold: Boolean): Paint =
         Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             this.color = color
             typeface = if (settings.fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                TwidgetFonts.googleSansFlex(context, if (bold) 700 else 400)
+                TwidgetFonts.googleSansFlex(context)
             } else {
-                TwidgetFonts.oneUiSansVariable(context, if (bold) 700 else 400)
+                TwidgetFonts.oneUiSansVariable(context)
             }
             setFontVariationSettings("'wght' ${if (bold) 700 else 400}")
         }

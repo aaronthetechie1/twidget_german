@@ -30,7 +30,11 @@ class BriefEditorialSummaryTest {
                 "Your schedule has a useful next step waiting.",
             summary.body,
         )
-        assertEquals("Up 20 today and 40 this week.", summary.shortDescription)
+        assertEquals(
+            "You gained 20 followers today and 40 followers this week. " +
+                "Your schedule has a useful next step.",
+            summary.shortDescription,
+        )
         assertFalse(summary.body.contains(guide.body))
     }
 
@@ -102,6 +106,11 @@ class BriefEditorialSummaryTest {
         )
         assertFalse(summary.body.contains("37K views"))
         assertFalse(summary.body.contains("8,000 follower goal"))
+        assertEquals(
+            "You gained 12 followers today and 22 followers this week. " +
+                "That progress brings your goal closer.",
+            summary.shortDescription,
+        )
     }
 
     @Test

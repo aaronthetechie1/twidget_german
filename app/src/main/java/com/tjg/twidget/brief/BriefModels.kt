@@ -231,20 +231,33 @@ data class BriefEditorialSummary(
             types: Set<BriefCardType>,
             hasGoal: Boolean,
             upcomingTweets: Int,
-        ): String = compactFollowerOverview(followersToday, followersWeek) ?: when {
-            hasGoal -> "Your goal is still in view."
-            BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
-                "Recent tweets brought a win and a lesson."
-            BriefCardType.POST in types -> "One recent tweet stood out."
-            BriefCardType.WORST_POST in types -> "One recent tweet offers a lesson."
-            upcomingTweets == 1 -> "One tweet is scheduled next."
-            upcomingTweets > 1 -> "$upcomingTweets tweets are scheduled next."
-            BriefCardType.TOP_FOLLOWER in types -> "Your top followers have changed."
-            BriefCardType.STREAK in types -> "Your posting rhythm is active."
-            BriefCardType.SCHEDULE_GUIDE in types -> "Your schedule has a useful next step."
-            BriefCardType.POST_FOLLOW_THROUGH in types -> "Your latest tweet offers a useful lesson."
-            BriefCardType.POSTING_GUIDE in types -> "Your recent tweets suggest a next step."
-            else -> "Watching for your next meaningful update."
+        ): String {
+            val followerSentence = followerOverview(followersToday, followersWeek)
+            val supportingSentence = when {
+                hasGoal -> "Your goal is still in view."
+                BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
+                    "Recent tweets brought a win and a lesson."
+                BriefCardType.POST in types -> "One recent tweet stood out."
+                BriefCardType.WORST_POST in types -> "One recent tweet offers a lesson."
+                upcomingTweets == 1 -> "One tweet is scheduled next."
+                upcomingTweets > 1 -> "$upcomingTweets tweets are scheduled next."
+                BriefCardType.TOP_FOLLOWER in types -> "Your top followers have changed."
+                BriefCardType.STREAK in types -> "Your posting rhythm is active."
+                BriefCardType.SCHEDULE_GUIDE in types -> "Your schedule has a useful next step."
+                BriefCardType.POST_FOLLOW_THROUGH in types -> "Your latest tweet offers a useful lesson."
+                BriefCardType.POSTING_GUIDE in types -> "Your recent tweets suggest a next step."
+                else -> "Watching for your next meaningful update."
+            }
+            if (followerSentence == null) return supportingSentence
+            val followerContext = when {
+                hasGoal && (followersToday > 0L || followersWeek > 0L) ->
+                    "That progress brings your goal closer."
+                else -> supportingSentence.takeUnless {
+                    it == "Watching for your next meaningful update."
+                }
+            }
+            val expanded = listOfNotNull(followerSentence, followerContext).joinToString(" ")
+            return expanded.takeIf { it.length <= MAX_SHORT_DESCRIPTION_LENGTH } ?: followerSentence
         }
 
         private fun followerOverview(today: Long, week: Long): String? = when {
@@ -259,21 +272,13 @@ data class BriefEditorialSummary(
             else -> null
         }
 
-        private fun compactFollowerOverview(today: Long, week: Long): String? = when {
-            today > 0L && week >= today -> "Up ${format(today)} today and ${format(week)} this week."
-            today > 0L -> "Up ${followers(today)} today."
-            today < 0L && week > 0L -> "Down ${format(-today)} today, but up ${format(week)} this week."
-            week > 0L -> "Up ${followers(week)} this week."
-            today < 0L -> "Down ${followers(-today)} today."
-            week < 0L -> "Down ${followers(-week)} this week."
-            else -> null
-        }
-
         private fun followers(value: Long): String = "${format(value)} ${if (value == 1L) "follower" else "followers"}"
 
         private fun format(value: Long): String = java.text.NumberFormat
             .getIntegerInstance()
             .format(value)
+
+        private const val MAX_SHORT_DESCRIPTION_LENGTH = 100
     }
 }
 

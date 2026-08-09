@@ -52,7 +52,7 @@ internal object BriefWidgetArtworkRenderer {
         iconSizeDp = minOf(heightDp * 0.245f, widthDp * 0.28f),
         titleSizeSp = 20f,
         bodySizeSp = 12f,
-        textGapDp = 2f,
+        textGapDp = 6f,
         titleWeight = 600,
     )
 
@@ -311,9 +311,9 @@ internal object BriefWidgetArtworkRenderer {
             this.color = color
             textSize = sizeSp * context.resources.displayMetrics.scaledDensity
             typeface = if (fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                TwidgetFonts.googleSansFlex(context, weight)
+                TwidgetFonts.googleSansFlex(context)
             } else {
-                TwidgetFonts.oneUiSansVariable(context, weight)
+                TwidgetFonts.oneUiSansVariable(context)
             }
             setFontVariationSettings("'wght' $weight")
         }
