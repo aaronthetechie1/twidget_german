@@ -160,9 +160,9 @@
     <string name="fxtwitter_explainer">FxTwitter ist eine kostenlose öffentliche API, die keine Zugangsdaten benötigt. Twidget ruft sie direkt von deinem Gerät aus auf. Bei aktiviertem geteilten Verlauf springt die Twidget-Bridge als Fallback ein.</string>
     <string name="bridge_explainer">Die geteilte Twidget-Bridge treibt den Community-Verlaufspool an und dient als Backup für FxTwitter, wenn dieses nicht verfügbar ist. Sie wird nur kontaktiert, wenn der geteilte Verlauf aktiviert ist oder eine Bridge-Quelle ausgewählt wurde.</string>
     <string name="self_hosted_explainer">Run your own self-hosted bridge and point Twidget to it. When the URL is empty, the shared Twidget bridge is used instead. The optional token is sent as a Bearer token to protected instances.</string>
-    <string name="source_info">About this source</string>
-    <string name="bridge_status">Bridge status</string>
-    <string name="self_hosted_status">Self-hosted status</string>
+    <string name="source_info">Über diese Quelle</string>
+    <string name="bridge_status">Bridge-Status</string>
+    <string name="self_hosted_status">Self-Hosted-Status</string>
     <string name="self_hosted_url_hint">Empty — the shared Twidget bridge is used</string>
     <string name="x_api_status">X API status</string>
     <string name="fxtwitter_status">FxTwitter status</string>

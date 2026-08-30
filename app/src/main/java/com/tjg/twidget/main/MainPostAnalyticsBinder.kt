@@ -233,7 +233,9 @@ internal class MainPostAnalyticsBinder(
 
     private fun postDate(post: PostSummary): String =
         if (post.timestamp > 0L) {
-            SimpleDateFormat("MMM d, h:mm a", Locale.US).format(Date(post.timestamp))
+            val locale = Locale.getDefault()
+            val pattern = if (locale.language == "de") "d. MMM, HH:mm" else "MMM d, h:mm a"
+            SimpleDateFormat(pattern, locale).format(Date(post.timestamp))
         } else {
             post.createdAt
         }

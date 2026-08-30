@@ -1195,11 +1195,15 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     }
 
     private fun queueDateTitle(value: Long?): String = value?.let {
-        val locale = Locale.getDefault()
-        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
+    val locale = Locale.getDefault()
+    val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
+    if (locale.language == "de") {
+        date.format(DateTimeFormatter.ofPattern("EEE, d. MMMM yyyy 'um' HH:mm", locale))
+    } else {
         val weekdayAndMonth = date.format(DateTimeFormatter.ofPattern("EEE, MMMM", locale))
         val time = date.format(DateTimeFormatter.ofPattern("h:mm a", locale))
         "$weekdayAndMonth ${date.dayOfMonth}${ordinalSuffix(date.dayOfMonth)}, ${date.year} at $time"
+    }
     } ?: getString(R.string.schedule_no_time)
 
     private fun ordinalSuffix(day: Int): String = when {

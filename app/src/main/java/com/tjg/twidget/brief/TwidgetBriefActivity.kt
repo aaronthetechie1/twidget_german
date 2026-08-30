@@ -771,10 +771,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun scheduleDate(timestamp: Long): String = if (timestamp > 0L) {
-        SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault()).format(Date(timestamp))
-    } else {
-        "Time unavailable"
-    }
+    val locale = Locale.getDefault()
+    val pattern = if (locale.language == "de") "EEE, d. MMM · HH:mm" else "EEE, MMM d · h:mm a"
+    SimpleDateFormat(pattern, locale).format(Date(timestamp))
+} else {
+    "Time unavailable"
+}
 
     private fun openSchedule(tweet: BriefUpcomingTweet) {
         reloadOnResume = true
@@ -1267,7 +1269,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     ).apply { topMargin = dp(top) }
 
     private fun postDate(post: PostSummary): String = if (post.timestamp > 0L) {
-        SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(post.timestamp))
+    val locale = Locale.getDefault()
+    val pattern = if (locale.language == "de") "d. MMM, HH:mm" else "MMM d, h:mm a"
+    SimpleDateFormat(pattern, locale).format(Date(post.timestamp))
     } else post.createdAt
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

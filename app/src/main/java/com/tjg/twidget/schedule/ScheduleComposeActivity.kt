@@ -412,9 +412,15 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
     }
     internal fun composeIsBusy(): Boolean = busy
     internal fun composeAvatarUsername(): String = requestedUsername().ifBlank { editorAccount }
-    internal fun composeTimeSummaryText(): String =
-        SimpleDateFormat("MMM d · h:mm a", Locale.getDefault()).format(editorTime.time)
-            .replace("AM", "am").replace("PM", "pm")
+    internal fun composeTimeSummaryText(): String {
+        val locale = Locale.getDefault()
+        return if (locale.language == "de") {
+            SimpleDateFormat("d. MMM · HH:mm", locale).format(editorTime.time)
+        } else {
+            SimpleDateFormat("MMM d · h:mm a", locale).format(editorTime.time)
+                .replace("AM", "am").replace("PM", "pm")
+        }
+    }
     internal fun composeDp(value: Int): Int = dp(value)
 
     private fun showPublicUrlDialog() {
