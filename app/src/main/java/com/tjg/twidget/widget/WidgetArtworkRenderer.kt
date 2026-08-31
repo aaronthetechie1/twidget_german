@@ -58,9 +58,23 @@ object WidgetArtworkRenderer {
         val footerHeight = if (mode == TwidgetWidget.LAYOUT_MODE_COMPACT_SQUARE) 20f * density else 26f * density
         val textMaxWidth = width - pad * 2
         val textMaxHeight = height - pad * 2 - footerHeight
-        val words = TwidgetWidget.followersInWords(stats.followersCount)
+        val localizedContext = when (settings.language) {
+            "de" -> context.createConfigurationContext(
+            android.content.res.Configuration(context.resources.configuration).apply {
+            setLocale(java.util.Locale.GERMAN)
+        }
+        )
+            "en" -> context.createConfigurationContext(
+            android.content.res.Configuration(context.resources.configuration).apply {
+            setLocale(java.util.Locale.ENGLISH)
+        }
+        )
+            else -> context
+        }
+
+        val words = TwidgetWidget.followersInWords(stats.followersCount, settings.language)
             .split(" ")
-            .filter { it.isNotBlank() } + context.getString(R.string.followers)
+            .filter { it.isNotBlank() } + localizedContext.getString(R.string.followers)
         val textSize = findTextSize(context, settings, words, textMaxWidth, textMaxHeight)
         val lines = wrapWords(context, settings, words, textMaxWidth, textSize)
         val lineHeight = textSize * 1.12f
@@ -310,7 +324,7 @@ object WidgetArtworkRenderer {
     private val SCALE_WORDS = setOf(
         "Thousand", "Million", "Billion", "Trillion", "Quadrillion", "Quintillion",
     )
-    private val CONNECTOR_WORDS = setOf("Hundred", "and")
+    private val CONNECTOR_WORDS = setOf("Hundred", "and", "Hundert", "hundert", "und")
 
     // Typographic role per word. TENS carries the loudest emphasis, ONES next,
     // HUNDRED anchors the scale, SOFT words (thousand/million/"and") recede, and
@@ -319,13 +333,18 @@ object WidgetArtworkRenderer {
     private enum class WordRole { TENS, ONES, HUNDRED, SOFT, LABEL, STRONG }
 
     private fun roleOf(context: Context, word: String): WordRole {
-        if (word.equals(context.getString(R.string.followers), ignoreCase = true)) return WordRole.LABEL
-        return when (val bare = word.trim(',')) {
-            in TENS_WORDS -> WordRole.TENS
-            in ONES_WORDS -> WordRole.ONES
-            in SCALE_WORDS -> WordRole.SOFT
-            in CONNECTOR_WORDS -> if (bare == "Hundred") WordRole.HUNDRED else WordRole.SOFT
-            else -> WordRole.STRONG // bare numerals or unknown tokens
+    val isLabel = word.equals("Follower", ignoreCase = true) ||
+                  word.equals("Followers", ignoreCase = true) ||
+                  word.equals(context.getString(R.string.followers), ignoreCase = true)
+
+    if (isLabel) return WordRole.LABEL
+
+    return when (val bare = word.trim(',')) {
+        in TENS_WORDS -> WordRole.TENS
+        in ONES_WORDS -> WordRole.ONES
+        in SCALE_WORDS -> WordRole.SOFT
+        in CONNECTOR_WORDS -> if (bare.equals("Hundred", ignoreCase = true) || bare.equals("Hundert", ignoreCase = true)) WordRole.HUNDRED else WordRole.SOFT
+        else -> WordRole.STRONG // bare numerals or unknown tokens
         }
     }
 

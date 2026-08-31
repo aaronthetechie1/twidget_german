@@ -88,6 +88,7 @@ data class TwidgetWidgetSettings(
     val colorMode: String,
     val fontFamily: String,
     val showDelta: Boolean = true,
+    val language: String = "DEFAULT",
 )
 
 enum class HistoryRange(val labelRes: Int, val requiredDays: Int) {
@@ -367,6 +368,7 @@ object TwidgetStore {
                 prefs.getString("widget_font_family$suffix", FONT_ONE_UI_SANS),
             ),
             showDelta = prefs.getBoolean("widget_show_delta$suffix", prefs.getBoolean("widget_show_delta", true)),
+            language = prefs.getString("widget_language$suffix", prefs.getString("widget_language", "DEFAULT")) ?: "DEFAULT",
         )
     }
 
@@ -381,6 +383,7 @@ object TwidgetStore {
             .putString("widget_color_mode$suffix", settings.colorMode)
             .putString("widget_font_family$suffix", normalizeWidgetFont(settings.fontFamily))
             .putBoolean("widget_show_delta$suffix", settings.showDelta)
+            .putString("widget_language$suffix", settings.language)
             .apply()
     }
 

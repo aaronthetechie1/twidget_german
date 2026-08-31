@@ -3,6 +3,10 @@
     <string name="app_name">Twidget</string>
     <string name="widget_description">Twitter Follower-Tracker mit Blur-Effekt-Widgets</string>
     <string name="widget_label">Twidget Follower</string>
+    <string name="widget_language">Sprache</string>
+    <string name="widget_language_default">App-Standard</string>
+    <string name="widget_language_de">Deutsch</string>
+    <string name="widget_language_en">Englisch (English)</string>
     <string name="lockscreen_follower_1x1_label">Follower 1x1</string>
     <string name="lockscreen_follower_2x1_label">Follower 2x1</string>
     <string name="dashboard_title">That Josh Guy</string>

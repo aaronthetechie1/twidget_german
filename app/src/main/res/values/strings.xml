@@ -3,6 +3,10 @@
     <string name="app_name">Twidget</string>
     <string name="widget_description">X/Twitter follower tracker with blurred home screen widgets</string>
     <string name="widget_label">Twidget Followers</string>
+    <string name="widget_language">Language</string>
+    <string name="widget_language_default">System default</string>
+    <string name="widget_language_de">German (Deutsch)</string>
+    <string name="widget_language_en">English</string>
     <string name="lockscreen_follower_1x1_label">Followers 1x1</string>
     <string name="lockscreen_follower_2x1_label">Followers 2x1</string>
     <string name="dashboard_title">That Josh Guy</string>
