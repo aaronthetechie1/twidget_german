@@ -347,9 +347,14 @@ open class TwidgetWidget : AppWidgetProvider() {
                 else -> Color.red(settings.tintColor) < 128
             }
 
-        private fun fullNumber(value: Long): String =
-            java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(value)
-
+        private fun fullNumber(value: Long, widgetSettings: TwidgetWidgetSettings? = null): String {
+            val locale = when (widgetSettings?.language?.lowercase()) {
+            "de" -> java.util.Locale.GERMAN
+            "en" -> java.util.Locale.US
+            else -> java.util.Locale.getDefault()
+            }
+        return java.text.NumberFormat.getIntegerInstance(locale).format(value)
+        }
         private fun dp(context: Context, value: Int): Int =
             (value * context.resources.displayMetrics.density).toInt()
 

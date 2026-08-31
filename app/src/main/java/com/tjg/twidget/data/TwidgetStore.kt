@@ -12,6 +12,8 @@ import com.tjg.twidget.schedule.json
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.MilestoneSettings
 import com.tjg.twidget.update.AppVersion
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -556,7 +558,9 @@ object TwidgetStore {
             }
             else -> false
         }
-        val labelFormat = SimpleDateFormat(if (monthly) "MMM" else "MMM d", Locale.US)
+        val locale = Locale.getDefault()
+        val pattern = if (monthly) "MMM" else if (locale.language == "de") "d. MMM" else "MMM d"
+        val labelFormat = SimpleDateFormat(pattern, locale)
         var previousEnd = rangeStart(all, range) - 1
         return bucketEnds(all, range).mapNotNull { end ->
             val bucketStart = previousEnd + 1
@@ -756,10 +760,24 @@ object TwidgetStore {
     fun followersDelta(context: Context, username: String = settings(context).username): Long =
         todayDelta(context, username) { it.followers }
 
-    fun compactNumber(value: Long): String = when {
-        abs(value) >= 1_000_000 -> String.format(Locale.US, "%.1fM", value / 1_000_000f)
-        abs(value) >= 10_000 -> "${value / 1_000}K"
-        else -> NumberFormat.getIntegerInstance(Locale.US).format(value)
+fun compactNumber(value: Long): String {
+        val isGerman = Locale.getDefault().language == "de"
+        val absValue = abs(value)
+        
+        val rawResult = when {
+            absValue >= 1_000_000 -> {
+                val formatted = String.format(Locale.US, "%.1fM", value / 1_000_000f)
+                if (isGerman) formatted.replace('.', ',') else formatted
+            }
+            absValue >= 10_000 -> {
+                "${value / 1_000}K"
+            }
+            else -> {
+                val formatted = NumberFormat.getIntegerInstance(Locale.US).format(value)
+                if (isGerman) formatted.replace(',', '.') else formatted
+            }
+        }
+        return rawResult
     }
 
     fun signedNumber(value: Long): String =
@@ -767,7 +785,9 @@ object TwidgetStore {
 
     fun lastSyncedText(context: Context, stats: ProfileStats = currentStats(context)): String {
         if (stats.syncedAt <= 0L) return context.getString(R.string.not_synced_yet)
-        val formatter = SimpleDateFormat("MMM d, h:mm a", Locale.US)
+        val locale = Locale.getDefault()
+        val pattern = if (locale.language == "de") "d. MMM, HH:mm" else "MMM d, h:mm a"
+        val formatter = SimpleDateFormat(pattern, locale)
         return context.getString(R.string.last_synced, formatter.format(Date(stats.syncedAt)))
     }
 
@@ -831,7 +851,10 @@ object TwidgetStore {
 
     private fun sampleFor(stats: ProfileStats): HistorySample =
         HistorySample(
-            dayLabel = SimpleDateFormat("MMM d", Locale.US).format(Date(stats.syncedAt)),
+            dayLabel = SimpleDateFormat(
+                if (Locale.getDefault().language == "de") "d. MMM" else "MMM d",
+                Locale.getDefault()
+    ).format(Date(stats.syncedAt)),
             followers = stats.followersCount,
             following = stats.followingsCount,
             posts = stats.statusesCount,
@@ -1038,7 +1061,9 @@ object TwidgetStore {
     )
 
     private fun demoHistory(): List<HistorySample> {
-        val formatter = SimpleDateFormat("MMM d", Locale.US)
+        val locale = Locale.getDefault()
+        val pattern = if (locale.language == "de") "d. MMM" else "MMM d"
+        val formatter = SimpleDateFormat(pattern, locale)
         val today = startOfDay(System.currentTimeMillis())
         val followerGains = listOf(25L, 40L, 30L, 38L, 22L, 52L, 109L)
         return followerGains.indices.map { index ->

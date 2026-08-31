@@ -170,7 +170,12 @@ object LockScreenFollowerViews {
         val account = widgetSettings.accountUsername.ifBlank { TwidgetStore.settings(context).username }
         val stats = TwidgetStore.currentStats(context, account)
         val delta = TwidgetStore.followersDelta(context, account)
-        val count = java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(stats.followersCount)
+        val locale = when (widgetSettings.language.lowercase()) {
+        "de" -> java.util.Locale.GERMAN
+        "en" -> java.util.Locale.US
+        else -> java.util.Locale.getDefault()
+        }
+        val count = java.text.NumberFormat.getIntegerInstance(locale).format(stats.followersCount)
         val deltaText = when {
             !widgetSettings.showDelta -> ""
             delta == 0L -> context.getString(R.string.followers).lowercase()

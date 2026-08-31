@@ -186,7 +186,12 @@ object WidgetArtworkRenderer {
         val canvas = Canvas(bitmap)
         if (drawBackground) drawWidgetBackground(context, canvas, width, height, settings, dark)
         val primary = if (dark) Color.WHITE else Color.BLACK
-        val value = java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(stats.followersCount)
+        val locale = when (settings.language.lowercase()) {
+        "de" -> java.util.Locale.GERMAN
+        "en" -> java.util.Locale.US
+        else -> java.util.Locale.getDefault()
+}
+val value = java.text.NumberFormat.getIntegerInstance(locale).format(stats.followersCount)
         val label = context.getString(R.string.followers)
 
         fun paintFor(weight: Int, color: Int, sizeSp: Float) =
