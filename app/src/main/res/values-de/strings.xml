@@ -336,7 +336,7 @@
     <string name="link_rettiwt">https://github.com/Rishikant181/Rettiwt-API</string>
     <string name="link_app_repo">https://github.com/thatjoshguy67/twidget</string>
     <string name="link_privacy_policy">https://tjg.gg/blog/twidget-privacy-policy</string>
-    <string name="sync_failed">Aktualisierung fehlgeschlagen. Gespeicherte Statistiken anzeigen.</string>
+    <string name="sync_failed">Aktualisierung fehlgeschlagen; gespeicherte Statistiken werden angezeigt.</string>
     <string name="onboarding_title">Twidget</string>
     <string name="onboarding_overview_title">Willkommen bei Twidget</string>
     <string name="onboarding_done_title">Du bist startklar!</string>

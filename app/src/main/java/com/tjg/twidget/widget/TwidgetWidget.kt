@@ -376,6 +376,7 @@ open class TwidgetWidget : AppWidgetProvider() {
             Html.fromHtml(html)
         }
     }
+    
     private fun ones(value: Long): String = when (value) {
         1L -> "One"
         2L -> "Two"
@@ -442,7 +443,7 @@ open class TwidgetWidget : AppWidgetProvider() {
 
         return listOf(hStr, remStr).filter { it.isNotEmpty() }.joinToString(" ")
     }
-    private fun hundreds(value: Long, isGerman: Boolean): String {
+     private fun hundreds(value: Long, isGerman: Boolean): String {
         if (value <= 0L) return ""
 
         return if (isGerman) {
@@ -459,13 +460,12 @@ open class TwidgetWidget : AppWidgetProvider() {
             buildString {
                 if (h > 0) {
                     if (h == 1) {
-                        append("<b>Einhundert</b>")
+                             append("<b>Ein</b> <b>Hundert</b>")
                     } else {
                         val hUnitWord = units[h].replaceFirstChar { it.uppercase() }
-                        append("<b>$hUnitWord</b> <b>hundert</b>")
+                        append("<b>$hUnitWord</b> <b>Hundert</b>")
                     }
                     if (rem > 0) append(" ")
-                }
                 }
                 if (rem > 0) {
                     if (rem < 20) {
@@ -489,35 +489,37 @@ open class TwidgetWidget : AppWidgetProvider() {
                     }
                 }
             }
-    } else {
-        val units = arrayOf(
-            "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-            "Seventeen", "Eighteen", "Nineteen"
-        )
-        val tens = arrayOf("", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety")
+        } else {
+            val unitsEng = arrayOf(
+                "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+                "Seventeen", "Eighteen", "Nineteen"
+            )
+            val tensEng = arrayOf("", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety")
 
-        val h = (value / 100).toInt()
-        val rem = (value % 100).toInt()
+            val h = (value / 100).toInt()
+            val rem = (value % 100).toInt()
 
-        buildString {
-            if (h > 0) {
-                append("<b>${units[h]}</b> <b>Hundred</b>")
-                if (rem > 0) append(" and ")
-            }
-            if (rem > 0) {
-                if (rem < 20) {
-                    append("<b>${units[rem]}</b>")
-                } else {
-                    val t = rem / 10
-                    val u = rem % 10
-                    append("<b>${tens[t]}</b>")
-                    if (u > 0) append(" <b>${units[u]}</b>")
+            buildString {
+                if (h > 0) {
+                    append("<b>${unitsEng[h]}</b> <b>Hundred</b>")
+                    if (rem > 0) append(" and ")
+                }
+                if (rem > 0) {
+                    if (rem < 20) {
+                        append("<b>${unitsEng[rem]}</b>")
+                    } else {
+                        val t = rem / 10
+                        val u = rem % 10
+                        append("<b>${tensEng[t]}</b>")
+                        if (u > 0) {
+                            append(" <b>${unitsEng[u]}</b>")
+                        }
+                    }
                 }
             }
         }
     }
-}
     private fun numberWords(value: Long, langSetting: String = "DEFAULT"): String {
         val locale = when (langSetting) {
             "de" -> Locale.GERMAN
