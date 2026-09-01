@@ -442,42 +442,53 @@ open class TwidgetWidget : AppWidgetProvider() {
 
         return listOf(hStr, remStr).filter { it.isNotEmpty() }.joinToString(" ")
     }
+    private fun hundreds(value: Long, isGerman: Boolean): String {
+        if (value <= 0L) return ""
 
-private fun hundreds(value: Long, isGerman: Boolean): String {
-    if (value <= 0L) return ""
+        return if (isGerman) {
+            val units = arrayOf(
+                "", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun",
+                "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn",
+                "siebzehn", "achtzehn", "neunzehn"
+            )
+            val tens = arrayOf("", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig")
 
-    return if (isGerman) {
-        val units = arrayOf(
-            "", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun",
-            "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn",
-            "siebzehn", "achtzehn", "neunzehn"
-        )
-        val tens = arrayOf("", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig")
+            val h = (value / 100).toInt()
+            val rem = (value % 100).toInt()
 
-        val h = (value / 100).toInt()
-        val rem = (value % 100).toInt()
+            buildString {
+                if (h > 0) {
+                    if (h == 1) {
+                        append("<b>Einhundert</b>")
+                    } else {
+                        val hUnitWord = units[h].replaceFirstChar { it.uppercase() }
+                        append("<b>$hUnitWord</b> <b>hundert</b>")
+                    }
+                    if (rem > 0) append(" ")
+                }
+                }
+                if (rem > 0) {
+                    if (rem < 20) {
+                        var word = if (rem == 1) "eins" else units[rem]
+                        word = word.replaceFirstChar { it.uppercase() }
+                        append("<b>$word</b>")
+                    } else {
+                        val t = rem / 10
+                        val u = rem % 10
+                        val tWord = tens[t]
+                        val uWord = if (u == 1) "ein" else units[u]
 
-        buildString {
-            if (h > 0) {
-                val hWord = if (h == 1) "Einhundert" else "${units[h].replaceFirstChar { it.uppercase() }}hundert"
-                append("<b>$hWord</b>")
-                if (rem > 0) append(" ")
-            }
-            if (rem > 0) {
-                if (rem < 20) {
-                    var word = if (rem == 1) "eins" else units[rem]
-                    word = word.replaceFirstChar { it.uppercase() }
-                    append("<b>$word</b>")
-                } else {
-                    val t = rem / 10
-                    val u = rem % 10
-                    val tWord = tens[t]
-                    val uWord = if (u == 1) "ein" else units[u]
-                    val combined = if (u > 0) "${uWord}und${tWord}" else tWord
-                    append("<b>${combined.replaceFirstChar { it.uppercase() }}</b>")
+                        if (u > 0) {
+                            val capitalizedU = uWord.replaceFirstChar { it.uppercase() }
+                            val capitalizedT = tWord.replaceFirstChar { it.uppercase() }
+                            append("<b>$capitalizedU</b> und <b>$capitalizedT</b>")
+                        } else {
+                            val capitalizedT = tWord.replaceFirstChar { it.uppercase() }
+                            append("<b>$capitalizedT</b>")
+                        }
+                    }
                 }
             }
-        }
     } else {
         val units = arrayOf(
             "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
@@ -556,7 +567,7 @@ private fun hundreds(value: Long, isGerman: Boolean): String {
             append(numberWords(leading, langSetting))
             append(" <b>$name</b>")
             if (remainder > 0) {
-                append(if (isGerman) " " else ", ")
+                append(if (isGerman) "\n" else ", ")
                 append(numberWords(remainder, langSetting))
             }
         }

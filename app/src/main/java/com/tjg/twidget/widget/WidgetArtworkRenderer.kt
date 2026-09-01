@@ -77,7 +77,12 @@ object WidgetArtworkRenderer {
             .filter { it.isNotBlank() } + localizedContext.getString(R.string.followers)
         val textSize = findTextSize(context, settings, words, textMaxWidth, textMaxHeight)
         val lines = wrapWords(context, settings, words, textMaxWidth, textSize)
-        val lineHeight = textSize * 1.12f
+        val isGerman = settings.language.lowercase() == "de" || 
+                       (settings.language.lowercase() == "default" && java.util.Locale.getDefault().language == "de")
+        
+        // Exklusiv für Deutsch ein gleichmäßigerer Faktor (z.B. 1.0f), sonst Standard (1.12f)
+        val lineHeightMultiplier = if (isGerman) 1.0f else 1.12f
+        val lineHeight = textSize * lineHeightMultiplier
         val top = pad + max(0f, (textMaxHeight - lines.size * lineHeight) / 2f) + textSize * 0.88f
 
         lines.forEachIndexed { lineIndex, line ->
@@ -126,7 +131,9 @@ object WidgetArtworkRenderer {
         maxHeight: Float,
     ): Float {
         var size = 42f * context.resources.displayMetrics.scaledDensity
-        val min = 15f * context.resources.displayMetrics.scaledDensity
+        val isGerman = settings.language.lowercase() == "de" || (settings.language.lowercase() == "default" && java.util.Locale.getDefault().language == "de")
+        val minFactor = if (isGerman) 11f else 15f
+        val min = minFactor * context.resources.displayMetrics.scaledDensity
         while (size > min) {
             val lines = wrapWords(context, settings, words, maxWidth, size)
             if (lines.size * size * 1.12f <= maxHeight) return size
@@ -134,7 +141,6 @@ object WidgetArtworkRenderer {
         }
         return min
     }
-
     private fun wrapWords(
         context: Context,
         settings: TwidgetWidgetSettings,
@@ -142,9 +148,6 @@ object WidgetArtworkRenderer {
         maxWidth: Float,
         textSize: Float,
     ): List<List<String>> {
-        // Measure each word with the paint it will actually be drawn with —
-        // per-word weight/width means a single measuring paint would misjudge
-        // the heavier emphasis words and overflow the card.
         fun measure(word: String) =
             wordPaint(context, settings, word, Color.BLACK, Color.BLACK).apply { this.textSize = textSize }
                 .measureText(word)
@@ -152,6 +155,7 @@ object WidgetArtworkRenderer {
         val lines = mutableListOf<MutableList<String>>()
         var current = mutableListOf<String>()
         var currentWidth = 0f
+
         words.forEach { word ->
             val width = measure(word)
             if (current.isNotEmpty() && currentWidth + space + width > maxWidth) {
@@ -165,7 +169,7 @@ object WidgetArtworkRenderer {
         if (current.isNotEmpty()) lines += current
         return lines
     }
-
+    
     // Numeric formats for the 2x1 and strip (3x1/4x1) sizes, drawn as bitmaps
     // because launchers ignore @font references when inflating RemoteViews.
     private fun renderCompact(
