@@ -12,7 +12,7 @@
     <string name="dashboard_title">That Josh Guy</string>
     <string name="last_synced">Synchr. %1$s</string>
     <string name="not_synced_yet">Nicht synchronisiert</string>
-    <string name="sync">Sync</string>
+    <string name="sync">Synchr.</string>
     <string name="add_widget_to_home">Widget zum Startbildschirm hinzufügen</string>
     <string name="settings">Einstellungen</string>
     <string name="widget_settings">Widget-Einstellungen</string>
@@ -31,7 +31,7 @@
     <string name="range_3m">3M</string>
     <string name="range_1y">1J</string>
     <string name="range_all_time">Alle</string>
-    <string name="chart_history_title">Metrik-Verlauf</string>
+    <string name="chart_history_title">Verlauf</string>
     <string name="chart_history_subtitle">%1$s-Ansicht · %2$d Tage erfasst</string>
     <string name="chart_range_locked">Du benötigst mindestens %1$d Tage Verlauf, um %2$s anzuzeigen.</string>
     <string name="follower_ratio">Follower-Quote</string>
@@ -48,11 +48,11 @@
     <string name="x_likes_received">Likes erhalten</string>
     <string name="x_analytics_days">%1$d Tage aus X Analytics CSV</string>
     <string name="import_x_analytics_hint">Ein X Analytics CSV importieren</string>
-    <string name="analytics_syncing">Synchronisiere Post-Analysen</string>
+    <string name="analytics_syncing">Post-Analysen synchronisieren</string>
     <string name="avg_per_post">%1$s Ø / Post</string>
     <string name="median_value">%1$s Median</string>
     <string name="across_posts">%1$d Posts analysiert</string>
-    <string name="posts_from_capped_status_sample">%1$d posts from a capped %2$d-status sample</string>
+    <string name="posts_from_capped_status_sample">%1$d Posts aus einer begrenzten %2$d-Status-Probe</string>
     <string name="analytics_blended_coverage">Kombinert: %1$d Posts + %2$d CSV-Tage</string>
     <string name="per_follower_pct">%1$s / Follower</string>
     <string name="post_analytics">Aktuelle Posts</string>
@@ -517,8 +517,8 @@
     <string name="schedule_compose_reply_setting">Alle können antworten</string>
     <string name="schedule_compose_post">Planen</string>
     <string name="schedule_compose_draft">Entwürfe</string>
-    <string name="schedule_compose_save">Speichern</string>
-    <string name="schedule_compose_title">Verfassen</string>
+    <string name="schedule_compose_save">Fertig</string>
+    <string name="schedule_compose_title">Compose</string>
     <string name="schedule_ready_now">Bereit zum Posten</string>
     <string name="schedule_post_now">Posten</string>
     <string name="schedule_paste_in_x">Tweet kopiert. Füge ihn in den X-Composer ein.</string>
