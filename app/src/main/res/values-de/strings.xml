@@ -300,7 +300,7 @@
     <string name="about_kingowen_title">KingOwenFYI</string>
     <string name="about_kingowen_summary">Mitwirkender, Motivator und Ideengeber</string>
     <string name="about_fxtwitter_title">FxTwitter / FxEmbed</string>
-    <string name="about_fxtwitter_summary">Standard-Datenquelle. Analysedaten für: Öffentliche Profile Status Medien und aktuelle Posts</string>
+    <string name="about_fxtwitter_summary">Standard-Datenquelle. Analysedaten für: Öffentliche Profile, Status, Medien, aktuelle Posts</string>
     <string name="about_oneui_summary">One UI-Oberflächenkomponenten. Die Magie hinter dem Design der App</string>
     <string name="about_legal_section">Rechtliches \u0026 Lizenzen</string>
     <string name="about_privacy_policy_title">Datenschutzbestimmungen</string>
@@ -324,7 +324,7 @@
     <string name="update_install_permission">Erlaube Twidget, Updates zu installieren, und kehre dann zurück, um fortzufahren.</string>
     <string name="update_invalid_apk">Das heruntergeladene Update ist kein gültiges Twidget-App-Paket.</string>
     <string name="update_notification_title">Twidget-Update verfügbar</string>
-    <string name="update_notification_body">Version %1$s ist beriet zur Installation</string>
+    <string name="update_notification_body">Version %1$s ist bereit zur Installation</string>
     <string name="update_notification_channel_description">Benachrichtigen, wenn eine neue Version von Twidget verfügbar ist</string>
     <string name="update_remind_later">Erinnere mich später</string>
     <string name="update_install_now">Jetzt installieren</string>
@@ -345,7 +345,7 @@
     <string name="get_started">Jetzt starten</string>
     <string name="add_to_home_screen">Zum Startbildschirm hinzufügen</string>
     <string name="skip">Überspringen</string>
-    <string name="onboarding_overview_summary">Twidget synchronisiert deine Abonnenten, jüngste Änderungen und One UI-Widgets über ein Profil.</string>
+    <string name="onboarding_overview_summary">Twidget synchronisiert deine Abonnenten, aktuelle Änderungen und One UI-Widgets über ein Profil.</string>
     <string name="onboarding_permissions_title">Berechtigungen</string>
     <string name="onboarding_required_permissions">Erforderliche Berechtigungen</string>
     <string name="onboarding_permission_notifications_title">Benachrichtigungen</string>
@@ -368,9 +368,9 @@
     <string name="onboarding_tip_stats_title">Live Follower-Stats</string>
     <string name="onboarding_tip_stats_summary">Synchronisiere Follower, gefolgte Konten, Beiträge und Likes für jedes öffentliche X-Profil.</string>
     <string name="onboarding_tip_widgets_title">Start- und Sperrbildschirm-Widgets</string>
-    <string name="onboarding_tip_widgets_summary">Übersichtliche One UI-Widgets mit Optionen für Blur, Tönung und Schriftarten.</string>
+    <string name="onboarding_tip_widgets_summary">Übersichtliche One-UI-Widgets mit Optionen für Blur, Tönung und Schriftarten.</string>
     <string name="onboarding_tip_accounts_title">Mehrere Accounts</string>
-    <string name="onboarding_tip_accounts_summary">Track several profiles and swipe between them in the app.</string>
+    <string name="onboarding_tip_accounts_summary">Tracke mehrere Profile. Du kannst zwischen ihnen in der App wechseln.</string>
     <string name="onboarding_widgets_summary">Du bist startklar. Füge jetzt ein Widget hinzu oder starte direkt in der App.</string>
     <string name="onboarding_widgets_home_title">Startbildschirm</string>
     <string name="onboarding_widgets_home_summary">Tippe unten auf „Widget hinzufügen“ und wähle einen Platz auf dem Startbildschirm aus.</string>
@@ -423,7 +423,7 @@
     <string name="bridge_log">Bridge-Log</string>
     <string name="bridge_log_summary">Zur Bridge gesendete und erhaltene Daten.</string>
     <string name="bridge_log_empty">Noch kein Bridge-Austausch aufgezeichnet</string>
-    <string name="bridge_log_request">Request body:</string>
+    <string name="bridge_log_request">Anfordern:</string>
     <string name="bridge_log_response">Antwort:</string>
     <string name="clear_log">Log leeren</string>
     <string name="copy">Kopieren</string>
@@ -642,7 +642,7 @@
     <string name="schedule_disconnect_buffer_summary">OAuth-Zugriff und Verknüpfte Kanäle von diesem Gerät entfernen</string>
     <string name="schedule_buffer_account">Buffer-X-Channel</string>
     <string name="schedule_buffer_mapping_required">Verknüpfe @%1$s zuerst in den Einstellungen mit einem verbundenen Buffer-X-Kanal.</string>
-    <string name="schedule_buffer_mapping_selected">Buffer X channel ausgewählt</string>
+    <string name="schedule_buffer_mapping_selected">Buffer-X-Channel ausgewählt</string>
     <string name="schedule_mapping_value">\@%1$s → \@%2$s</string>
     <string name="schedule_mapping_unset">\@%1$s → Nicht verknüpft</string>
     <string name="schedule_mapping_clear">Verknüpfung löschen</string>
