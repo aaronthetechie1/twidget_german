@@ -57,7 +57,7 @@
     <string name="per_follower_pct">%1$s / Follower</string>
     <string name="post_analytics">Aktuelle Posts</string>
     <string name="best_post">Bester Tweet dieser Woche</string>
-    <string name="only_post">Einziger Tweet diese Woche</string>
+    <string name="only_post">Einziger Tweet dieser Woche</string>
     <string name="worst_post">Ruhigster Tweet dieser Woche</string>
     <string name="all_time_banger">Allzeit-Banger</string>
     <string name="best_banger_found">Bester Banger gefunden</string>
@@ -125,7 +125,7 @@
     <string name="daily_streak_detail">Zählt originale Tweets auf X. Antworten, Reposts und Likes werden nicht gezählt.</string>
     <string name="daily_streak_days">%1$d Tage</string>
     <string name="daily_streak_none">Noch kein Streak</string>
-    <string name="per_range">%1$s / Range</string>
+    <string name="per_range">%1$s / Bereich</string>
     <string name="per_day">%1$s / Tag</string>
     <string name="more_followers_than_following">%1$s more Follower</string>
     <string name="fewer_followers_than_following">%1$s weniger Follower</string>
@@ -218,7 +218,7 @@
     <string name="import_accuracy_title">Daten überprüfen</string>
     <string name="import_accuracy_summary">Wir überprüfen deine Statistiken vor dem Import. Der Vorgang bricht ab, wenn die Statistiken ungenau sind.</string>
     <string name="import_for_account">Daten für @%1$s importieren?</string>
-    <string name="import_range">Range</string>
+    <string name="import_range">Bereich</string>
     <string name="import_detected_followers">Erkannte Follower-Zahl</string>
     <string name="import_followers_not_detected">Nicht in der CSV erkannt</string>
     <string name="import_followers_not_cached">Nicht zwischengepespeichert</string>
@@ -473,7 +473,7 @@
     <string name="schedule_view_list">Liste</string>
     <string name="schedule_view_calendar">Kalender</string>
     <string name="schedule_previous_month">Vorheriger Monat</string>
-    <string name="schedule_next_month">Nächster Monar</string>
+    <string name="schedule_next_month">Nächster Monat</string>
     <string name="schedule_agenda_for">Planung · %1$s</string>
     <string name="schedule_month_agenda">Geplant für %1$s</string>
     <string name="schedule_unscheduled_drafts">Entwürfe ohne Datum</string>
@@ -558,7 +558,7 @@
     <string name="schedule_post_hint">Was passiert gerade?</string>
     <string name="schedule_thread_item_description">Text für Thread-Element %1$d</string>
     <string name="schedule_add_local_media">Lokale Medien hinzufügen</string>
-    <string name="schedule_media_permission_failed">„Twidget konnte nicht auf dieses Medium zugreifen. Wähle eine andere Datei.</string>
+    <string name="schedule_media_permission_failed">Twidget konnte nicht auf dieses Medium zugreifen. Wähle eine andere Datei.</string>
     <string name="schedule_media_hosting">Medien-Hosting</string>
     <string name="schedule_cloudinary_cloud_name">Cloudinary-Cloudname</string>
     <string name="schedule_cloudinary_upload_preset">Cloudinary-Upload-Voreinstellung</string>
@@ -699,7 +699,7 @@
     <string name="top_followers_notification_title">Top-Follower für @%1$s bereit</string>
     <string name="top_followers_notification_leader">%1$s führt mit %2$s Followern</string>
     <string name="top_followers_new_high_ranking_title">Neuer Top-Follower bei @%1$s</string>
-    <string name="top_followers_new_high_ranking_detail"><string name="top_follower_milestone_notification">@%1$s folgt dir jetzt und ist Platz %2$d deiner Top-Follower</string></string>
+    <string name="top_followers_new_high_ranking_detail">@%1$s folgt dir jetzt und ist Platz %2$d deiner Top-Follower</string>
     <string name="top_followers_last_scan">Zul. gescannt: %1$s · %2$d Follower auf %3$d Seiten</string>
     <string name="top_followers_view_all">Mehr ansehen</string>
     <string name="top_followers_browse_title">Alle Follower</string>
