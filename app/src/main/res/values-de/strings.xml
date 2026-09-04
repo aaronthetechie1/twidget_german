@@ -113,7 +113,7 @@
     <string name="milestone_target_below_followers">Dein Ziel muss höher als deine jetzige Anzahl an Followern sein (%1$s).</string>
     <string name="milestone_goal_reached">Ziel erreicht!</string>
     <string name="milestone_edit_title">Follower-Ziel setzen</string>
-    <string name="milestone_edit_message">Trage den Wert als Nummer oder Wort ein, for example 100 or One Thousand.</string>
+    <string name="milestone_edit_message">Trage den Wert als Nummer oder Wort ein, zum Beispiel 100 oder One Thousand.</string>
     <string name="milestone_use_auto">Automatisch auswählen</string>
     <string name="milestone_edit_button">Bearbeiten</string>
     <string name="milestone_show_percent">Fortschritt in Prozent anzeigen</string>
@@ -127,7 +127,7 @@
     <string name="daily_streak_none">Noch kein Streak</string>
     <string name="per_range">%1$s / Bereich</string>
     <string name="per_day">%1$s / Tag</string>
-    <string name="more_followers_than_following">%1$s more Follower</string>
+    <string name="more_followers_than_following">%1$s mehr Follower</string>
     <string name="fewer_followers_than_following">%1$s weniger Follower</string>
     <string name="verified_public">Verifiziert öffentlich</string>
     <string name="verified_private">Verifiziert privat</string>
@@ -153,12 +153,12 @@
     <string name="share_history">Zum geteilten Verlauf beitragen</string>
     <string name="share_history_summary">Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
     <string name="share_history_onboarding_summary">Optional: Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
-    <string name="source_self_hosted">Self-Hosted Bridge</string>
+    <string name="source_self_hosted">Self-Hosted-Bridge</string>
     <string name="source_self_hosted_summary">Deine eigene Bridge benutzen</string>
     <string name="source_x_api">X API</string>
-    <string name="source_x_api_summary">Benötigt deinen eigenen bezahlten X API Zugriff</string>
+    <string name="source_x_api_summary">Benötigt deinen eigenen bezahlten X-API-Zugriff</string>
     <string name="advanced_options">Erweiterte Optionen</string>
-    <string name="advanced_options_summary">Self-Hosted- und X API-Quellen konfigurieren</string>
+    <string name="advanced_options_summary">Self-Hosted- und X-API-Quellen konfigurieren</string>
     <string name="x_api_explainer">Die offizielle X-API ist für den allgemeinen v2-Zugriff nicht kostenlos. Verwende deine eigenen Entwickler-Zugangsdaten aus einem Projekt mit aktivem kostenpflichtigen oder nutzungsbasierten X-API-Zugriff, und Twidget ruft X direkt von deinem Gerät aus auf.</string>
     <string name="x_api_explainer_short">Die offizielle X-API ist teuer und für ein kleines Projekt wie dieses nicht rentabel. Deshalb stellen wir sie nicht bereit. Du kannst bei Bedarf deine eigenen Zugangsdaten verwenden.</string>
     <string name="fxtwitter_explainer">FxTwitter ist eine kostenlose öffentliche API, die keine Zugangsdaten benötigt. Twidget ruft sie direkt von deinem Gerät aus auf. Bei aktiviertem geteilten Verlauf springt die Twidget-Bridge als Fallback ein.</string>
@@ -221,7 +221,7 @@
     <string name="import_range">Bereich</string>
     <string name="import_detected_followers">Erkannte Follower-Zahl</string>
     <string name="import_followers_not_detected">Nicht in der CSV erkannt</string>
-    <string name="import_followers_not_cached">Nicht zwischengepespeichert</string>
+    <string name="import_followers_not_cached">Nicht zwischengespeichert</string>
     <string name="import_metrics_detected">Account-Statistiken</string>
     <string name="import_metrics_detected_count">%1$d tägliche Statistiken erkannt</string>
     <string name="importing">Importieren</string>
@@ -291,7 +291,7 @@
     <string name="add_widget_requested">Wähle einen freien Platz auf dem Startbildschirm.</string>
     <string name="add_widget_not_supported">Dein Launcher unterstützt das direkte Hinzufügen von Widgets aus der App nicht.</string>
     <string name="about">Über</string>
-    <string name="about_summary">Twitter-Widget. Heißt einfach genau so. Schlau, oder?</string>
+    <string name="about_summary">Twitter-Widget. Verrät auch schon der Name. Schlau, oder?</string>
     <string name="about_developer_section">Erstellt von</string>
     <string name="about_credits_section">Danke an</string>
     <string name="about_projects_section">Open-Source-Projekte</string>
