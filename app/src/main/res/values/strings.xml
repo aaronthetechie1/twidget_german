@@ -111,7 +111,7 @@
     <string name="milestone_edit_title">Set follower milestone</string>
     <string name="milestone_edit_message">Enter a follower goal as a number or words, for example 100 or One Thousand.</string>
     <string name="language">Language</string>
-    <string name="language_system">System standard</string>
+    <string name="language_system">System default</string>
     <string name="language_german">German (Deutsch)</string>
     <string name="language_english">English</string>
     <string name="milestone_use_auto">Use auto milestone</string>
