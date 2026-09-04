@@ -12,8 +12,6 @@ import com.tjg.twidget.schedule.json
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.MilestoneSettings
 import com.tjg.twidget.update.AppVersion
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
