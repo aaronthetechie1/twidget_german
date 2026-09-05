@@ -245,7 +245,7 @@
     <string name="notices_empty_summary">Zum Aktualisieren nach unten ziehen. Veröffentlichte GitHub-Releases erscheinen hier automatisch.</string>
     <string name="notices_retry">Erneut versuchen</string>
     <string name="not_imported">Nicht importiert</string>
-    <string name="import_failure_default">Die Datei konnte nicht verifiziert werden.</string>
+    <string name="import_failure_default">Die Datei konnte nicht verifiziert werden</string>
     <string name="import_failure_range">Follower-Anzahl außerhalb des gültigen Bereichs</string>
     <string name="import_stored_followers">Gespeicherte Follower-Zahl</string>
     <string name="analytics_url">https://analytics.x.com/</string>
@@ -259,7 +259,7 @@
     <string name="analytics_import_confirm_local">%2$d Tage lokaler Follower-Verlauf in @%1$s importieren?\n\nZeitraum: \%3$s bis %4$s\nAktueller lokaler Stand: \%5$s Follower\n\nTwidget rekonstruiert die CSV aus täglichen Follows und Unfollows und gleicht jeden sich überschneidenden Tag mit vertrauenswürdigen lokalen Snapshots ab. Der Import wird verweigert, wenn der letzte Stand oder Trend zu stark abweicht. Es wird nichts hochgeladen.</string>
     <string name="analytics_import_checking_bridge">CSV wird mit Bridge-Verlauf abgeglichen…</string>
     <string name="analytics_import_busy">Twidget ist ausgelastet. Bitte versuche den Import später erneut.</string>
-    <string name="analytics_import_trend_mismatch">CSV-Trend stimmt nicht mit dem vertrauenswürdigen Follower-Verlauf überein</string>
+    <string name="analytics_import_trend_mismatch">CSV-Trend stimmt nicht mit dem vertrauenswürdigen Follower-Verlauf überein.</string>
     <string name="analytics_import_not_enough_history">Nicht genug vertrauenswürdiger Verlauf, um diese CSV sicher zu überprüfen.</string>
     <string name="analytics_import_private">Private Accounts können nicht zum geteilten Verlauf beitragen.</string>
     <string name="analytics_import_complete_bridge">%1$d verifizierte fehlende Tage nach Prüfung von %2$d vertrauenswürdigen Snapshots hinzugefügt.</string>
@@ -298,7 +298,7 @@
     <string name="about_tjg_title">That Josh Guy</string>
     <string name="about_tjg_summary">Hat die App erstellt. (und dabei viel zu viele Red Bulls konsumiert)</string>
     <string name="about_kingowen_title">KingOwenFYI</string>
-    <string name="about_kingowen_summary">Mitwirkender, Motivator und Ideengeber</string>
+    <string name="about_kingowen_summary">Mitwirkender, Motivator und Ideengeber.</string>
     <string name="about_fxtwitter_title">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Standard-Datenquelle. Analysedaten für: Öffentliche Profile, Status, Medien, aktuelle Posts</string>
     <string name="about_oneui_summary">One UI-Oberflächenkomponenten. Die Magie hinter dem Design der App</string>
@@ -320,11 +320,11 @@
     <string name="update_channel_stable">Stable Releases</string>
     <string name="update_channel_beta">Beta Releases</string>
     <string name="update_channel_debug">Debug Builds</string>
-    <string name="update_download_failed">Update konnte nicht heruntergeladen werden</string>
+    <string name="update_download_failed">Update konnte nicht heruntergeladen werden.</string>
     <string name="update_install_permission">Erlaube Twidget, Updates zu installieren, und kehre dann zurück, um fortzufahren.</string>
     <string name="update_invalid_apk">Das heruntergeladene Update ist kein gültiges Twidget-App-Paket.</string>
     <string name="update_notification_title">Twidget-Update verfügbar</string>
-    <string name="update_notification_body">Version %1$s ist bereit zur Installation</string>
+    <string name="update_notification_body">Version %1$s ist bereit zur Installation.</string>
     <string name="update_notification_channel_description">Benachrichtigen, wenn eine neue Version von Twidget verfügbar ist</string>
     <string name="update_remind_later">Erinnere mich später</string>
     <string name="update_install_now">Jetzt installieren</string>
@@ -379,8 +379,8 @@
     <string name="x_api_key">X-API-Key</string>
     <string name="x_api_secret">X-API-Secret</string>
     <string name="onboarding_username_label">X Benutzername</string>
-    <string name="onboarding_username_error">Gültigen X-Benutzernamen eingeben</string>
-    <string name="onboarding_account_not_found">Dieser X-Account wurde nicht gefunden. Überprüfe den Benutzernamen und versuche es erneut</string>
+    <string name="onboarding_username_error">Gültigen X-Benutzernamen eingeben.</string>
+    <string name="onboarding_account_not_found">Dieser X-Account wurde nicht gefunden. Überprüfe den Benutzernamen und versuche es erneut.</string>
     <string name="onboarding_account_check_failed">Dieses Konto konnte im Moment nicht überprüft werden. Prüfe deine Verbindung und versuche es erneut.</string>
     <string name="onboarding_checking_account">Account überprüfen…</string>
     <string name="continue_button">Weiter</string>
@@ -389,7 +389,7 @@
     <string name="debug_menu">Debug-Menü</string>
     <string name="debug_menu_unlocked">Debug-Menü entsperrt</string>
     <string name="debug_menu_already_unlocked">Debug-Menü bereits entsperrt</string>
-    <string name="debug_menu_countdown">%1$d Mal tippen, um das Debug-Menü zu entsperren.</string>
+    <string name="debug_menu_countdown">%1$d Mal tippen, um das Debug-Menü zu entsperren</string>
     <string name="hide_debug_menu">Debug-Menü ausblenden</string>
     <string name="debug_palette_category">App-Farbpalette</string>
     <string name="debug_palette_mode">Farbquelle</string>
@@ -413,7 +413,7 @@
     <string name="rerun_onboarding_summary">Ersteinrichtung zu Testzwecken neu starten</string>
     <string name="dummy_profile">Dummy-Profil</string>
     <string name="add_dummy_profile">Dummy-Profil hinzufügen</string>
-    <string name="add_dummy_profile_summary">Fügt \@%1$s mit Fake-Daten hinzu um das Widget auszutesten.</string>
+    <string name="add_dummy_profile_summary">Fügt \@%1$s mit Fake-Daten hinzu um das Widget auszutesten</string>
     <string name="dummy_follower_count">Follower-Zahl</string>
     <string name="remove_dummy_profile">Dummy-Profil entfernen</string>
     <string name="dummy_profile_added">Dummy-Profil hinzugefügt</string>
@@ -421,7 +421,7 @@
     <string name="trigger_fake_update">Fake-Update erzwingen</string>
     <string name="trigger_fake_update_summary">Update-Verfügbarkeit simulieren um die Benutzeroberfäche zu testen</string>
     <string name="bridge_log">Bridge-Log</string>
-    <string name="bridge_log_summary">Zur Bridge gesendete und erhaltene Daten.</string>
+    <string name="bridge_log_summary">Zur Bridge gesendete und erhaltene Daten</string>
     <string name="bridge_log_empty">Noch kein Bridge-Austausch aufgezeichnet</string>
     <string name="bridge_log_request">Anfordern:</string>
     <string name="bridge_log_response">Antwort:</string>
@@ -429,7 +429,7 @@
     <string name="copy">Kopieren</string>
     <string name="copied">Kopiert</string>
     <string name="brief_debug_title">Dein Briefing-Debug</string>
-    <string name="brief_debug_summary">Vorschau der Zustände und Untersuchung von Fakten, Ranking und Log der Brief-Engine anzeigen.</string>
+    <string name="brief_debug_summary">Vorschau der Zustände und Untersuchung von Fakten, Ranking und Log der Brief-Engine anzeigen</string>
     <string name="brief_debug_preview_category">Status-Vorschau</string>
     <string name="brief_debug_scenario">Briefing-Status</string>
     <string name="brief_debug_open_preview">Briefing-Vorschau öffnen</string>
@@ -440,7 +440,7 @@
     <string name="brief_debug_ranking_category">Kandidaten-Ranking</string>
     <string name="brief_debug_actions_category">Engine-Aktionen</string>
     <string name="brief_debug_refresh">Briefing neu generieren</string>
-    <string name="brief_debug_refresh_summary">Das Briefing öffnen, Den gesamten Inhalt neu bewerten und den konfigurierten AI-Provider erneut ausführen.</string>
+    <string name="brief_debug_refresh_summary">Das Briefing öffnen, Den gesamten Inhalt neu bewerten und den konfigurierten AI-Provider erneut ausführen</string>
     <string name="brief_debug_force_rebuild">Neuaufbau des Briefings erzwingen</string>
     <string name="brief_debug_force_rebuild_summary">Das gespeicherte tägliche Briefing ignorieren und jeden Kandidaten neu bewerten</string>
     <string name="brief_debug_rebuilt">Briefing neu erstellt</string>
@@ -455,7 +455,7 @@
     </plurals>
     <string name="brief_debug_nano_category">Diagnose für Gemini Nano</string>
     <string name="brief_debug_nano_model_mode">Nano-Modell-Konfiguration</string>
-    <string name="brief_debug_nano_checking">Gemini Nano prüfen...</string>
+    <string name="brief_debug_nano_checking">Gemini Nano prüfen…</string>
     <string name="brief_debug_nano_checking_summary">Abfrage von ML Kit GenAI and Android AICore</string>
     <string name="brief_debug_nano_in_use">Gemini Nano ist aktiv</string>
     <string name="brief_debug_nano_not_in_use">Gemini Nano wird nicht verwendet</string>
@@ -536,11 +536,11 @@
     <string name="schedule_camera_unavailable">Keine Kamera-App verfügbar</string>
     <string name="schedule_character_limit_over">Zeichenbegrenzung überschritten · %1$d +</string>
     <string name="schedule_standard_character_limit_over">Normale Zeichenbegrenzung überschritten · %1$d +</string>
-    <string name="schedule_character_limit_error">Kürze den Text bevor du ihn speicherst.</string>
+    <string name="schedule_character_limit_error">Kürze den Text bevor du ihn speicherst</string>
     <string name="schedule_compose_time_set">%1$s · %2$s</string>
     <string name="schedule_drafts">Entwürfe</string>
-    <string name="schedule_discard_title">Entwurf nicht speichern</string>
-    <string name="schedule_discard_message">Deine Änderungen gehen verloren</string>
+    <string name="schedule_discard_title">Entwurf nicht speichern?</string>
+    <string name="schedule_discard_message">Deine Änderungen gehen verloren.</string>
     <string name="schedule_discard">Verwerfen</string>
     <string name="schedule_thread">Thread</string>
     <string name="schedule_add_thread_item">Thread-Element hinzufügen</string>
