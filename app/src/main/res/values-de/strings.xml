@@ -255,8 +255,8 @@
     <string name="analytics_import_cannot_open">Twidget konnte diese Datei nicht öffnen.</string>
     <string name="analytics_import_unknown_error">Unbekannter Fehler beim Importieren aufgetreten.</string>
     <string name="analytics_import_failed">Datei öffnen: %1$s</string>
-    <string name="analytics_import_confirm_bridge">%2$d Tage Follower-Verlauf für @%1$s prüfen und beisteuern?\n\nZeitraum: %3$s bis \%4$s\nAktueller lokaler Stand: %5$s Follower\n\nDie Bridge ruft @\%1$s unabhängig ab, rekonstruiert die CSV aus täglichen Follows und Unfollows und gleicht sie mit gespeicherten Snapshots ab. Der Import wird verweigert, wenn der letzte Stand oder Trend zu stark abweicht.</string>
-    <string name="analytics_import_confirm_local">%2$d Tage lokaler Follower-Verlauf in @%1$s importieren?\n\nZeitraum: \%3$s bis %4$s\nAktueller lokaler Stand: \%5$s Follower\n\nTwidget rekonstruiert die CSV aus täglichen Follows und Unfollows und gleicht jeden sich überschneidenden Tag mit vertrauenswürdigen lokalen Snapshots ab. Der Import wird verweigert, wenn der letzte Stand oder Trend zu stark abweicht. Es wird nichts hochgeladen.</string>
+    <string name="analytics_import_confirm_bridge">%2$d Tage Follower-Verlauf für @%1$s prüfen und beisteuern?\n\nZeitraum: %3$s bis %4$s\nAktueller lokaler Stand: %5$s Follower\n\nDie Bridge ruft @\%1$s unabhängig ab, rekonstruiert die CSV aus täglichen Follows und Unfollows und gleicht sie mit gespeicherten Snapshots ab. Der Import wird verweigert, wenn der letzte Stand oder Trend zu stark abweicht.</string>
+    <string name="analytics_import_confirm_local">%2$d Tage lokaler Follower-Verlauf in @%1$s importieren?\n\nZeitraum: %3$s bis %4$s\nAktueller lokaler Stand: \%5$s Follower\n\nTwidget rekonstruiert die CSV aus täglichen Follows und Unfollows und gleicht jeden sich überschneidenden Tag mit vertrauenswürdigen lokalen Snapshots ab. Der Import wird verweigert, wenn der letzte Stand oder Trend zu stark abweicht. Es wird nichts hochgeladen.</string>
     <string name="analytics_import_checking_bridge">CSV wird mit Bridge-Verlauf abgeglichen…</string>
     <string name="analytics_import_busy">Twidget ist ausgelastet. Bitte versuche den Import später erneut.</string>
     <string name="analytics_import_trend_mismatch">CSV-Trend stimmt nicht mit dem vertrauenswürdigen Follower-Verlauf überein.</string>
@@ -580,7 +580,7 @@
     <string name="schedule_remove_media">Angehängte Medien entfernen</string>
     <string name="schedule_public_url_hint">https://example.com/image.jpg</string>
     <string name="schedule_add">+</string>
-    <string name="schedule_invalid_public_url">Eine gültige öffentiche HTTP or HTTPS URL eingeben.</string>
+    <string name="schedule_invalid_public_url">Eine gültige öffentliche HTTP oder HTTPS URL eingeben.</string>
     <string name="schedule_busy">Die Post-Planung ist zurzeit ausgelastet. Bitte versuche es später noch einmal.</string>
     <string name="schedule_library_empty">Es wurden keine verbundenen X Buffer-Channels gefunden.</string>
     <string name="schedule_buffer_account_required">Füge einen Account in Twidget hinzu, bevor du mit Buffer planen kannst.</string>
@@ -608,7 +608,7 @@
     <string name="schedule_copied">Text kopiert.</string>
     <string name="schedule_shared">Teilen-Menü geöffnet.</string>
     <string name="schedule_media_saved">%1$d Datei(en) in Downloads/Twidget gespeichert.</string>
-    <string name="schedule_media_saved_partial">%1$d Dateien(en) gespeichert. Speichern fehlgeschlagen: %2$s</string>
+    <string name="schedule_media_saved_partial">%1$d Datei(en) gespeichert. Speichern fehlgeschlagen: %2$s</string>
     <string name="schedule_media_save_failed">Medien konnten nicht gespeichert werden.</string>
     <string name="schedule_media_nothing_to_save">Keine Medien zum Herunterladen.</string>
     <string name="schedule_no_handler">Keine kompatible App verfügbar.</string>
@@ -692,7 +692,7 @@
     <string name="compact_followers">%1$s Follower</string>
     <string name="post_card_waiting">Noch kein Ergebnis für @%1$s</string>
     <string name="top_followers_notifications">Top-Follower-Benachrichtigungen</string>
-    <string name="top_followers_notifications_description">Benachrichtigt bei meuen Top-Followern oder wenn ein API-Scan abgeschlossen wird</string>
+    <string name="top_followers_notifications_description">Benachrichtigt bei neuen Top-Followern oder wenn ein API-Scan abgeschlossen wird</string>
     <string name="top_followers_progress_notifications">Scan-Fortschritt</string>
     <string name="top_followers_progress_notifications_description">Zeigt den Fortschritt während eines Top-Follower-Scans an</string>
     <string name="top_followers_progress_title">Top-Follower für @%1$s scannen</string>
@@ -709,7 +709,7 @@
     <string name="top_followers_filter_recent">Aktuell</string>
     <string name="top_followers_filter_verified">Verifiziert</string>
     <string name="top_followers_filter_mutual">Mutual</string>
-    <string name="top_followers_filter_mutual_unavailable">Mutual-Filter ist nicht für diese Datenquelle nicht verfügbar </string>
+    <string name="top_followers_filter_mutual_unavailable">Mutual-Filter ist nicht für diese Datenquelle verfügbar </string>
     <string name="top_followers_browse_count">%1$d Follower</string>
     <string name="status_configured">Konfiguriert</string>
     <string name="brief_title">Dein Briefing</string>
@@ -791,7 +791,7 @@
     <string name="brief_preview_body">Dein letzter Post bekommt immer mehr Reichweite. Du bist auf einem guten Weg.</string>
     <string name="brief_goal_heading">Dein %1$s-Ziel</string>
     <string name="brief_goal_close_heading">Du bist kurz vor deinem %1$s-Ziel</string>
-    <string name="brief_goal_reached_heading">Du hast dein %1$s -Ziel erreicht</string>
+    <string name="brief_goal_reached_heading">Du hast dein %1$s-Ziel erreicht</string>
     <string name="brief_streak_heading">Dein Posting-Streak</string>
     <string name="back">Zurück</string>
     <string name="info">Informationen</string>
