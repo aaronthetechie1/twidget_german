@@ -108,29 +108,43 @@ English.
   in a translation pull request. If you find a typo or unclear English
   string, open a separate issue or pull request.
 
+### Brief template copy
+
+The Brief engine writes its card titles, bodies, summary, and provider notes
+from resources too. Their names start with `brief_summary_`, `brief_short_`,
+`brief_followers_`, `brief_card_`, `brief_goal_`, `brief_guide_`,
+`brief_window_`, `brief_provider_note_`, `tweet_performance_`, and
+`milestone_noun_`. A few things to know when translating them:
+
+- Several are `<plurals>`; keep the `%1$s` placeholder that carries the
+  already-formatted number.
+- `brief_window_*` are inserted into `brief_guide_window_title` and
+  `brief_guide_window_body`, so make the pieces read naturally together
+  (German uses *am Vormittag*, for example).
+- `milestone_noun_*` are inserted into goal copy such as
+  `brief_goal_remaining_body`, `brief_goal_heading`, and the
+  `milestone_goal_*` strings, so check those sentences with each noun.
+- The Brief is generated once and cached. When the app language changes, the
+  next refresh rewrites the template copy and asks the AI (if enabled) to
+  write in the new language, so a stale-language Brief is expected only until
+  that refresh.
+
 ### What the resource files do not cover
 
-Some text is still generated in Kotlin without access to resources, so it
+A little text is still generated in Kotlin without access to resources, so it
 stays English in every language. Translators are not expected to fix this;
 it is tracked as maintainer work. Known areas:
 
-- **Brief AI text.** Card titles and bodies produced by the language model,
-  and the fallback summary shown when the model is unavailable
-  (`BriefEditorialSummary.from()` in `brief/BriefModels.kt`).
-- **Brief guidance cards.** Titles and bodies built by
-  `brief/BriefGuidePolicy.kt` (for example *Plan your next tweet*).
-- **Tweet performance explanations.** The *Why this tweet worked* reasons in
-  `analytics/PostAnalytics.kt`.
 - **Validation and failure messages** raised from data code, such as the
   scheduling checks in `schedule/ScheduleModels.kt`, analytics import checks
   in `data/TwidgetStore.kt`, and reminder scheduling failures in
   `schedule/ScheduleCoordinator.kt`.
 - **Debug-only text** in Brief diagnostics and the bridge log viewer.
 
-Everything else, including screens, dialogs, notifications, and widgets,
-should come from the resource files. If you see English elsewhere after
-switching language, mention it in your pull request so a maintainer can move
-the string into resources.
+Everything else, including screens, dialogs, notifications, widgets, and the
+Brief, should come from the resource files. If you see English elsewhere
+after switching language, mention it in your pull request so a maintainer can
+move the string into resources.
 
 ## Step 3: register the language in the app
 
