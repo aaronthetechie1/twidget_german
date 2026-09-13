@@ -38,7 +38,7 @@ Twidget may store the following in app-private storage:
   post counts, likes, verification status, and protected-account status;
 - local history samples and cached recent-post analytics;
 - imported X Analytics movements and metrics;
-- Top Followers scan results and resumable scan progress;
+- cached Top Followers rankings and follower lists;
 - Your Brief preferences, generated summaries and cards, goals, and streaks;
 - locally created post drafts, reminders, publishing state, and references to
   media explicitly selected through Android's system picker;
@@ -110,19 +110,20 @@ as described below.
 
 ### Top Followers and post analytics providers
 
-When shared history is enabled and no personal provider key is selected, a Top
-Followers request sends the selected public username to the Twidget bridge.
-The bridge reuses a recent completed scan when available or sends the username
-to TwitterAPIs using a server-held, rate-limited provider key. Completed lists
-are retained for up to 30 days by default and can be viewed by other opted-in
-Twidget installs tracking that public handle.
+Top Followers requires shared history to be enabled. Requests send the selected
+public username to the Twidget bridge. The bridge reuses a recent completed
+scan when available or sends the username to TwitterAPIs using a server-held,
+rate-limited provider key. Completed lists are retained for up to 30 days by
+default and can be viewed by other opted-in Twidget installs tracking that
+public handle. Twidget does not run Top Followers scans on the device. Turning
+off shared history stops new bridge requests; previously cached rankings can
+still be viewed on the device.
 
-When shared history is disabled, or when the user chooses a personal
-TwitterAPIs key or compatible official X API credentials, the scan runs from
-the device instead. Personal provider keys remain encrypted on the device and
-are not sent through the Twidget bridge. When TwitterAPIs is selected as the
-profile or post-analytics provider, the username is also sent for those
-requests.
+Personal TwitterAPIs keys and official X API credentials remain available for
+optional profile requests, and a personal TwitterAPIs key can also be used for
+post analytics. These requests send the username directly to the selected
+provider. Personal provider keys remain encrypted on the device and are not
+sent through the Twidget bridge.
 
 ### Buffer scheduling and Cloudinary media
 

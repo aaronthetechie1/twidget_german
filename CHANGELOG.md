@@ -4,6 +4,13 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+## [1.2.3] - 2026-09-13
+
+- Top Followers now uses the shared-history bridge in both distributions. Removed
+  device-side scans and foreground-service permissions, preserving cached
+  rankings and cancelling old queued scans when upgrading.
+- CI produces signed Play APK and AAB downloads alongside GitHub builds.
+
 - Added a Google Play distribution without APK updates, updater notifications,
   update badges, or install-package permission. GitHub builds retain the updater.
 - Updated privacy and Data safety disclosures for Your Brief, Gemini Cloud,
@@ -358,3 +365,5 @@ First public release of Twidget, an X/Twitter follower dashboard and Samsung One
 - Removed the onboarding widget preview's hard-coded follower delta; unknown movement is no longer displayed as an invented gain.
 
 [1.0.0]: https://github.com/thatjoshguy67/twidget/releases/tag/twidget-v1.0.0
+
+[1.2.3]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.1...twidget-v1.2.3

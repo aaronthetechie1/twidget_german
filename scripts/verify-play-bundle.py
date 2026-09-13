@@ -14,12 +14,16 @@ def verify(path):
             b"android.permission.REQUEST_INSTALL_PACKAGES",
             b".update_files",
             b"UpdateReminderReceiver",
+            b"android.permission.FOREGROUND_SERVICE",
+            b"android.permission.POST_PROMOTED_NOTIFICATIONS",
+            b"androidx.work.impl.foreground.SystemForegroundService",
         )
         forbidden_code = (
             b"android.intent.action.INSTALL_PACKAGE",
             b"android.settings.MANAGE_UNKNOWN_APP_SOURCES",
             b"twidget-debug-latest.apk",
             b"APK download failed with HTTP",
+            b"https://api.twitterapis.com/twitter/user/followers_v2",
         )
         for names, markers in ((manifests, forbidden_manifest), (dex_files, forbidden_code)):
             for name in names:
@@ -27,7 +31,7 @@ def verify(path):
                 for marker in markers:
                     if marker in data:
                         raise ValueError(f"{name} still contains {marker.decode()}")
-    print("Play bundle verified: no sideload permission, provider, receiver or APK install/download code")
+    print("Play bundle verified: no APK updater, foreground service or on-device follower scan endpoint")
 
 
 if __name__ == "__main__":

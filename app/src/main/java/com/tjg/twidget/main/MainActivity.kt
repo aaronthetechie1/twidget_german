@@ -29,7 +29,7 @@ import com.tjg.twidget.analytics.XAnalyticsMovement
 import com.tjg.twidget.banger.BangerScanWorker
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.TwidgetStore
-import com.tjg.twidget.followers.TopFollowersScanWorker
+import com.tjg.twidget.followers.TopFollowersBridgeSyncWorker
 import com.tjg.twidget.notices.NoticeBadgeDrawable
 import com.tjg.twidget.notices.NoticesActivity
 import com.tjg.twidget.notices.ReleaseNoticesStore
@@ -76,7 +76,7 @@ class MainActivity : ScheduleQueueHostActivity() {
 
     private val topFollowersUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val username = intent?.getStringExtra(TopFollowersScanWorker.EXTRA_USERNAME) ?: return
+            val username = intent?.getStringExtra(TopFollowersBridgeSyncWorker.EXTRA_USERNAME) ?: return
             if (!username.equals(selectedAccount, ignoreCase = true) || isFinishing || isDestroyed) return
             dashboardBinder.bindContent()
         }
@@ -185,7 +185,7 @@ class MainActivity : ScheduleQueueHostActivity() {
         ContextCompat.registerReceiver(
             this,
             topFollowersUpdateReceiver,
-            IntentFilter(TopFollowersScanWorker.ACTION_UPDATED),
+            IntentFilter(TopFollowersBridgeSyncWorker.ACTION_UPDATED),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
     }

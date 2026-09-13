@@ -173,7 +173,6 @@ class SettingsAdvancedPreferenceFragment : InsetPreferenceFragment() {
 
     private fun twitterApisKeySummary(personalKey: String): String = when {
         personalKey.isNotBlank() -> getString(R.string.twitterapis_personal_key_active, maskedToken(personalKey))
-        TwitterApisClient.hasTopFollowersAccess(requireContext()) -> getString(R.string.twitterapis_trial_key_active)
         else -> getString(R.string.twitterapis_no_key_available)
     }
 

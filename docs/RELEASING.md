@@ -42,8 +42,10 @@ printf "%s" "$TWITTERAPIS_API_KEY" | railway variable set TWITTERAPIS_API_KEY --
 
 For local bridge development, set `TWITTERAPIS_API_KEY` only in the bridge
 process environment. Android builds deliberately contain no included provider
-credential; users who do not opt into shared history need their own provider
-credentials for Top Followers scans.
+credential. Top Followers always uses the bridge and requires shared-history
+consent. Personal provider credentials are only used for profiles and post
+analytics. Both distributions omit foreground-service permissions and migrate
+away from any previously queued device-side follower scans.
 
 ## Stable release checklist
 

@@ -4,11 +4,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Lets Android 16 QPR2+ and supporting OEM surfaces promote an active
-         scan to a Live Update. This is a normal, non-runtime permission. -->
-    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Top Followers scans run on the bridge. Remove WorkManager's optional foreground
+         service declarations as well as the app's former data-sync permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
@@ -247,12 +246,9 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
 
-        <!-- Top-follower scans become foreground data-sync work when the app
-             leaves the screen, allowing the paid paginated scan to continue. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
-            android:foregroundServiceType="dataSync"
-            tools:node="merge" />
+            tools:node="remove" />
 
         <receiver
             android:name=".TwidgetWidget"

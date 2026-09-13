@@ -1,9 +1,6 @@
 package com.tjg.twidget.followers
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -17,8 +14,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.SearchView
-import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
 import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -47,16 +42,6 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private var refreshItem: MenuItem? = null
     private var refreshGeneration = 0
     private var refreshing = false
-    private var waitingForScan = false
-    private var scanShowOutcome = false
-    private val scanUpdateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val updated = intent?.getStringExtra(TopFollowersScanWorker.EXTRA_USERNAME).orEmpty()
-            if (!updated.equals(username, ignoreCase = true) || !waitingForScan) return
-            handleScanUpdate()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_top_followers_browse)
@@ -155,29 +140,12 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
         return true
     }
 
-    override fun onStart() {
-        super.onStart()
-        ContextCompat.registerReceiver(
-            this,
-            scanUpdateReceiver,
-            IntentFilter(TopFollowersScanWorker.ACTION_UPDATED),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
-        if (waitingForScan) handleScanUpdate()
-    }
-
-    override fun onStop() {
-        runCatching { unregisterReceiver(scanUpdateReceiver) }
-        super.onStop()
-    }
-
     override fun onDestroy() {
         refreshGeneration += 1
         super.onDestroy()
     }
 
     private fun refreshMode(): TopFollowersBrowserRefreshMode = selectTopFollowersBrowserRefreshMode(
-        linkedApiAvailable = TopFollowersScanWorker.linkedApiScanSource(this) != null,
         shareHistory = TwidgetStore.settings(this).shareHistory,
     )
 
@@ -186,48 +154,8 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private fun refreshFollowers(showOutcome: Boolean) {
         if (refreshing) return
         when (refreshMode()) {
-            TopFollowersBrowserRefreshMode.LINKED_API_RESCAN -> confirmLinkedApiRescan(showOutcome)
             TopFollowersBrowserRefreshMode.BRIDGE_DOWNLOAD -> refreshArchive(showOutcome)
             TopFollowersBrowserRefreshMode.UNAVAILABLE -> refreshView.isRefreshing = false
-        }
-    }
-
-    private fun confirmLinkedApiRescan(showOutcome: Boolean) {
-        refreshView.isRefreshing = false
-        AlertDialog.Builder(this)
-            .setTitle(R.string.top_followers_browser_rescan_title)
-            .setMessage(R.string.top_followers_browser_rescan_message)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.top_followers_start) { _, _ -> startLinkedApiRescan(showOutcome) }
-            .show()
-    }
-
-    private fun startLinkedApiRescan(showOutcome: Boolean) {
-        beginRefresh()
-        waitingForScan = true
-        scanShowOutcome = showOutcome
-        when (TopFollowersScanWorker.enqueueLinkedApiRefresh(this, username)) {
-            TopFollowersScanStart.STARTED -> if (showOutcome) {
-                Toast.makeText(this, R.string.top_followers_browser_rescan_started, Toast.LENGTH_SHORT).show()
-            }
-            TopFollowersScanStart.ALREADY_SCANNED_TODAY,
-            TopFollowersScanStart.NO_API_KEY -> {
-                waitingForScan = false
-                finishArchiveRefresh(refreshGeneration, null, showOutcome)
-            }
-        }
-    }
-
-    private fun handleScanUpdate() {
-        val state = TopFollowersStore.read(this, username)
-        when {
-            state.complete && !state.scanning && state.activeRunId.isBlank() -> {
-                val followers = TopFollowersArchiveStore.readAll(this, username)
-                    .takeIf { it.isNotEmpty() }
-                finishArchiveRefresh(refreshGeneration, followers, scanShowOutcome)
-            }
-            state.error.isNotBlank() && !state.scanning ->
-                finishArchiveRefresh(refreshGeneration, null, scanShowOutcome)
         }
     }
 
@@ -256,7 +184,6 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
     private fun beginRefresh() {
         refreshing = true
-        waitingForScan = false
         refreshItem?.isEnabled = false
         refreshView.isRefreshing = true
         refreshGeneration += 1
@@ -269,7 +196,6 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     ) {
         if (generation != refreshGeneration || isFinishing || isDestroyed) return
         refreshing = false
-        waitingForScan = false
         refreshItem?.isEnabled = true
         refreshView.isRefreshing = false
         if (followers != null) {
@@ -455,16 +381,13 @@ internal object TopFollowersBrowserRefreshPolicy {
 }
 
 internal enum class TopFollowersBrowserRefreshMode {
-    LINKED_API_RESCAN,
     BRIDGE_DOWNLOAD,
     UNAVAILABLE,
 }
 
 internal fun selectTopFollowersBrowserRefreshMode(
-    linkedApiAvailable: Boolean,
     shareHistory: Boolean,
 ): TopFollowersBrowserRefreshMode = when {
-    linkedApiAvailable -> TopFollowersBrowserRefreshMode.LINKED_API_RESCAN
     shareHistory -> TopFollowersBrowserRefreshMode.BRIDGE_DOWNLOAD
     else -> TopFollowersBrowserRefreshMode.UNAVAILABLE
 }

@@ -399,7 +399,6 @@ internal class MainDashboardBinder(
     private fun createTopFollowersCard(account: String): View {
         return TopFollowersCardBinder(
             activity = activity,
-            onStateChanged = { activity.dashboardBinder.bindContent() },
             requestNotificationPermission = { activity.requestTopFollowersNotificationPermission() },
         ).create(account)
     }
