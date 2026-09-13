@@ -33,13 +33,25 @@ names() {
         | sort
 }
 
-# Prints name<TAB>text for single-line <string> elements, used to spot
-# entries that still contain the English text.
+# Prints name<TAB>text for every translatable <string> and <plurals> element
+# (plural items are joined into one line), used to spot entries that still
+# contain the English text.
 texts() {
-    grep -h -E '^\s*<string name="' "$@" \
-        | grep -v 'translatable="false"' \
-        | sed -E 's/^\s*<string name="([^"]+)"[^>]*>(.*)<\/string>\s*$/\1\t\2/' \
-        | sort
+    awk '
+        function resource_name(line) {
+            match(line, /name="[^"]+"/)
+            return substr(line, RSTART + 6, RLENGTH - 7)
+        }
+        in_plural && /<\/plurals>/ { print name "\t" body; in_plural = 0; next }
+        in_plural { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); body = body $0; next }
+        /^[[:space:]]*<plurals name="/ { name = resource_name($0); body = ""; in_plural = 1; next }
+        /^[[:space:]]*<string name="/ && !/translatable="false"/ {
+            text = $0
+            sub(/^[^>]*>/, "", text)
+            sub(/<\/string>[[:space:]]*$/, "", text)
+            print resource_name($0) "\t" text
+        }
+    ' "$@" | sort
 }
 
 default_files=()
