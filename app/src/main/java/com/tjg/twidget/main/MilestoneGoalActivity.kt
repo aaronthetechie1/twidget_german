@@ -80,7 +80,7 @@ class MilestoneGoalActivity : EdgeToEdgeActivity() {
         getEndImageView().apply {
             setImageResource(OneUiIconR.drawable.ic_oui_edit_outline)
             imageTintList = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
-            contentDescription = getString(R.string.milestone_edit_goal_title, metric.goalNoun(this))
+            contentDescription = getString(R.string.milestone_edit_goal_title, metric.goalNoun(context))
         }
         contentDescription = buildString {
             append(getString(metricLabel(metric)))
