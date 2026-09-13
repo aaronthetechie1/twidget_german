@@ -2,6 +2,23 @@
 
 All notable changes to Twidget are documented here.
 
+## [1.2.1] - 2026-09-13
+
+A localisation patch. German now covers the rest of the app, and the repo has
+a guide for adding more languages.
+
+- **German localisation.** Brief cards, summaries, and goal copy now follow
+  the app language. So do notifications, dashboard insights, and the
+  milestone, streak, and Top Followers screens. Widget deltas and the update
+  notification were tightened, widget language says **App default** instead
+  of system default, and changing language rebuilds Brief as well as the
+  widgets. Thanks again to [Aaron the Techie](https://x.com/aaronthetechie).
+- **Localisation docs.** [`docs/LOCALISATION.md`](docs/LOCALISATION.md) and
+  `scripts/translations.sh` explain how to add a language, keep Android and
+  Brief copy in sync, and check what is still English-only.
+
+[1.2.1]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.0...twidget-v1.2.1
+
 ## [1.2.0] - 2026-09-12
 
 Make Twidget more personal with Your Brief, new ways to follow your progress,
