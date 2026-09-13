@@ -8,25 +8,12 @@
         <item name="drawerSelectedBackgroundColor">@color/oneui_drawer_selected_bg</item>
     </style>
 
-    <!-- Figma Settings typography applied to the existing One UI components. -->
+    <!-- Settings spacing; typography inherits the One UI component defaults. -->
     <style name="Theme.Twidget.Settings" parent="Theme.Twidget">
         <item name="listPreferredItemHeightSmall">@dimen/settings_row_height</item>
         <item name="android:listPreferredItemHeightSmall">@dimen/settings_row_height</item>
         <item name="android:listPreferredItemPaddingStart">@dimen/settings_content_inset</item>
         <item name="android:listPreferredItemPaddingEnd">@dimen/settings_content_inset</item>
-        <item name="textAppearanceListItem">@style/TextAppearance.Twidget.Settings.Title</item>
-        <item name="android:textAppearanceListItem">@style/TextAppearance.Twidget.Settings.Title</item>
-        <item name="android:textAppearanceSmall">@style/TextAppearance.Twidget.Settings.Summary</item>
-    </style>
-    <style name="TextAppearance.Twidget.Settings.Title" parent="TextAppearance.AppCompat.Body1">
-        <item name="android:textSize">18sp</item>
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-        <item name="android:fontFamily">@font/one_ui_sans</item>
-    </style>
-    <style name="TextAppearance.Twidget.Settings.Summary" parent="TextAppearance.AppCompat.Caption">
-        <item name="android:textSize">14sp</item>
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
-        <item name="android:fontFamily">@font/one_ui_sans</item>
     </style>
 
     <style name="Theme.Twidget.Launcher" parent="Theme.Twidget" />
