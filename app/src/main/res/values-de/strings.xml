@@ -310,6 +310,7 @@
     <string name="update_invalid_apk">Das heruntergeladene Update ist kein gültiges Twidget-App-Paket.</string>
     <string name="update_notification_title">Twidget-Update verfügbar</string>
     <string name="update_notification_body">Version %1$s ist bereit zur Installation.</string>
+    <string name="update_notification_channel_name">App-Updates</string>
     <string name="update_notification_channel_description">Benachrichtigen, wenn eine neue Version von Twidget verfügbar ist</string>
     <string name="update_remind_later">Erinnere mich später</string>
     <string name="update_install_now">Jetzt installieren</string>
@@ -502,6 +503,13 @@
     <string name="schedule_buffer_failed_fallback">Buffer hat einen Fehler bei der Veröffentlichung gemeldet.</string>
     <string name="schedule_buffer_failed_detail">%1$s\n\nPost: %2$s</string>
     <string name="schedule_local_reminder_title">Es ist Zeit, deinen geplanten Tweet zu veröffentlichen</string>
+    <string name="schedule_local_reminder_media_preview">Medienbeitrag bereit zur Veröffentlichung</string>
+    <string name="schedule_local_reminder_action_checklist">Checkliste öffnen</string>
+    <string name="schedule_local_reminder_action_compose">Auf X verfassen</string>
+    <string name="schedule_reminder_channel_name">Erinnerungen an geplante Tweets</string>
+    <string name="schedule_reminder_channel_description">Erinnerungen, lokal geplante Tweets fertigzustellen und zu veröffentlichen</string>
+    <string name="schedule_buffer_status_channel_name">Buffer-Veröffentlichung</string>
+    <string name="schedule_buffer_status_channel_description">Meldet erfolgreiche und fehlgeschlagene Veröffentlichungsversuche über Buffer</string>
     <string name="schedule_queue_local_account">@%1$s · Lokale Entwürfe</string>
     <string name="schedule_queue_buffer_pending">Buffer X-Channel</string>
     <string name="schedule_more_actions">Mehr Aktionen</string>
