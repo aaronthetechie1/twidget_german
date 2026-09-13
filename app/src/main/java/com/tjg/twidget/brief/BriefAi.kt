@@ -12,6 +12,7 @@ import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.generationConfig
 import com.google.mlkit.genai.prompt.modelConfig
+import com.tjg.twidget.R
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.widget.TwidgetBriefWidget
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 enum class BriefLocalStatus { AVAILABLE, DOWNLOADABLE, DOWNLOADING, UNAVAILABLE }
 
@@ -79,10 +81,11 @@ object BriefAiCoordinator {
     ): BriefAiResult = withContext(Dispatchers.IO) {
         generationMutex.withLock {
             val mode = BriefSettingsStore.provider(context)
+            val strings = BriefStrings.from(context)
             val cached = if (force) {
                 source
             } else {
-                BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source)
+                BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source, strings)
             }
             if (!force && cachedProviderMatches(mode, cached.providerUsed)) {
                 if (cached !== source) BriefStore.write(context, cached)
@@ -112,28 +115,28 @@ object BriefAiCoordinator {
             val generated = when (mode) {
                 BriefProviderMode.LOCAL -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                    GeminiNanoBriefProvider.generate(context, source)?.copy(
-                        providerMessage = "Written privately with Gemini Nano on this device",
+                    GeminiNanoBriefProvider.generate(context, source, strings)?.copy(
+                        providerMessage = strings.text(R.string.brief_provider_note_nano),
                     )
                 }
                 BriefProviderMode.CLOUD -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                    GeminiCloudBriefProvider.generate(context, source)?.copy(
-                        providerMessage = "Written with Gemini Cloud using your API key",
+                    GeminiCloudBriefProvider.generate(context, source, strings)?.copy(
+                        providerMessage = strings.text(R.string.brief_provider_note_cloud),
                     )
                 }
                 BriefProviderMode.AUTO -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                    GeminiNanoBriefProvider.generate(context, source)?.copy(
-                        providerMessage = "Written privately with Gemini Nano on this device",
+                    GeminiNanoBriefProvider.generate(context, source, strings)?.copy(
+                        providerMessage = strings.text(R.string.brief_provider_note_nano),
                     ) ?: run {
                         BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                        GeminiCloudBriefProvider.generate(context, source)?.copy(
-                            providerMessage = "Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key",
+                        GeminiCloudBriefProvider.generate(context, source, strings)?.copy(
+                            providerMessage = strings.text(R.string.brief_provider_note_nano_then_cloud),
                         )
                     }
                 }
-            } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context))
+            } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context, strings))
 
             BriefAiDiagnosticsStore.outcome(context, generated.providerUsed, generated.providerMessage)
             BriefStore.write(context, generated)
@@ -166,22 +169,25 @@ object BriefAiCoordinator {
         mode: BriefProviderMode,
         localStatus: BriefLocalStatus,
         context: Context,
-    ): String = when {
-        mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.DOWNLOADABLE ->
-            "Gemini Nano is supported and ready to download"
-        mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.DOWNLOADING ->
-            "Gemini Nano is still downloading"
-        mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.AVAILABLE ->
-            "Gemini Nano is available, but couldn’t complete this Brief"
-        mode == BriefProviderMode.LOCAL -> "Gemini Nano isn’t available on this device"
-        mode == BriefProviderMode.CLOUD && BriefSettingsStore.cloudApiKey(context).isBlank() ->
-            "Add a Gemini API key in Settings to enable cloud writing"
-        mode == BriefProviderMode.AUTO && localStatus == BriefLocalStatus.DOWNLOADABLE ->
-            "Gemini Nano is ready to download; using private factual copy for now"
-        mode == BriefProviderMode.AUTO && BriefSettingsStore.cloudApiKey(context).isBlank() ->
-            "No AI provider is ready; using private factual copy"
-        else -> "AI wasn’t reachable; using private factual copy"
-    }
+        strings: BriefStrings,
+    ): String = strings.text(
+        when {
+            mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.DOWNLOADABLE ->
+                R.string.brief_provider_note_nano_downloadable
+            mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.DOWNLOADING ->
+                R.string.brief_provider_note_nano_downloading
+            mode == BriefProviderMode.LOCAL && localStatus == BriefLocalStatus.AVAILABLE ->
+                R.string.brief_provider_note_nano_failed
+            mode == BriefProviderMode.LOCAL -> R.string.brief_provider_note_nano_unavailable
+            mode == BriefProviderMode.CLOUD && BriefSettingsStore.cloudApiKey(context).isBlank() ->
+                R.string.brief_provider_note_cloud_needs_key
+            mode == BriefProviderMode.AUTO && localStatus == BriefLocalStatus.DOWNLOADABLE ->
+                R.string.brief_provider_note_auto_downloadable
+            mode == BriefProviderMode.AUTO && BriefSettingsStore.cloudApiKey(context).isBlank() ->
+                R.string.brief_provider_note_auto_none
+            else -> R.string.brief_provider_note_unreachable
+        },
+    )
 
     private fun cachedProviderMatches(
         mode: BriefProviderMode,
@@ -254,7 +260,7 @@ private object GeminiNanoBriefProvider {
         NanoProbe(BriefLocalStatus.UNAVAILABLE, reason, selectedMode = mode)
     }
 
-    suspend fun generate(context: Context, source: BriefSnapshot): BriefSnapshot? {
+    suspend fun generate(context: Context, source: BriefSnapshot, strings: BriefStrings): BriefSnapshot? {
         val probe = probe(context)
         if (probe.status != BriefLocalStatus.AVAILABLE) {
             BriefAiDiagnosticsStore.localFailure(context, "Feature status: ${probe.status}")
@@ -265,7 +271,7 @@ private object GeminiNanoBriefProvider {
             val model = client(selectedMode)
             try {
                 val request = generateContentRequest(
-                    TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source)}"),
+                    TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source, strings)}"),
                 ) {
                     temperature = 0.25f
                     topK = 3
@@ -287,6 +293,7 @@ private object GeminiNanoBriefProvider {
                     source,
                     candidate.text,
                     BriefProviderUsed.LOCAL,
+                    strings,
                 )
                 BriefAiDiagnosticsStore.localDetail(
                     context,
@@ -451,7 +458,7 @@ private object GeminiCloudBriefProvider {
     private const val ENDPOINT =
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 
-    fun generate(context: Context, source: BriefSnapshot): BriefSnapshot? {
+    fun generate(context: Context, source: BriefSnapshot, strings: BriefStrings): BriefSnapshot? {
         val key = BriefSettingsStore.cloudApiKey(context)
         if (key.isBlank()) return null
         return runCatching {
@@ -462,7 +469,7 @@ private object GeminiCloudBriefProvider {
                 ))
                 put("contents", JSONArray().put(JSONObject().apply {
                     put("role", "user")
-                    put("parts", JSONArray().put(JSONObject().put("text", promptFor(source))))
+                    put("parts", JSONArray().put(JSONObject().put("text", promptFor(source, strings))))
                 }))
                 put("generationConfig", JSONObject().apply {
                     put("maxOutputTokens", 600)
@@ -486,7 +493,7 @@ private object GeminiCloudBriefProvider {
                 ?.optJSONObject(0)
                 ?.optString("text")
                 .orEmpty()
-            BriefAiCardResponse.apply(source, text, BriefProviderUsed.CLOUD).snapshot
+            BriefAiCardResponse.apply(source, text, BriefProviderUsed.CLOUD, strings).snapshot
         }.getOrNull()
     }
 }
@@ -507,8 +514,21 @@ private const val SYSTEM_INSTRUCTION =
 
 private const val SUMMARY_ID = "__brief_summary__"
 
-internal fun promptFor(source: BriefSnapshot): String {
-    val summary = BriefEditorialSummary.from(source)
+/**
+ * The system instruction is written in English; when the app runs in another
+ * language the model is told to answer in that language so AI copy matches
+ * the template copy it rewrites.
+ */
+internal fun languageInstruction(strings: BriefStrings): String =
+    if (strings.isEnglish) {
+        ""
+    } else {
+        "Write every title, body, and shortDescription in ${strings.locale.getDisplayLanguage(Locale.ENGLISH)}, " +
+            "matching the language of the supplied text. "
+    }
+
+internal fun promptFor(source: BriefSnapshot, strings: BriefStrings): String {
+    val summary = BriefEditorialSummary.from(source, strings)
     val input = JSONArray().apply {
         put(JSONObject().apply {
             put("id", SUMMARY_ID)
@@ -527,14 +547,15 @@ internal fun promptFor(source: BriefSnapshot): String {
         }
     }
     return "Rewrite the Brief summary and ordered cards without reordering them. Keep each id unchanged. " +
+        languageInstruction(strings) +
         "The brief_summary title is shared everywhere, body is for the expanded page, and shortDescription is " +
         "shared by the dashboard and home-screen widget. Return card objects with exactly id, title, and body; " +
         "the brief_summary object must also include shortDescription: $input"
 }
 
-internal fun localPromptFor(source: BriefSnapshot): String {
+internal fun localPromptFor(source: BriefSnapshot, strings: BriefStrings): String {
     val outputCount = minOf(2, source.cards.size)
-    val summary = BriefEditorialSummary.from(source)
+    val summary = BriefEditorialSummary.from(source, strings)
     val input = JSONArray().apply {
         put(JSONObject().apply {
             put("i", SUMMARY_ID)
@@ -555,7 +576,7 @@ internal fun localPromptFor(source: BriefSnapshot): String {
         ## TASK
         Rewrite the Brief summary and first $outputCount cards in the supplied order.
         ## RULES
-        Preserve order. Keep every id and numeric fact unchanged. Use sentence case, never Title Case. Use "follower" for 1 and "followers" otherwise. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct compact description in s, max 100 characters and one or two short sentences, using only the facts supplied in s. If follower totals are absent from the summary body, keep them only in s because a follower card already shows them.
+        ${languageInstruction(strings)}Preserve order. Keep every id and numeric fact unchanged. Use sentence case, never Title Case. Use "follower" for 1 and "followers" otherwise. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct compact description in s, max 100 characters and one or two short sentences, using only the facts supplied in s. If follower totals are absent from the summary body, keep them only in s because a follower card already shows them.
         ## OUTPUT
         JSON array only. Cards use [{"i":"id","t":"title","b":"body"}]. The summary also uses "s":"short description".
         ## CARDS
@@ -570,14 +591,20 @@ internal object BriefAiCardResponse {
         val failure: String? = null,
     )
 
-    fun apply(source: BriefSnapshot, raw: String, provider: BriefProviderUsed): Result {
+    fun apply(
+        source: BriefSnapshot,
+        raw: String,
+        provider: BriefProviderUsed,
+        strings: BriefStrings,
+    ): Result {
         val start = raw.indexOf('[')
         val end = raw.lastIndexOf(']')
         if (start < 0 || end <= start) return Result(null, 0, "Response did not contain a complete JSON array")
         val array = runCatching { JSONArray(raw.substring(start, end + 1)) }.getOrNull()
             ?: return Result(null, 0, "Response JSON was malformed")
         val originals = source.cards.associateBy(BriefCard::id)
-        val originalSummary = BriefEditorialSummary.from(source)
+        val originalSummary = BriefEditorialSummary.from(source, strings)
+        val copy = BriefCopyPolicy.forLanguage(strings)
         val seen = mutableSetOf<String>()
         val replacements = mutableMapOf<String, BriefCard>()
         var headline = originalSummary.title
@@ -596,15 +623,12 @@ internal object BriefAiCardResponse {
                 val shortBody = item.optString("shortDescription").ifBlank { item.optString("s") }
                     .trim().takeIf { it.length in 1..100 }
                 if (numericFacts("${originalSummary.title} ${originalSummary.body}") == numericFacts("$title $body")) {
-                    headline = BriefCopyPolicy.sentenceCase(
-                        title,
-                        "${originalSummary.title} ${originalSummary.body}",
-                    )
-                    subheading = BriefCopyPolicy.correctFollowerGrammar(body)
+                    headline = copy.title(title, "${originalSummary.title} ${originalSummary.body}")
+                    subheading = copy.body(body)
                     if (shortBody != null &&
                         numericFacts(originalSummary.shortDescription) == numericFacts(shortBody)
                     ) {
-                        shortDescription = BriefCopyPolicy.correctFollowerGrammar(shortBody)
+                        shortDescription = copy.body(shortBody)
                     }
                     summaryApplied = true
                 }
@@ -619,8 +643,8 @@ internal object BriefAiCardResponse {
             val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
             replacements[id] = if (factual) {
                 original.copy(
-                    title = BriefCopyPolicy.sentenceCase(title, "${original.title} ${original.body}"),
-                    body = BriefCopyPolicy.correctFollowerGrammar(body),
+                    title = copy.title(title, "${original.title} ${original.body}"),
+                    body = copy.body(body),
                 )
             } else {
                 original
@@ -648,6 +672,20 @@ internal object BriefAiCardResponse {
 internal object BriefCopyPolicy {
     private val word = Regex("[A-Za-z][A-Za-z’'-]*")
     private val singularFollower = Regex("\\b1 followers\\b", RegexOption.IGNORE_CASE)
+
+    /**
+     * Sentence-case and follower-grammar fixes encode English rules (German, for
+     * example, capitalises every noun), so they only run for English copy.
+     */
+    class Cleaner internal constructor(private val english: Boolean) {
+        fun title(value: String, source: String): String =
+            if (english) BriefCopyPolicy.sentenceCase(value, source) else value.trim()
+
+        fun body(value: String): String =
+            if (english) BriefCopyPolicy.correctFollowerGrammar(value) else value.trim()
+    }
+
+    fun forLanguage(strings: BriefStrings): Cleaner = Cleaner(strings.isEnglish)
 
     fun sentenceCase(value: String, source: String = ""): String {
         val clean = value.trim()
@@ -718,11 +756,14 @@ internal object BriefAiCachePolicy {
     fun retain(
         previous: BriefSnapshot?,
         refreshed: BriefSnapshot,
+        strings: BriefStrings,
         now: Long = System.currentTimeMillis(),
     ): BriefSnapshot {
         previous ?: return refreshed
         if (!previous.username.equals(refreshed.username, ignoreCase = true)) return refreshed
         if (previous.engineVersion != refreshed.engineVersion) return refreshed
+        // AI copy written in another app language must not survive a language change.
+        if (previous.language != refreshed.language) return refreshed
         if (previous.providerUsed == BriefProviderUsed.TEMPLATE || !isFresh(previous, now)) {
             return refreshed
         }
@@ -745,8 +786,8 @@ internal object BriefAiCachePolicy {
             }
         }
         val aiGeneratedAt = previous.aiGeneratedAt.takeIf { it > 0L } ?: previous.generatedAt
-        val previousSummary = BriefEditorialSummary.from(previous)
-        val refreshedSummary = BriefEditorialSummary.from(refreshed)
+        val previousSummary = BriefEditorialSummary.from(previous, strings)
+        val refreshedSummary = BriefEditorialSummary.from(refreshed, strings)
         val summaryFactsStillMatch = previous.headline.isNotBlank() && previous.subheading.isNotBlank() &&
             numericFacts("${previousSummary.title} ${previousSummary.body}") ==
             numericFacts("${refreshedSummary.title} ${refreshedSummary.body}")

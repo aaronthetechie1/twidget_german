@@ -554,7 +554,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         analytics: PostAnalytics? = AnalyticsClient.cached(this, username),
     ) {
         renderedSnapshot = snapshot
-        val summary = BriefEditorialSummary.from(snapshot)
+        val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(this))
         findViewById<TextView>(R.id.brief_summary_title).text = summary.title
         findViewById<TextView>(R.id.brief_summary_body).text = summary.body
         val columns = configureResponsiveLayout()
@@ -925,10 +925,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 when {
                     progress >= 100 -> getString(
                         R.string.brief_goal_reached_heading,
-                        settings.metric.goalNoun,
+                        settings.metric.goalNoun(this),
                     )
                     progress >= 75 -> getString(R.string.brief_goal_progress_heading, progress)
-                    else -> getString(R.string.brief_goal_heading, settings.metric.goalNoun)
+                    else -> getString(R.string.brief_goal_heading, settings.metric.goalNoun(this))
                 }
             }
         }
@@ -1112,7 +1112,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val snapshot = renderedSnapshot ?: return
         val builder = AlertDialog.Builder(this)
             .setTitle(R.string.brief_ai_disclaimer)
-            .setMessage(getString(R.string.brief_ai_disclaimer_body, snapshot.providerMessage))
+            .setMessage(
+                getString(
+                    R.string.brief_ai_disclaimer_body,
+                    snapshot.providerMessage.ifBlank { getString(R.string.brief_provider_note_template) },
+                ),
+            )
             .setNegativeButton(android.R.string.cancel, null)
         if (localStatus == BriefLocalStatus.DOWNLOADABLE) {
             builder.setPositiveButton(R.string.brief_prepare_local) { _, _ -> downloadLocalModel() }

@@ -33,6 +33,7 @@ import com.tjg.twidget.analytics.XAnalyticsMovement
 import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
+import com.tjg.twidget.brief.BriefStrings
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -345,7 +346,7 @@ internal class MainDashboardBinder(
     private fun createBriefCard(stats: ProfileStats, account: String): View {
         val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
         val snapshot = BriefEngine.rebuild(activity, account)
-        val summary = BriefEditorialSummary.from(snapshot)
+        val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(activity))
         val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
             id = "empty",
             type = BriefCardType.SUMMARY,

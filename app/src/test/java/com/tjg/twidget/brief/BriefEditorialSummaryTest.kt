@@ -5,6 +5,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class BriefEditorialSummaryTest {
+    private val strings = TestBriefStrings()
+
     @Test
     fun personalGuideShapesTheOverviewWithoutDuplicatingItsCardCopy() {
         val guide = BriefCard(
@@ -16,6 +18,7 @@ class BriefEditorialSummaryTest {
         )
 
         val summary = BriefEditorialSummary.from(
+            strings = strings,
             cards = listOf(
                 BriefCard("growth", BriefCardType.GROWTH, "Growing", "Followers increased by 20.", 95),
                 guide,
@@ -47,6 +50,7 @@ class BriefEditorialSummaryTest {
         )
 
         val summary = BriefEditorialSummary.from(
+            strings = strings,
             cards = cards,
             followersToday = 12,
             followersWeek = 22,
@@ -64,7 +68,7 @@ class BriefEditorialSummaryTest {
 
     @Test
     fun summaryHasAStableEmptyFallback() {
-        val summary = BriefEditorialSummary.from(emptyList())
+        val summary = BriefEditorialSummary.from(emptyList(), strings)
 
         assertEquals("Your Twidget Brief", summary.title)
         assertEquals(
@@ -100,7 +104,7 @@ class BriefEditorialSummaryTest {
             ),
         )
 
-        val summary = BriefEditorialSummary.from(cards, followersToday = 12, followersWeek = 22)
+        val summary = BriefEditorialSummary.from(cards, strings, followersToday = 12, followersWeek = 22)
 
         assertEquals("Moving closer", summary.title)
         assertEquals(
@@ -129,6 +133,7 @@ class BriefEditorialSummaryTest {
         )
 
         val summary = BriefEditorialSummary.from(
+            strings = strings,
             cards = listOf(setup),
             followersToday = 12,
             followersWeek = 22,
@@ -141,6 +146,7 @@ class BriefEditorialSummaryTest {
     @Test
     fun singularFollowerMovementUsesSingularCopy() {
         val summary = BriefEditorialSummary.from(
+            strings = strings,
             cards = emptyList(),
             followersToday = 1,
             followersWeek = 1,

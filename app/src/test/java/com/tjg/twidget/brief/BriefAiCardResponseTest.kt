@@ -4,8 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.Locale
 
 class BriefAiCardResponseTest {
+    private val strings = TestBriefStrings()
+
     private val source = BriefSnapshot(
         username = "account",
         generatedAt = 1L,
@@ -31,6 +34,7 @@ class BriefAiCardResponseTest {
             source,
             """[{"i":"streak","t":"3-day streak","b":"Your streak is 3 days."},{"i":"growth","t":"Growing","b":"You gained 10 followers."}]""",
             BriefProviderUsed.LOCAL,
+            strings,
         )
 
         assertNotNull(result.snapshot)
@@ -46,6 +50,7 @@ class BriefAiCardResponseTest {
             source,
             """[{"i":"growth","t":"Growing"""",
             BriefProviderUsed.LOCAL,
+            strings,
         )
 
         assertNull(result.snapshot)
@@ -59,6 +64,7 @@ class BriefAiCardResponseTest {
             source,
             """[{"i":"growth","t":"Huge growth","b":"You gained 99 followers."}]""",
             BriefProviderUsed.LOCAL,
+            strings,
         )
 
         assertEquals("Growth", result.snapshot?.cards?.first()?.title)
@@ -72,6 +78,7 @@ class BriefAiCardResponseTest {
             source.copy(followersToday = 1),
             """[{"i":"__brief_summary__","t":"Your Growth Is Building","b":"Your posting rhythm is active.","s":"You gained 1 follower today and 10 this week. Your posting rhythm is active."}]""",
             BriefProviderUsed.LOCAL,
+            strings,
         )
 
         assertEquals("Your growth is building", result.snapshot?.headline)
@@ -86,7 +93,7 @@ class BriefAiCardResponseTest {
                 "Your posting rhythm is active.",
                 "You gained 1 follower today and 10 this week. Your posting rhythm is active.",
             ),
-            result.snapshot?.let(BriefEditorialSummary::from),
+            result.snapshot?.let { BriefEditorialSummary.from(it, strings) },
         )
     }
 
@@ -96,12 +103,36 @@ class BriefAiCardResponseTest {
             source,
             """[{"i":"__brief_summary__","t":"Momentum is building","b":"Your posting rhythm is active.","s":"Up 99 followers today."}]""",
             BriefProviderUsed.LOCAL,
+            strings,
         )
 
         assertNotNull(result.snapshot)
         assertEquals(
             "You gained 2 followers today and 10 followers this week. Your posting rhythm is active.",
             result.snapshot?.shortDescription,
+        )
+    }
+
+    @Test
+    fun nonEnglishCopyKeepsTheModelCapitalisationBecauseSentenceCaseIsAnEnglishRule() {
+        val german = TestBriefStrings(Locale.GERMAN)
+
+        val result = BriefAiCardResponse.apply(
+            source,
+            """[{"i":"growth","t":"Dein Publikum Wächst","b":"Du hast 10 Follower gewonnen."}]""",
+            BriefProviderUsed.LOCAL,
+            german,
+        )
+
+        assertEquals("Dein Publikum Wächst", result.snapshot?.cards?.first()?.title)
+        assertEquals(
+            "Growing fast",
+            BriefAiCardResponse.apply(
+                source,
+                """[{"i":"growth","t":"growing Fast","b":"You gained 10 followers."}]""",
+                BriefProviderUsed.LOCAL,
+                strings,
+            ).snapshot?.cards?.first()?.title,
         )
     }
 }

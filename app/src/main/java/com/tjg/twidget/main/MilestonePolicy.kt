@@ -1,5 +1,7 @@
 package com.tjg.twidget.main
 
+import android.content.Context
+import com.tjg.twidget.R
 import java.util.Locale
 import kotlin.math.abs
 
@@ -24,12 +26,15 @@ data class MilestoneInput(
 
 enum class MilestoneMetric(
     val storageId: String,
-    val goalNoun: String,
+    /** Noun inserted into goal copy such as "your 8,000 follower goal". */
+    val goalNounRes: Int,
 ) {
-    FOLLOWERS("followers", "follower"),
-    VERIFIED_FOLLOWERS("verified_followers", "verified follower"),
-    ENGAGEMENT_RATE("engagement_rate", "engagement rate"),
-    IMPRESSIONS("impressions", "impression");
+    FOLLOWERS("followers", R.string.milestone_noun_follower),
+    VERIFIED_FOLLOWERS("verified_followers", R.string.milestone_noun_verified_follower),
+    ENGAGEMENT_RATE("engagement_rate", R.string.milestone_noun_engagement_rate),
+    IMPRESSIONS("impressions", R.string.milestone_noun_impression);
+
+    fun goalNoun(context: Context): String = context.getString(goalNounRes)
 
     companion object {
         fun fromStorageId(id: String?): MilestoneMetric =

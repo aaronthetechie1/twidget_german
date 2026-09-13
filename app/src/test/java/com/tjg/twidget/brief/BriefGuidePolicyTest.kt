@@ -14,12 +14,14 @@ import org.junit.Test
 
 class BriefGuidePolicyTest {
     private val now = 1_800_000_000_000L
+    private val strings = TestBriefStrings()
     private val day = 24 * 60 * 60 * 1000L
 
     @Test
     fun scheduleHealthPrioritisesAQueuedPostThatNeedsAttention() {
         val card = BriefGuidePolicy.scheduleCard(
             listOf(schedule("failed", ScheduleStatus.FAILED, now + day)),
+            strings,
             now,
         )
 
@@ -30,14 +32,14 @@ class BriefGuidePolicyTest {
 
     @Test
     fun scheduleHealthStaysHiddenBeforeSchedulingHasBeenUsed() {
-        assertNull(BriefGuidePolicy.scheduleCard(emptyList(), now))
+        assertNull(BriefGuidePolicy.scheduleCard(emptyList(), strings, now))
     }
 
     @Test
     fun scheduleHealthIdentifiesTheDraftUsedForItsPreview() {
         val draft = schedule("draft-preview", ScheduleStatus.DRAFT, now)
 
-        val card = BriefGuidePolicy.scheduleCard(listOf(draft), now)
+        val card = BriefGuidePolicy.scheduleCard(listOf(draft), strings, now)
 
         assertEquals(draft.id, card?.actionData)
     }
@@ -50,6 +52,7 @@ class BriefGuidePolicyTest {
         val card = BriefGuidePolicy.followThroughCard(
             schedules = listOf(schedule("published", ScheduleStatus.PUBLISHED, publishedAt, text)),
             analytics = analytics(listOf(post, post("Second mature tweet with enough content", now - 3 * day), post("Third mature tweet with enough content", now - 4 * day))),
+            strings = strings,
             now = now,
         )
 
@@ -68,7 +71,7 @@ class BriefGuidePolicyTest {
             post("Plain two has enough useful text", now - 5 * day, 500, 12),
         )
 
-        val card = BriefGuidePolicy.postingCard(analytics(posts), now)
+        val card = BriefGuidePolicy.postingCard(analytics(posts), strings, now)
 
         assertEquals(BriefCardType.POSTING_GUIDE, card?.type)
         assertEquals(BriefCardAction.COMPOSE_TWEET, card?.action)

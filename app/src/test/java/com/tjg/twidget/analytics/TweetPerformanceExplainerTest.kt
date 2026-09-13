@@ -1,16 +1,20 @@
 package com.tjg.twidget.analytics
 
+import com.tjg.twidget.brief.TestBriefStrings
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TweetPerformanceExplainerTest {
+    private val strings = TestBriefStrings()
+
     @Test
     fun explainsStrongTweetFromOwnWeeklyBaseline() {
         val explanation = TweetPerformanceExplainer.explain(
             post(views = 2_000, likes = 40, replies = 8, reposts = 10, quotes = 2),
             analytics(),
             TweetPerformanceDirection.STRONG,
+            strings,
         )
         assertTrue(explanation.body.contains("more engagements"))
         assertTrue(explanation.body.contains("more people"))
@@ -22,6 +26,7 @@ class TweetPerformanceExplainerTest {
             post(views = 300, likes = 2, replies = 0, reposts = 0, quotes = 0),
             analytics(),
             TweetPerformanceDirection.QUIET,
+            strings,
         )
         assertTrue(explanation.body.contains("fewer people"))
         assertFalse(explanation.body.contains("because", ignoreCase = true))
@@ -45,6 +50,7 @@ class TweetPerformanceExplainerTest {
             post(views = 300, likes = 2, replies = 100, reposts = 1, quotes = 0),
             analytics,
             TweetPerformanceDirection.QUIET,
+            strings,
         )
 
         assertTrue(explanation.body.contains("fewer likes"))
@@ -68,6 +74,7 @@ class TweetPerformanceExplainerTest {
                 recentPosts = baselines,
             ),
             TweetPerformanceDirection.QUIET,
+            strings,
         )
 
         assertTrue(explanation.body.startsWith("It earned fewer quote tweets"))
@@ -86,6 +93,7 @@ class TweetPerformanceExplainerTest {
                 medianLikes = 10.0,
             ),
             TweetPerformanceDirection.QUIET,
+            strings,
         )
 
         assertTrue(explanation.body.startsWith("It generated fewer engagements"))
