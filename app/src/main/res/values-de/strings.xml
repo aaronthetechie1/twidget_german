@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Twidget</string>
     <string name="widget_description">Twitter Follower-Tracker mit Blur-Widgets</string>
     <string name="widget_label">Twidget Follower</string>
     <string name="widget_language">Sprache</string>
@@ -9,7 +8,6 @@
     <string name="widget_language_en">Englisch (English)</string>
     <string name="lockscreen_follower_1x1_label">Follower 1x1</string>
     <string name="lockscreen_follower_2x1_label">Follower 2x1</string>
-    <string name="dashboard_title">That Josh Guy</string>
     <string name="last_synced">Zuletzt aktualisiert: %1$s</string>
     <string name="not_synced_yet">Nicht synchronisiert</string>
     <string name="time_unavailable">Keine Zeit verfügbar</string>
@@ -65,11 +63,7 @@
     <string name="finding_banger">Allzeit-Banger wird gesucht</string>
     <string name="banger_scanning">Gesamter Tweet-Verlauf wird durchsucht…</string>
     <string name="banger_scanning_progress">Gesamter Tweet-Verlauf wird durchsucht… %1$s passende Posts geprüft</string>
-    <string name="tweet_handle_and_date">\@%1$s · %2$s</string>
-    <string name="account_handle">\@%1$s</string>
     <string name="preview_follower_count">7.671</string>
-    <string name="preview_follower_delta">+21</string>
-    <string name="preview_account_handle">\@thatjoshguy69</string>
     <string name="preview_followers_large">Sieben Tausend, Sechs\nHundert und Ein\nund Siebzig Follower</string>
     <string name="preview_followers_square">Sieben Tausend,\nSechs Hundert und\nEin und Siebzig\nFollower</string>
     <string name="tweet_metrics">%1$s Aufrufe · %2$s Antworten · %3$s Likes</string>
@@ -142,21 +136,18 @@
     <string name="open_settings">Einstellungen öffnen</string>
     <string name="refresh_stats">Daten aktualisieren</string>
     <string name="profile_username">Benutzername</string>
-    <string name="profile_username_hint">thatjoshguy69</string>
     <string name="data_source">Daten-Quelle</string>
     <string name="analytics">Statistiken</string>
     <string name="refresh">Neu laden</string>
     <string name="active_source">Aktive Quelle</string>
     <string name="source_default">Twidget-Bridge</string>
     <string name="source_default_summary">Geteilter Twidget-Server</string>
-    <string name="source_fxtwitter">FxTwitter</string>
     <string name="source_fxtwitter_summary">Kostenlose FxTwitter API</string>
     <string name="share_history">Zum geteilten Verlauf beitragen</string>
     <string name="share_history_summary">Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
     <string name="share_history_onboarding_summary">Optional: Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
     <string name="source_self_hosted">Self-Hosted-Bridge</string>
     <string name="source_self_hosted_summary">Deine eigene Bridge benutzen</string>
-    <string name="source_x_api">X API</string>
     <string name="source_x_api_summary">Benötigt deinen eigenen bezahlten X-API-Zugriff</string>
     <string name="advanced_options">Erweiterte Optionen</string>
     <string name="advanced_options_summary">Self-Hosted- und X-API-Quellen konfigurieren</string>
@@ -179,7 +170,6 @@
     <string name="status_connected_detail">Verbunden (%1$s)</string>
     <string name="status_not_configured">Nicht konfiguriert</string>
     <string name="status_failed">Fehlgeschlagen: %1$s</string>
-    <string name="status_http_error">HTTP %1$d</string>
     <string name="status_unexpected_response">Unerwartete Antwort</string>
     <string name="status_x_client_forbidden">Der X-API-Zugriff ist für dieses Projekt nicht aktiv. Der kostenlose Zugriff beinhaltet diesen v2-Endpunkt nicht mehr.</string>
     <string name="self_hosted_rettiwt">Bridge-URL</string>
@@ -251,7 +241,6 @@
     <string name="import_failure_default">Die Datei konnte nicht verifiziert werden</string>
     <string name="import_failure_range">Follower-Anzahl außerhalb des gültigen Bereichs</string>
     <string name="import_stored_followers">Gespeicherte Follower-Zahl</string>
-    <string name="analytics_url">https://analytics.x.com/</string>
     <string name="import_no_browser">Kein Browser verfügbar.</string>
     <string name="import_action">Importieren</string>
     <string name="analytics_import_sync_first">Synchronisiere dieses Konto zuerst, damit Twidget den Import am aktuellen Follower-Stand ausrichten kann.</string>
@@ -280,12 +269,8 @@
     <string name="widget_tint_dark">Dunkel</string>
     <string name="widget_tint_system">System folgen</string>
     <string name="widget_logo_style">Logo-Style</string>
-    <string name="widget_logo_x">X</string>
-    <string name="widget_logo_twitter">Twitter</string>
     <string name="widget_show_delta">Follower-Delta zeigen</string>
     <string name="widget_font">Schriftart</string>
-    <string name="widget_font_one_ui">One UI Sans</string>
-    <string name="widget_font_google">Google Sans Flex</string>
     <string name="clear_cache">Cache leeren</string>
     <string name="about_twidget">Über Twidget</string>
     <string name="save">Speichern</string>
@@ -298,11 +283,8 @@
     <string name="about_developer_section">Erstellt von</string>
     <string name="about_credits_section">Danke an</string>
     <string name="about_projects_section">Open-Source-Projekte</string>
-    <string name="about_tjg_title">That Josh Guy</string>
     <string name="about_tjg_summary">Hat die App erstellt. (und dabei viel zu viele Red Bulls konsumiert)</string>
-    <string name="about_kingowen_title">KingOwenFYI</string>
     <string name="about_kingowen_summary">Mitwirkender, Motivator und Ideengeber.</string>
-    <string name="about_fxtwitter_title">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Standard-Datenquelle. Analysedaten für: Öffentliche Profile, Status, Medien, aktuelle Posts</string>
     <string name="about_oneui_summary">One UI-Oberflächenkomponenten. Die Magie hinter dem Design der App</string>
     <string name="about_legal_section">Rechtliches \u0026 Lizenzen</string>
@@ -331,20 +313,10 @@
     <string name="update_notification_channel_description">Benachrichtigen, wenn eine neue Version von Twidget verfügbar ist</string>
     <string name="update_remind_later">Erinnere mich später</string>
     <string name="update_install_now">Jetzt installieren</string>
-    <string name="oneui_project">One UI Project</string>
-    <string name="link_tjg">https://tjg.gg</string>
-    <string name="link_kingowen">https://x.com/KingOwenFYI</string>
-    <string name="link_fxtwitter">https://github.com/FxEmbed/FxEmbed</string>
-    <string name="link_oneui_project">https://github.com/OneUIProject</string>
-    <string name="link_rettiwt">https://github.com/Rishikant181/Rettiwt-API</string>
-    <string name="link_app_repo">https://github.com/thatjoshguy67/twidget</string>
-    <string name="link_privacy_policy">https://tjg.gg/blog/twidget-privacy-policy</string>
     <string name="sync_failed">Aktualisierung fehlgeschlagen; gespeicherte Daten werden angezeigt.</string>
-    <string name="onboarding_title">Twidget</string>
     <string name="onboarding_overview_title">Willkommen bei Twidget</string>
     <string name="onboarding_done_title">Du bist startklar!</string>
     <string name="onboarding_done_summary">Statistiken werden täglich aktualisiert. Es kann bis zu einer Woche dauern, bis alle Daten angezeigt werden.</string>
-    <string name="onboarding_handle_hint">\@</string>
     <string name="get_started">Jetzt starten</string>
     <string name="add_to_home_screen">Zum Startbildschirm hinzufügen</string>
     <string name="skip">Überspringen</string>
@@ -531,7 +503,6 @@
     <string name="schedule_buffer_failed_detail">%1$s\n\nPost: %2$s</string>
     <string name="schedule_local_reminder_title">Es ist Zeit, deinen geplanten Tweet zu veröffentlichen</string>
     <string name="schedule_queue_local_account">@%1$s · Lokale Entwürfe</string>
-    <string name="schedule_queue_buffer_account">@%1$s · Buffer</string>
     <string name="schedule_queue_buffer_pending">Buffer X-Channel</string>
     <string name="schedule_more_actions">Mehr Aktionen</string>
     <string name="schedule_more">Mehr</string>
@@ -540,7 +511,6 @@
     <string name="schedule_character_limit_over">Zeichenbegrenzung überschritten · %1$d +</string>
     <string name="schedule_standard_character_limit_over">Normale Zeichenbegrenzung überschritten · %1$d +</string>
     <string name="schedule_character_limit_error">Kürze den Text bevor du ihn speicherst</string>
-    <string name="schedule_compose_time_set">%1$s · %2$s</string>
     <string name="schedule_drafts">Entwürfe</string>
     <string name="schedule_discard_title">Entwurf nicht speichern?</string>
     <string name="schedule_discard_message">Deine Änderungen gehen verloren.</string>
@@ -555,9 +525,7 @@
     <string name="schedule_account_description">Account für diesen geplanten Tweet</string>
     <string name="schedule_provider_description">Provider für die Post-Planung</string>
     <string name="schedule_provider_local">Lokale Erinnerung</string>
-    <string name="schedule_provider_buffer">Buffer</string>
     <string name="schedule_thread_item_number">Thread-Element %1$d</string>
-    <string name="schedule_character_count">%1$d / %2$d</string>
     <string name="schedule_post_hint">Was passiert gerade?</string>
     <string name="schedule_thread_item_description">Text für Thread-Element %1$d</string>
     <string name="schedule_add_local_media">Lokale Medien hinzufügen</string>
@@ -581,7 +549,6 @@
     <string name="schedule_remove_item">Entfernen</string>
     <string name="schedule_remove_thread">Tweet vom Thread entfernen</string>
     <string name="schedule_remove_media">Angehängte Medien entfernen</string>
-    <string name="schedule_public_url_hint">https://example.com/image.jpg</string>
     <string name="schedule_add">+</string>
     <string name="schedule_invalid_public_url">Eine gültige öffentliche HTTP oder HTTPS URL eingeben.</string>
     <string name="schedule_busy">Die Post-Planung ist zurzeit ausgelastet. Bitte versuche es später noch einmal.</string>
@@ -646,7 +613,6 @@
     <string name="schedule_buffer_account">Buffer-X-Channel</string>
     <string name="schedule_buffer_mapping_required">Verknüpfe @%1$s zuerst in den Einstellungen mit einem verbundenen Buffer-X-Kanal.</string>
     <string name="schedule_buffer_mapping_selected">Buffer-X-Channel ausgewählt</string>
-    <string name="schedule_mapping_value">\@%1$s → \@%2$s</string>
     <string name="schedule_mapping_unset">\@%1$s → Nicht verknüpft</string>
     <string name="schedule_mapping_clear">Verknüpfung löschen</string>
     <string name="schedule_notifications_status">Erinnerungs-Berechtigungen</string>
@@ -690,7 +656,6 @@
     <string name="twitterapis_personal_key_active">Persönlicher Key aktiv · %1$s</string>
     <string name="twitterapis_trial_key_active">Testzugangs-Key aktiv · Ein Scan pro Account täglich</string>
     <string name="twitterapis_no_key_available">Kein Test-Key in dieser Version enthalten · Eigenen hinzufügen</string>
-    <string name="source_twitterapis">TwitterAPIs</string>
     <string name="twitterapis_status">TwitterAPIs-Status</string>
     <string name="scan_again">Erneut scannen</string>
     <string name="compact_followers">%1$s Follower</string>
