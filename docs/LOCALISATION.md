@@ -110,17 +110,27 @@ English.
 
 ### What the resource files do not cover
 
-- **Brief text.** Card titles and bodies produced by the Brief AI features
-  come from the language model. When the model is unavailable, the app shows
-  a fallback summary whose sentences are currently hard-coded in English in
-  `app/src/main/java/com/tjg/twidget/brief/BriefModels.kt`
-  (`BriefEditorialSummary.from()`), so that part of Brief stays English in
-  every language. Moving it into resources is tracked as maintainer work and
-  is not expected from translators.
-- **Anything else in English after you switch language is a bug.** All other
-  user-facing text should come from the resource files. If a screen,
-  notification, or widget still shows English, mention it in your pull
-  request so a maintainer can move the string into resources.
+Some text is still generated in Kotlin without access to resources, so it
+stays English in every language. Translators are not expected to fix this;
+it is tracked as maintainer work. Known areas:
+
+- **Brief AI text.** Card titles and bodies produced by the language model,
+  and the fallback summary shown when the model is unavailable
+  (`BriefEditorialSummary.from()` in `brief/BriefModels.kt`).
+- **Brief guidance cards.** Titles and bodies built by
+  `brief/BriefGuidePolicy.kt` (for example *Plan your next tweet*).
+- **Tweet performance explanations.** The *Why this tweet worked* reasons in
+  `analytics/PostAnalytics.kt`.
+- **Validation and failure messages** raised from data code, such as the
+  scheduling checks in `schedule/ScheduleModels.kt`, analytics import checks
+  in `data/TwidgetStore.kt`, and reminder scheduling failures in
+  `schedule/ScheduleCoordinator.kt`.
+- **Debug-only text** in Brief diagnostics and the bridge log viewer.
+
+Everything else, including screens, dialogs, notifications, and widgets,
+should come from the resource files. If you see English elsewhere after
+switching language, mention it in your pull request so a maintainer can move
+the string into resources.
 
 ## Step 3: register the language in the app
 
