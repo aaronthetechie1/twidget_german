@@ -1,7 +1,8 @@
 # Contributing to Twidget
 
 Thanks for helping improve Twidget. Bug reports, focused fixes, tests, and
-documentation improvements are welcome.
+documentation improvements are welcome. To translate the app into your
+language, follow the [localisation guide](docs/LOCALISATION.md).
 
 ## Before opening an issue
 

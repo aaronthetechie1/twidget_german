@@ -26,7 +26,6 @@ internal object UpdateNotificationPolicy {
 
 object UpdateNotificationHelper {
     private const val CHANNEL_ID = "app_updates"
-    private const val CHANNEL_NAME = "App updates"
     private const val PREFS = "twidget_update_notifications"
     private const val KEY_LAST_NOTIFIED_VERSION = "last_notified_version"
     private const val KEY_REMINDER_VERSION = "reminder_version"
@@ -128,7 +127,11 @@ object UpdateNotificationHelper {
 
     private fun ensureChannel(context: Context) {
         notificationManager(context).createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.update_notification_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
                 description = context.getString(R.string.update_notification_channel_description)
             },
         )
