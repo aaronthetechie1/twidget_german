@@ -1,5 +1,6 @@
 package com.tjg.twidget.brief
 
+import com.tjg.twidget.R
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
 
@@ -124,7 +125,7 @@ data class BriefEditorialSummary(
     val shortDescription: String = body,
 ) {
     companion object {
-        fun from(snapshot: BriefSnapshot): BriefEditorialSummary {
+        fun from(snapshot: BriefSnapshot, strings: BriefStrings): BriefEditorialSummary {
             val generatedTitle = snapshot.headline.trim().takeIf(String::isNotBlank)
             val generatedBody = snapshot.subheading.trim().takeIf(String::isNotBlank)
             if (generatedTitle != null && generatedBody != null) {
@@ -132,11 +133,12 @@ data class BriefEditorialSummary(
                     generatedTitle,
                     generatedBody,
                     snapshot.shortDescription.trim().takeIf(String::isNotBlank)
-                        ?: conciseFallback(snapshot),
+                        ?: conciseFallback(snapshot, strings),
                 )
             }
             return from(
                 cards = snapshot.cards,
+                strings = strings,
                 followersToday = snapshot.followersToday,
                 followersWeek = snapshot.followersWeek,
                 upcomingTweets = snapshot.upcomingTweets.size,
@@ -145,6 +147,7 @@ data class BriefEditorialSummary(
 
         internal fun from(
             cards: List<BriefCard>,
+            strings: BriefStrings,
             followersToday: Long = 0L,
             followersWeek: Long = 0L,
             upcomingTweets: Int = 0,
@@ -154,61 +157,65 @@ data class BriefEditorialSummary(
                 it.type == BriefCardType.MILESTONE &&
                     it.actionData != BRIEF_MILESTONE_SETUP_ACTION
             }
-            val title = when {
-                hasGoal && (followersToday > 0L || followersWeek > 0L) -> "Moving closer"
-                followersToday > 0L || followersWeek > 0L -> "Momentum is building"
-                followersToday < 0L || followersWeek < 0L -> "A moment to reset"
-                BriefCardType.POSTING_GUIDE in types || BriefCardType.SCHEDULE_GUIDE in types -> "Your next move"
-                cards.isNotEmpty() -> "Your week at a glance"
-                else -> "Your Twidget Brief"
-            }
+            val title = strings.text(
+                when {
+                    hasGoal && (followersToday > 0L || followersWeek > 0L) -> R.string.brief_summary_title_moving_closer
+                    followersToday > 0L || followersWeek > 0L -> R.string.brief_summary_title_momentum
+                    followersToday < 0L || followersWeek < 0L -> R.string.brief_summary_title_reset
+                    BriefCardType.POSTING_GUIDE in types || BriefCardType.SCHEDULE_GUIDE in types ->
+                        R.string.brief_summary_title_next_move
+                    cards.isNotEmpty() -> R.string.brief_summary_title_week
+                    else -> R.string.brief_summary_title_default
+                },
+            )
             val hasFollowerTrendCard = BriefCardType.GROWTH in types || BriefCardType.SLOWDOWN in types
             val facts = buildList {
                 if (!hasFollowerTrendCard) {
-                    followerOverview(followersToday, followersWeek)?.let(::add)
+                    followerOverview(followersToday, followersWeek, strings)?.let(::add)
                 }
                 if (hasGoal) {
                     add(
-                        if (followersToday > 0L || followersWeek > 0L) {
-                            "That progress brings your goal closer."
-                        } else {
-                            "Your goal is still in view."
-                        },
+                        strings.text(
+                            if (followersToday > 0L || followersWeek > 0L) {
+                                R.string.brief_summary_goal_closer
+                            } else {
+                                R.string.brief_summary_goal_in_view
+                            },
+                        ),
                     )
                 }
                 when {
                     BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
-                        add("One recent tweet stood out, while another gives you something to learn from.")
-                    BriefCardType.POST in types -> add("One recent tweet stood out from your usual performance.")
-                    BriefCardType.WORST_POST in types -> add("One recent tweet gives you something to learn from.")
+                        add(strings.text(R.string.brief_summary_post_both))
+                    BriefCardType.POST in types -> add(strings.text(R.string.brief_summary_post_standout))
+                    BriefCardType.WORST_POST in types -> add(strings.text(R.string.brief_summary_post_lesson))
                 }
                 if (upcomingTweets > 0) {
-                    add(
-                        if (upcomingTweets == 1) "One scheduled tweet is ready ahead."
-                        else "$upcomingTweets scheduled tweets are ready ahead.",
-                    )
+                    add(strings.quantityText(R.plurals.brief_summary_upcoming, upcomingTweets, upcomingTweets))
                 }
                 if (BriefCardType.TOP_FOLLOWER in types) {
-                    add("There is a meaningful change in your top followers.")
+                    add(strings.text(R.string.brief_summary_top_followers))
                 }
                 when {
                     cards.any { it.type == BriefCardType.STREAK && it.id == "start-streak" } ->
-                        add("It may be time to restart your posting rhythm.")
-                    BriefCardType.STREAK in types -> add("Your posting rhythm is active.")
+                        add(strings.text(R.string.brief_summary_streak_restart))
+                    BriefCardType.STREAK in types -> add(strings.text(R.string.brief_summary_streak_active))
                 }
                 when {
                     BriefCardType.SCHEDULE_GUIDE in types ->
-                        add("Your schedule has a useful next step waiting.")
+                        add(strings.text(R.string.brief_summary_schedule_step))
                     BriefCardType.POST_FOLLOW_THROUGH in types ->
-                        add("A recently scheduled tweet offers a lesson for your next post.")
+                        add(strings.text(R.string.brief_summary_follow_through))
                     BriefCardType.POSTING_GUIDE in types ->
-                        add("Your recent tweets point to a practical next step.")
+                        add(strings.text(R.string.brief_summary_posting_guide))
                 }
             }
             val body = facts.joinToString(" ")
                 .ifBlank {
-                    if (hasFollowerTrendCard) "See how your audience changed over the last week."
-                    else "Twidget is watching for your next meaningful account update."
+                    strings.text(
+                        if (hasFollowerTrendCard) R.string.brief_summary_body_trend
+                        else R.string.brief_summary_body_watching,
+                    )
                 }
             return BriefEditorialSummary(
                 title = title,
@@ -219,11 +226,12 @@ data class BriefEditorialSummary(
                     types = types,
                     hasGoal = hasGoal,
                     upcomingTweets = upcomingTweets,
+                    strings = strings,
                 ),
             )
         }
 
-        private fun conciseFallback(snapshot: BriefSnapshot): String {
+        private fun conciseFallback(snapshot: BriefSnapshot, strings: BriefStrings): String {
             val types = snapshot.cards.mapTo(linkedSetOf(), BriefCard::type)
             return conciseFallback(
                 followersToday = snapshot.followersToday,
@@ -234,6 +242,7 @@ data class BriefEditorialSummary(
                         it.actionData != BRIEF_MILESTONE_SETUP_ACTION
                 },
                 upcomingTweets = snapshot.upcomingTweets.size,
+                strings = strings,
             )
         }
 
@@ -243,52 +252,46 @@ data class BriefEditorialSummary(
             types: Set<BriefCardType>,
             hasGoal: Boolean,
             upcomingTweets: Int,
+            strings: BriefStrings,
         ): String {
-            val followerSentence = followerOverview(followersToday, followersWeek)
+            val followerSentence = followerOverview(followersToday, followersWeek, strings)
+            val watching = strings.text(R.string.brief_short_watching)
             val supportingSentence = when {
-                hasGoal -> "Your goal is still in view."
+                hasGoal -> strings.text(R.string.brief_summary_goal_in_view)
                 BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
-                    "Recent tweets brought a win and a lesson."
-                BriefCardType.POST in types -> "One recent tweet stood out."
-                BriefCardType.WORST_POST in types -> "One recent tweet offers a lesson."
-                upcomingTweets == 1 -> "One tweet is scheduled next."
-                upcomingTweets > 1 -> "$upcomingTweets tweets are scheduled next."
-                BriefCardType.TOP_FOLLOWER in types -> "Your top followers have changed."
-                BriefCardType.STREAK in types -> "Your posting rhythm is active."
-                BriefCardType.SCHEDULE_GUIDE in types -> "Your schedule has a useful next step."
-                BriefCardType.POST_FOLLOW_THROUGH in types -> "Your latest tweet offers a useful lesson."
-                BriefCardType.POSTING_GUIDE in types -> "Your recent tweets suggest a next step."
-                else -> "Watching for your next meaningful update."
+                    strings.text(R.string.brief_short_post_both)
+                BriefCardType.POST in types -> strings.text(R.string.brief_short_post_standout)
+                BriefCardType.WORST_POST in types -> strings.text(R.string.brief_short_post_lesson)
+                upcomingTweets > 0 ->
+                    strings.quantityText(R.plurals.brief_short_upcoming, upcomingTweets, upcomingTweets)
+                BriefCardType.TOP_FOLLOWER in types -> strings.text(R.string.brief_short_top_followers)
+                BriefCardType.STREAK in types -> strings.text(R.string.brief_summary_streak_active)
+                BriefCardType.SCHEDULE_GUIDE in types -> strings.text(R.string.brief_short_schedule_step)
+                BriefCardType.POST_FOLLOW_THROUGH in types -> strings.text(R.string.brief_short_follow_through)
+                BriefCardType.POSTING_GUIDE in types -> strings.text(R.string.brief_short_posting_guide)
+                else -> watching
             }
             if (followerSentence == null) return supportingSentence
             val followerContext = when {
                 hasGoal && (followersToday > 0L || followersWeek > 0L) ->
-                    "That progress brings your goal closer."
-                else -> supportingSentence.takeUnless {
-                    it == "Watching for your next meaningful update."
-                }
+                    strings.text(R.string.brief_summary_goal_closer)
+                else -> supportingSentence.takeUnless { it == watching }
             }
             val expanded = listOfNotNull(followerSentence, followerContext).joinToString(" ")
             return expanded.takeIf { it.length <= MAX_SHORT_DESCRIPTION_LENGTH } ?: followerSentence
         }
 
-        private fun followerOverview(today: Long, week: Long): String? = when {
+        private fun followerOverview(today: Long, week: Long, strings: BriefStrings): String? = when {
             today > 0L && week >= today ->
-                "You gained ${followers(today)} today and ${followers(week)} this week."
-            today > 0L -> "You gained ${followers(today)} today."
+                strings.text(R.string.brief_followers_gained_today_week, strings.followers(today), strings.followers(week))
+            today > 0L -> strings.text(R.string.brief_followers_gained_today, strings.followers(today))
             today < 0L && week > 0L ->
-                "You are down ${followers(-today)} today, but still up ${followers(week)} this week."
-            week > 0L -> "Your audience grew by ${followers(week)} this week."
-            today < 0L -> "You are down ${followers(-today)} today."
-            week < 0L -> "Your audience is down ${followers(-week)} this week."
+                strings.text(R.string.brief_followers_down_today_up_week, strings.followers(-today), strings.followers(week))
+            week > 0L -> strings.text(R.string.brief_followers_grew_week, strings.followers(week))
+            today < 0L -> strings.text(R.string.brief_followers_down_today, strings.followers(-today))
+            week < 0L -> strings.text(R.string.brief_followers_down_week, strings.followers(-week))
             else -> null
         }
-
-        private fun followers(value: Long): String = "${format(value)} ${if (value == 1L) "follower" else "followers"}"
-
-        private fun format(value: Long): String = java.text.NumberFormat
-            .getIntegerInstance()
-            .format(value)
 
         private const val MAX_SHORT_DESCRIPTION_LENGTH = 100
     }
@@ -328,6 +331,8 @@ data class BriefSnapshot(
     val engineVersion: Int = 0,
     val contextFingerprint: String = "",
     val providerUsed: BriefProviderUsed = BriefProviderUsed.TEMPLATE,
-    val providerMessage: String = "Built on device from your Twidget data",
+    val providerMessage: String = "",
     val aiGeneratedAt: Long = 0L,
+    /** BCP-47 tag of the app language the template copy was written in. */
+    val language: String = "",
 )

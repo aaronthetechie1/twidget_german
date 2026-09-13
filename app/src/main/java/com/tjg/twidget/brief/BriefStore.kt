@@ -1,6 +1,7 @@
 package com.tjg.twidget.brief
 
 import android.content.Context
+import com.tjg.twidget.R
 import com.tjg.twidget.schedule.ScheduleProvider
 import com.tjg.twidget.schedule.ScheduleStatus
 import java.util.Locale
@@ -25,7 +26,7 @@ object BriefStore {
                 context,
                 snapshot.copy(
                     providerUsed = BriefProviderUsed.TEMPLATE,
-                    providerMessage = "Built on device from your Twidget data",
+                    providerMessage = context.getString(R.string.brief_provider_note_template),
                     aiGeneratedAt = 0L,
                     headline = "",
                     subheading = "",
@@ -53,6 +54,7 @@ object BriefStore {
         put("contextFingerprint", snapshot.contextFingerprint)
         put("providerUsed", snapshot.providerUsed.name)
         put("providerMessage", snapshot.providerMessage)
+        put("language", snapshot.language)
         put("aiGeneratedAt", snapshot.aiGeneratedAt)
         put("cards", JSONArray().apply {
             snapshot.cards.forEach { card ->
@@ -165,10 +167,8 @@ object BriefStore {
             contextFingerprint = root.optString("contextFingerprint"),
             providerUsed = runCatching { BriefProviderUsed.valueOf(root.optString("providerUsed")) }
                 .getOrDefault(BriefProviderUsed.TEMPLATE),
-            providerMessage = root.optString(
-                "providerMessage",
-                "Built on device from your Twidget data",
-            ),
+            providerMessage = root.optString("providerMessage"),
+            language = root.optString("language"),
             aiGeneratedAt = root.optLong("aiGeneratedAt").takeIf { it > 0L }
                 ?: if (root.optString("providerUsed") != BriefProviderUsed.TEMPLATE.name) {
                     root.optLong("generatedAt")

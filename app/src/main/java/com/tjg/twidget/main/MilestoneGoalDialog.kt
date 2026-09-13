@@ -60,7 +60,7 @@ internal object MilestoneGoalDialog {
                 if (existing == null) {
                     activity.getString(R.string.milestone_select_goal)
                 } else {
-                    activity.getString(R.string.milestone_edit_goal_title, metric.goalNoun)
+                    activity.getString(R.string.milestone_edit_goal_title, metric.goalNoun(activity))
                 },
             )
             .setView(content)

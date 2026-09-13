@@ -14,6 +14,7 @@ import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefCard
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
+import com.tjg.twidget.brief.BriefStrings
 import com.tjg.twidget.brief.BriefSnapshot
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollowersStore
@@ -95,7 +96,7 @@ internal object BriefWidgetArtworkRenderer {
             body = context.getString(R.string.brief_widget_empty_body),
             score = 0,
         )
-        val summary = snapshot?.let(BriefEditorialSummary::from)
+        val summary = snapshot?.let { BriefEditorialSummary.from(it, BriefStrings.from(context)) }
         val displayCard = card.copy(
             title = summary?.title ?: card.title,
             body = summary?.shortDescription ?: card.body,
