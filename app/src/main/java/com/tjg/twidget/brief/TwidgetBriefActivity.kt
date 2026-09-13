@@ -459,11 +459,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
-            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer, post.engagements, "Engagements")
-            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer_2, post.views, "Impressions")
-            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes, "Likes")
-            addMetric(this, OneUiIconR.drawable.ic_oui_message_outline, post.quotes, "Quote tweets")
-            addMetric(this, OneUiIconR.drawable.ic_oui_repeat, post.reposts, "Retweets")
+            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer, post.engagements, getString(R.string.brief_metric_engagements))
+            addMetric(this, OneUiIconR.drawable.ic_oui_equalizer_2, post.views, getString(R.string.brief_metric_impressions))
+            addMetric(this, OneUiIconR.drawable.ic_oui_heart_outline, post.likes, getString(R.string.likes))
+            addMetric(this, OneUiIconR.drawable.ic_oui_message_outline, post.quotes, getString(R.string.brief_metric_quote_tweets))
+            addMetric(this, OneUiIconR.drawable.ic_oui_repeat, post.reposts, getString(R.string.brief_metric_retweets))
         }, matchWrap(top = 10))
     }
 
@@ -608,7 +608,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     // Scheduled copy is rendered locally and never enters an AI prompt.
     private fun upcomingSection(tweets: List<BriefUpcomingTweet>): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(sectionLabel("Upcoming scheduled tweets"))
+        addView(sectionLabel(getString(R.string.brief_upcoming_scheduled_tweets)))
         tweets.forEachIndexed { index, tweet ->
             addView(scheduledPostCard(tweet), matchWrap(top = if (index == 0) 10 else 20))
         }
@@ -642,7 +642,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         })
 
         addView(primaryText(firstPost?.text.orEmpty().ifBlank {
-            tweet.preview.ifBlank { "Scheduled tweet" }
+            tweet.preview.ifBlank { getString(R.string.brief_scheduled_tweet_placeholder) }
         }, 14f).apply {
             setLineSpacing(dp(2).toFloat(), 1f)
         }, matchWrap(top = 10))
@@ -672,9 +672,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         }
 
         val details = buildList {
-            if (tweet.threadCount > 1) add("${tweet.threadCount}-tweet thread")
-            if (tweet.mediaCount > 0) add("${tweet.mediaCount} media")
-            add(if (tweet.provider == ScheduleProvider.BUFFER) "Buffer" else "Local reminder")
+            if (tweet.threadCount > 1) {
+                add(resources.getQuantityString(R.plurals.brief_draft_thread_count, tweet.threadCount, tweet.threadCount))
+            }
+            if (tweet.mediaCount > 0) add(getString(R.string.brief_scheduled_media_count, tweet.mediaCount))
+            add(
+                getString(
+                    if (tweet.provider == ScheduleProvider.BUFFER) R.string.schedule_provider_buffer else R.string.schedule_provider_local,
+                ),
+            )
         }.joinToString(" · ")
         addView(supportingText(details, 12f), matchWrap(top = 10))
     }
@@ -700,7 +706,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(10), 0, 0, 0)
                 addView(primaryText(stats.fullName.ifBlank { "@$username" }, 14f, true))
-                val source = if (post.provider == ScheduleProvider.BUFFER) "Buffer draft" else "Local draft"
+                val source = getString(
+                    if (post.provider == ScheduleProvider.BUFFER) R.string.brief_draft_source_buffer else R.string.brief_draft_source_local,
+                )
                 addView(supportingText("@$username · $source", 12f).apply {
                     maxLines = 1
                     ellipsize = TextUtils.TruncateAt.END
@@ -919,7 +927,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                         R.string.brief_goal_reached_heading,
                         settings.metric.goalNoun,
                     )
-                    progress >= 75 -> "You’re $progress% to your goal"
+                    progress >= 75 -> getString(R.string.brief_goal_progress_heading, progress)
                     else -> getString(R.string.brief_goal_heading, settings.metric.goalNoun)
                 }
             }
@@ -976,7 +984,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             setBackgroundResource(R.drawable.brief_guide_action_button)
             clipToOutline = true
             applyBriefCardRipple()
-            contentDescription = "Open scheduled tweets"
+            contentDescription = getString(R.string.brief_open_scheduled_tweets)
             isClickable = true
             isFocusable = true
             setOnClickListener(openSchedule)
@@ -985,9 +993,9 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun actionLabel(card: BriefCard): String? = when (card.action) {
         BriefCardAction.NONE -> null
-        BriefCardAction.OPEN_SCHEDULER -> "Review schedule"
-        BriefCardAction.COMPOSE_TWEET -> "Draft a tweet"
-        BriefCardAction.OPEN_POST -> "Open tweet"
+        BriefCardAction.OPEN_SCHEDULER -> getString(R.string.brief_action_review_schedule)
+        BriefCardAction.COMPOSE_TWEET -> getString(R.string.brief_action_draft_tweet)
+        BriefCardAction.OPEN_POST -> getString(R.string.brief_action_open_tweet)
     }
 
     private fun performCardAction(card: BriefCard) {
