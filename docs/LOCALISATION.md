@@ -46,10 +46,19 @@ names, and format-only templates) already stripped out:
 | `streak_splash_strings.xml` | Streak splash screen |
 | `top_followers_browser_strings.xml` | Top Followers browser |
 
-The qualifier follows Android resource naming: `fr`, `pt-rBR`, `zh-rCN`,
-`b+sr+Latn`. Prefer a plain language code unless regional differences are
-significant enough that speakers of the other variant would object; a plain
-code serves every region of that language.
+The qualifier follows Android resource naming, which differs from the
+BCP-47 language tag used in code and in `locales_config.xml`:
+
+| Language | Resource qualifier (folder) | BCP-47 tag (code) |
+| --- | --- | --- |
+| French | `values-fr` | `fr` |
+| Brazilian Portuguese | `values-pt-rBR` | `pt-BR` |
+| Simplified Chinese | `values-zh-rCN` | `zh-CN` |
+| Serbian (Latin script) | `values-b+sr+Latn` | `sr-Latn` |
+
+Prefer a plain language code unless regional differences are significant
+enough that speakers of the other variant would object; a plain code serves
+every region of that language.
 
 The script needs Bash (macOS, Linux, Git Bash, or WSL on Windows). Without
 it, copy the four files by hand and delete every line containing
@@ -99,8 +108,19 @@ English.
   in a translation pull request. If you find a typo or unclear English
   string, open a separate issue or pull request.
 
-Text generated at runtime by the Brief AI features comes from the language
-model, not from resource files, and is out of scope.
+### What the resource files do not cover
+
+- **Brief text.** Card titles and bodies produced by the Brief AI features
+  come from the language model. When the model is unavailable, the app shows
+  a fallback summary whose sentences are currently hard-coded in English in
+  `app/src/main/java/com/tjg/twidget/brief/BriefModels.kt`
+  (`BriefEditorialSummary.from()`), so that part of Brief stays English in
+  every language. Moving it into resources is tracked as maintainer work and
+  is not expected from translators.
+- **Anything else in English after you switch language is a bug.** All other
+  user-facing text should come from the resource files. If a screen,
+  notification, or widget still shows English, mention it in your pull
+  request so a maintainer can move the string into resources.
 
 ## Step 3: register the language in the app
 
@@ -108,19 +128,30 @@ Android already uses your folder when the device language matches. Twidget
 also offers explicit language pickers, so four small edits make it selectable.
 The German localisation ([#18](https://github.com/thatjoshguy67/twidget/pull/18),
 [#19](https://github.com/thatjoshguy67/twidget/pull/19)) is a worked example.
+Use the BCP-47 tag from the Step 1 table, not the folder qualifier.
 
 1. `app/src/main/res/xml/locales_config.xml` — add
-   `<locale android:name="fr" />`. This lists the language in Android 13+
-   per-app language settings and tells Play which languages the app supports.
-2. `app/src/main/java/com/tjg/twidget/core/AppLocales.kt` — add your tag to
-   `resolve()`, e.g. `"fr" -> Locale.FRENCH` or
-   `"pt-BR" -> Locale.forLanguageTag("pt-BR")`.
+   `<locale android:name="fr" />` (or `pt-BR`, `sr-Latn`). This lists the
+   language in Android 13+ per-app language settings and tells Play which
+   languages the app supports.
+2. `app/src/main/java/com/tjg/twidget/core/AppLocales.kt` — add a branch to
+   `resolve()`. It lowercases the stored tag before matching, so the match
+   key must be lowercase even when the tag has a region or script:
+
+   ```kotlin
+   "fr" -> Locale.FRENCH
+   "pt-br" -> Locale.forLanguageTag("pt-BR")
+   "sr-latn" -> Locale.forLanguageTag("sr-Latn")
+   ```
+
 3. `app/src/main/java/com/tjg/twidget/settings/SettingsPreferenceFragment.kt`
-   — add your tag to the `tags` array of the language preference and a
-   matching entry backed by a new `language_<name>` string.
+   — add the tag (`"fr"`, `"pt-BR"`) to the `tags` array of the language
+   preference and a matching entry backed by a new `language_<name>` string.
 4. `app/src/main/java/com/tjg/twidget/widget/WidgetConfigActivity.kt` — the
-   same pattern in `pickLanguage()` and `languageLabel()`, backed by a new
-   `widget_language_<tag>` string.
+   same pattern in `pickLanguage()` and `languageLabel()` with the same tag
+   (`"fr"`, `"pt-BR"`), backed by a new `widget_language_<tag>` string. The
+   stored value is lowercased by `AppLocales.resolve()`, which is why the
+   match key in step 2 is lowercase.
 
 Add the two new label strings to `values/strings.xml` in the existing format
 (`French (Français)`), and translate them in `values-de/strings.xml` and your
@@ -167,8 +198,11 @@ On a device or emulator, check:
   the About screen.
 - Android 13+: System Settings → Apps → Twidget → Language lists your
   language.
-- Widget configuration offers your language, and the follower artwork,
-  Brief, and lock-screen 1x1/2x1 widgets re-render in it.
+- Widget configuration offers your language, and the follower artwork and
+  lock-screen 1x1/2x1 widgets re-render in it. The Brief widget does not yet
+  honour the per-widget language (`TwidgetBriefWidget.createViews()` ignores
+  `settings.language`) and its summary text is the English fallback copy
+  noted above, so check only its labels, and only in the app language.
 - No clipped or overlapping text in widgets, buttons, dialogs, and the
   milestone and streak screens. Tablet and foldable layouts use the same
   strings.
