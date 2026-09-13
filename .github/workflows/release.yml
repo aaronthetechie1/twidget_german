@@ -101,7 +101,7 @@ jobs:
           BUFFER_OAUTH_CLIENT_ID: ${{ vars.BUFFER_OAUTH_CLIENT_ID }}
           CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
-        run: ./gradlew testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease testPlayReleaseUnitTest bundlePlayRelease lintPlayRelease --no-daemon --stacktrace
+        run: ./gradlew testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease --no-daemon --stacktrace
 
       - name: Verify signed release APK and AAB
         run: |
@@ -136,14 +136,20 @@ jobs:
 
       - name: Verify Play distribution
         run: |
-          jarsigner -verify app/build/outputs/bundle/playRelease/app-play-release.aab
+          bash scripts/verify-signed-distribution.sh app/build/outputs/apk/play/release/app-play-release.apk app/build/outputs/bundle/playRelease/app-play-release.aab app/build/outputs/apk/github/release/app-github-release.apk
           python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playRelease/app-play-release.aab
 
-      - name: Upload signed Play bundle
+      - name: Stage signed Play APK and AAB
+        run: |
+          mkdir -p play-artifacts
+          cp app/build/outputs/apk/play/release/app-play-release.apk "play-artifacts/twidget-play-v${{ github.event.inputs.version }}.apk"
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab "play-artifacts/twidget-play-v${{ github.event.inputs.version }}.aab"
+
+      - name: Upload signed Play APK and AAB
         uses: actions/upload-artifact@v4
         with:
           name: twidget-play-${{ github.event.inputs.version }}
-          path: app/build/outputs/bundle/playRelease/app-play-release.aab
+          path: play-artifacts/
           if-no-files-found: error
 
       - name: Create tag if missing

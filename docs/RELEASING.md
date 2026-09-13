@@ -59,15 +59,29 @@ Build a signed Play release locally with:
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew testPlayReleaseUnitTest bundlePlayRelease lintPlayRelease
+  ./gradlew testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease
 python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
 
-The **Release** workflow also builds and verifies this flavor and uploads a
-`twidget-play-<version>` workflow artifact. Upload that AAB to Play Console;
-GitHub release assets remain the GitHub distribution. The **Play Build**
-workflow verifies an unsigned Play release on pushes and pull requests.
-Do not upload a GitHub-flavor AAB or a debuggable build to Google Play.
+CI provides these downloads in each run's **Artifacts** section:
+
+| Workflow | GitHub distribution | Play distribution |
+| --- | --- | --- |
+| Debug Build + Play Build (pushes to main/staging) | Existing production-signed debug APK/AAB and rolling GitHub release | Signed release APK/AAB in `twidget-play-release` |
+| Pre-release | Signed beta APK/AAB on the GitHub pre-release | Signed beta APK/AAB in `twidget-play-<version>-beta.<number>` |
+| Release | Signed release APK/AAB on the GitHub release | Signed release APK/AAB in `twidget-play-<version>` |
+
+The Play APK can be installed directly for testing; upload the Play AAB to
+Play Console. The signed APK and AAB must have matching certificates, and
+stable/beta workflows also verify that Play matches the GitHub distribution.
+Play artifacts stay separate from GitHub release assets because older GitHub
+updaters may select any attached APK.
+
+Play Build pull requests produce only an unsigned AAB in
+`twidget-play-unsigned`; production signing credentials are confined to the
+trusted branch/manual build steps. Push builds keep the base release version
+code, so uploading another build of that version to Play requires a version
+bump. Do not upload a GitHub-flavor AAB or a debuggable build to Google Play.
 
 ### Publishing
 

@@ -103,6 +103,7 @@ jobs:
           CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
         run: |
           ./gradlew testGithubBetaUnitTest assembleGithubBeta bundleGithubBeta lintVitalGithubBeta \
+            testPlayBetaUnitTest assemblePlayBeta bundlePlayBeta lintPlayBeta \
             -PbetaNumber=${{ steps.beta.outputs.number }} --no-daemon --stacktrace
 
       - name: Verify signed beta APK and AAB
@@ -159,6 +160,24 @@ jobs:
             fi
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify signed Play beta APK and AAB
+        run: |
+          bash scripts/verify-signed-distribution.sh app/build/outputs/apk/play/beta/app-play-beta.apk app/build/outputs/bundle/playBeta/app-play-beta.aab app/build/outputs/apk/github/beta/app-github-beta.apk
+          python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playBeta/app-play-beta.aab
+
+      - name: Stage signed Play beta APK and AAB
+        run: |
+          mkdir -p play-artifacts
+          cp app/build/outputs/apk/play/beta/app-play-beta.apk "play-artifacts/twidget-play-v${{ steps.version.outputs.version }}.apk"
+          cp app/build/outputs/bundle/playBeta/app-play-beta.aab "play-artifacts/twidget-play-v${{ steps.version.outputs.version }}.aab"
+
+      - name: Upload signed Play beta APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: twidget-play-${{ steps.version.outputs.version }}
+          path: play-artifacts/
+          if-no-files-found: error
 
       - name: Create tag if missing
         run: |
