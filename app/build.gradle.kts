@@ -108,6 +108,7 @@ android {
         applicationId = "com.tjg.twidget"
         minSdk = 26
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = stableVersionCode
         versionName = baseVersionName
         resValue("string", "buffer_oauth_client_id", bufferOAuthClientId)

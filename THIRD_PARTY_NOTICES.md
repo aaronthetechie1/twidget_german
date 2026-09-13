@@ -15,3 +15,10 @@ Names, logos, and trademarks belonging to X, Twitter, Google, Samsung,
 FxTwitter/FxEmbed, Rettiwt, One UI Project, and other projects identify
 interoperability or attribution only. Twidget is not endorsed by those
 organisations unless explicitly stated by them.
+
+Settings icons are Android vector conversions of the unchanged path data from
+`@thatjoshguy/oneui-icons` (MIT). The theme-picker preview images come from the
+oneui-design sample app (MIT). Their notices are included in the app's
+open-source licence page. The About Settings icon is the supplied Twidget asset.
+The Buffer brand mark is reused from the supplied Figma design in Accounts and
+onboarding to identify the Buffer integration.

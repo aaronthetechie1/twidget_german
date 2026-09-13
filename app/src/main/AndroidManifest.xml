@@ -121,12 +121,19 @@
 
         <activity
             android:name=".main.AboutActivity"
+            android:theme="@style/Theme.Twidget.Settings"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
 
         <activity
+            android:name=".settings.SettingsCategoryActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false"
+            android:theme="@style/Theme.Twidget.Settings" />
+        <activity
             android:name=".settings.SettingsActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity
@@ -159,6 +166,7 @@
         <activity
             android:name=".settings.SettingsScheduleActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity
@@ -179,16 +187,19 @@
         <activity
             android:name=".settings.SettingsAdvancedActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity
             android:name=".settings.BriefSettingsActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity
             android:name=".settings.BriefContentSettingsActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity
@@ -219,6 +230,7 @@
         <activity
             android:name=".settings.SettingsDebugActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:theme="@style/Theme.Twidget.Settings"
             android:exported="false" />
 
         <activity

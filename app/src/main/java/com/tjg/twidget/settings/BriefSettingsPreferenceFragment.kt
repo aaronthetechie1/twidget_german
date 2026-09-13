@@ -1,15 +1,10 @@
 package com.tjg.twidget.settings
 
-import android.content.Context
 import android.content.Intent
-import android.graphics.Outline
 import android.os.Bundle
-import android.view.View
-import android.view.ViewOutlineProvider
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
-import androidx.preference.PreferenceViewHolder
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefApiKeyDialog
 import com.tjg.twidget.brief.BriefProviderMode
@@ -46,15 +41,27 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         })
 
         screen.addPreference(spacerCategory())
-        screen.addPreference(PreviewPreference(context).apply {
+        val preview = androidx.appcompat.widget.AppCompatImageView(context).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                (220 * resources.displayMetrics.density).toInt(),
+            )
+            setImageResource(R.drawable.brief_settings_preview)
+            setBackgroundResource(R.drawable.brief_settings_preview_background)
+            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            clipToOutline = true
+            contentDescription = getString(R.string.brief_settings_preview_description)
+        }
+        screen.addPreference(dev.oneuiproject.oneui.preference.LayoutPreference(context, preview).apply {
             key = "brief_preview"
-            layoutResource = R.layout.preference_brief_preview
             isSelectable = false
+            setAllowDividerAbove(false)
+            setAllowDividerBelow(false)
         })
-        screen.addPreference(UncontainedPreference(context, allowDividerAbove = false).apply {
+        screen.addPreference(dev.oneuiproject.oneui.preference.DescriptionPreference(context).apply {
             key = "brief_intro"
-            layoutResource = R.layout.preference_brief_intro
-            isSelectable = false
+            title = getString(R.string.settings_brief_description,
+                getString(R.string.brief_settings_intro), getString(R.string.brief_settings_ai_intro))
         })
 
         screen.addPreference(spacerCategory())
@@ -139,39 +146,4 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         isIconSpaceReserved = false
     }
 
-    private open class UncontainedPreference(
-        context: Context,
-        private val allowDividerAbove: Boolean = true,
-        private val allowDividerBelow: Boolean = true,
-    ) : Preference(context) {
-        override fun onBindViewHolder(holder: PreferenceViewHolder) {
-            super.onBindViewHolder(holder)
-            holder.setDividerAllowedAbove(allowDividerAbove)
-            holder.setDividerAllowedBelow(allowDividerBelow)
-            holder.itemView.setBackgroundColor(context.getColor(R.color.oneui_bg))
-            holder.itemView.foreground = null
-            holder.itemView.clipToOutline = false
-            holder.itemView.outlineProvider = null
-        }
-    }
-
-    private class PreviewPreference(context: Context) : UncontainedPreference(
-        context = context,
-        allowDividerBelow = false,
-    ) {
-        private val cornerRadius = 28f * context.resources.displayMetrics.density
-
-        override fun onBindViewHolder(holder: PreferenceViewHolder) {
-            super.onBindViewHolder(holder)
-            holder.itemView.findViewById<View>(R.id.brief_settings_preview_image)?.apply {
-                outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(view: View, outline: Outline) {
-                        outline.setRoundRect(0, 0, view.width, view.height, cornerRadius)
-                    }
-                }
-                clipToOutline = true
-                invalidateOutline()
-            }
-        }
-    }
 }

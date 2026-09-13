@@ -19,7 +19,6 @@ import android.widget.LinearLayout
 import android.widget.ListPopupWindow
 import android.widget.RadioButton
 import android.widget.TextView
-import androidx.appcompat.widget.SeslSeekBar
 import androidx.appcompat.widget.SwitchCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefStore
@@ -115,21 +114,10 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     }
 
     private fun bindControls() {
-        findViewById<SeslSeekBar>(R.id.opacity_slider).apply {
-            alpha = 0f
-            progressDrawable?.alpha = 0
-            progress = currentLevel
-            updateSliderVisuals()
-            setOnSeekBarChangeListener(object : SeslSeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeslSeekBar, progress: Int, fromUser: Boolean) {
-                    currentLevel = progress.coerceIn(0, OPACITY_PRESETS.lastIndex)
-                    tintAlpha = OPACITY_PRESETS[currentLevel]
-                    updateSliderVisuals()
-                    render()
-                }
-                override fun onStartTrackingTouch(seekBar: SeslSeekBar) = Unit
-                override fun onStopTrackingTouch(seekBar: SeslSeekBar) = Unit
-            })
+        WidgetOpacityControl.bind(findViewById(R.id.opacity_block), tintAlpha) { alpha ->
+            tintAlpha = alpha
+            currentLevel = closestOpacityLevel(alpha)
+            render()
         }
         findViewById<CardItemView>(R.id.tint_row).setOnClickListener { pickColorMode(it) }
         findViewById<CardItemView>(R.id.logo_row).setOnClickListener { pickLogo(it) }
@@ -501,27 +489,14 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         else -> getString(R.string.widget_font_one_ui)
     }
 
-    private fun updateSliderVisuals() {
-        val tickIds = listOf(R.id.opacity_tick_0, R.id.opacity_tick_1, R.id.opacity_tick_2, R.id.opacity_tick_3)
-        tickIds.forEachIndexed { index, id ->
-            findViewById<View>(id).alpha = if (index == currentLevel) 0f else 1f
-        }
-        val thumb = findViewById<View>(R.id.opacity_thumb_visual)
-        thumb.post {
-            val selectedTick = findViewById<View>(tickIds[currentLevel.coerceIn(0, tickIds.lastIndex)])
-            thumb.translationX = selectedTick.x + selectedTick.width / 2f - thumb.width / 2f
-        }
-    }
-
-    private fun closestOpacityLevel(alpha: Int): Int =
-        OPACITY_PRESETS.indices.minBy { index -> kotlin.math.abs(OPACITY_PRESETS[index] - alpha) }
+    private fun closestOpacityLevel(alpha: Int): Int = WidgetOpacityControl.closestLevel(alpha)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
         const val EXTRA_LOCKSCREEN_WIDGET = "com.tjg.twidget.extra.LOCKSCREEN_WIDGET"
         const val EXTRA_LOCKSCREEN_WIDE = "com.tjg.twidget.extra.LOCKSCREEN_WIDE"
-        private val OPACITY_PRESETS = intArrayOf(38, 102, 178, 240)
+        private val OPACITY_PRESETS = WidgetOpacityControl.presets
     }
 
     private data class HomePreviewSpec(

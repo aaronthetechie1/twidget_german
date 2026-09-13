@@ -2,6 +2,19 @@
 
 All notable changes to Twidget are documented here.
 
+## Unreleased
+
+- Reorganised Settings into Accounts, Appearance, Data and sources, Your Brief,
+  Notifications, Scheduled tweets, and Language, following the Figma categories
+  with One UI library components and OneUI Icons.
+- Added an app theme picker and widget defaults while preserving individual
+  widget choices. Split alternate source credentials into dedicated pages.
+- Updated the About layout and Debug groups, and added German translations for the new Settings copy.
+- Open Android app-language settings on Android 13 and newer, with a radio-button
+  language dialog on Android 12 and older.
+- Show the Your Brief indicator until setup is complete and its Settings page has
+  been viewed. Added the Buffer logo to Accounts and onboarding.
+
 ## [1.2.1] - 2026-09-13
 
 A localisation patch. German now covers the rest of the app, and the repo has

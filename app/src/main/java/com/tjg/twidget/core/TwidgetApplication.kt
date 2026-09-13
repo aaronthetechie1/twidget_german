@@ -15,6 +15,7 @@ import com.tjg.twidget.widget.TwidgetWidget
 class TwidgetApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
+        com.tjg.twidget.ui.AppAppearance.apply(this)
         AppPaletteManager.reconcile(this)
         if (AppPaletteManager.consumePendingWidgetRefresh(this)) {
             TwidgetWidget.updateAll(this)

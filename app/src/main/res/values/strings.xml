@@ -290,7 +290,7 @@
     <string name="widget_font">Font</string>
     <string name="widget_font_one_ui" translatable="false">One UI Sans</string>
     <string name="widget_font_google" translatable="false">Google Sans Flex</string>
-    <string name="clear_cache">Clear cache</string>
+    <string name="clear_cache">Clear cached data</string>
     <string name="about_twidget">About Twidget</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
@@ -303,19 +303,19 @@
     <string name="about_credits_section">Thanks to</string>
     <string name="about_projects_section">Open source projects</string>
     <string name="about_tjg_title" translatable="false">That Josh Guy</string>
-    <string name="about_tjg_summary">Created the app. Far too many red bulls consumed in the process.</string>
+    <string name="about_tjg_summary">Created Twidget. Far too many red bulls consumed in the process.</string>
     <string name="about_kingowen_title" translatable="false">KingOwenFYI</string>
     <string name="about_kingowen_summary">Contributor, motivator and idea generator.</string>
     <string name="about_aaron_title" translatable="false">Aaron the Techie</string>
-    <string name="about_aaron_summary">German localisation.</string>
+    <string name="about_aaron_summary">Localised to German</string>
     <string name="link_aaron" translatable="false">https://x.com/aaronthetechie</string>
     <string name="about_fxtwitter_title" translatable="false">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Default data source. Public profile, status, media, and recent-post analytics data</string>
-    <string name="about_oneui_summary">One UI interface components. The magic behind the app\'s design</string>
-    <string name="about_legal_section">Legal</string>
+    <string name="about_oneui_summary">Tribalfs fork - SESL 8.0</string>
+    <string name="about_legal_section">Boring stuff</string>
     <string name="about_privacy_policy_title">Privacy policy</string>
     <string name="about_privacy_policy_summary">How Twidget handles, protects and deletes information</string>
-    <string name="about_open_source_licenses_title">Open Source Licences</string>
+    <string name="about_open_source_licenses_title">Open source licenses</string>
     <string name="about_open_source_licenses_summary">Apache License 2.0 • MIT License • BSD 3-Clause License • SIL Open Font License 1.1</string>
     <string name="about_legal_notice_title">Legal notice</string>
     <string name="about_legal_disclaimer_summary">Twidget is an independent, unofficial project. It is not affiliated with, sponsored, or endorsed by Samsung Electronics, X Corp., Google LLC, or any other third party referenced in this app. Samsung, One UI, X, Twitter, Google, Android, and related names and logos are trademarks of their respective owners.</string>
@@ -343,7 +343,7 @@
     <string name="link_tjg" translatable="false">https://tjg.gg</string>
     <string name="link_kingowen" translatable="false">https://x.com/KingOwenFYI</string>
     <string name="link_fxtwitter" translatable="false">https://github.com/FxEmbed/FxEmbed</string>
-    <string name="link_oneui_project" translatable="false">https://github.com/OneUIProject</string>
+    <string name="link_oneui_project" translatable="false">https://github.com/tribalfs/oneui-design</string>
     <string name="link_rettiwt" translatable="false">https://github.com/Rishikant181/Rettiwt-API</string>
     <string name="link_app_repo" translatable="false">https://github.com/thatjoshguy67/twidget</string>
     <string name="link_privacy_policy" translatable="false">https://tjg.gg/blog/twidget-privacy-policy</string>
@@ -397,7 +397,7 @@
     <string name="continue_button">Continue</string>
     <string name="starting_twidget">Starting…</string>
     <string name="set">Set</string>
-    <string name="debug_menu">Debug menu</string>
+    <string name="debug_menu">Debug</string>
     <string name="debug_menu_unlocked">Debug menu unlocked</string>
     <string name="debug_menu_already_unlocked">Debug menu is already unlocked</string>
     <string name="debug_menu_countdown">%1$d more taps to unlock the debug menu</string>

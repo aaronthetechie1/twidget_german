@@ -11,4 +11,6 @@
     <dimen name="notice_detail_header_height">280dp</dimen>
     <dimen name="notice_detail_content_padding">24dp</dimen>
     <dimen name="about_hero_content_height">274dp</dimen>
+    <dimen name="settings_row_height">64dp</dimen>
+    <dimen name="settings_content_inset">20dp</dimen>
 </resources>

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -19,7 +18,6 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -105,24 +103,24 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(Menu.NONE, MENU_GITHUB, 0, R.string.about_repo_link)
-            .setIcon(R.drawable.ic_github_24)
-            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         menu.add(Menu.NONE, MENU_APP_INFO, 1, R.string.app_info)
-            .setIcon(R.drawable.ic_info_24)
+            .setIcon(R.drawable.ic_settings_info)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-        menu.add(MENU_UPDATE_CHANNEL, MENU_STABLE, 2, R.string.update_channel_stable)
+        val channels = menu.addSubMenu(Menu.NONE, MENU_UPDATE_CHANNEL, 2, R.string.settings_update_channel)
+        channels.item.setIcon(R.drawable.ic_settings_labs)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        channels.add(MENU_UPDATE_CHANNEL, MENU_STABLE, 0, R.string.update_channel_stable)
             .setCheckable(true)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
-        menu.add(MENU_UPDATE_CHANNEL, MENU_BETA, 2, R.string.update_channel_beta)
+        channels.add(MENU_UPDATE_CHANNEL, MENU_BETA, 2, R.string.update_channel_beta)
             .setCheckable(true)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         if (AppUpdateManager.isDebugBuild(appVersionName())) {
-            menu.add(MENU_UPDATE_CHANNEL, MENU_DEBUG, 2, R.string.update_channel_debug)
+            channels.add(MENU_UPDATE_CHANNEL, MENU_DEBUG, 2, R.string.update_channel_debug)
                 .setCheckable(true)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         }
-        menu.setGroupCheckable(MENU_UPDATE_CHANNEL, true, true)
+        channels.setGroupCheckable(MENU_UPDATE_CHANNEL, true, true)
         val selectedItem = when (updateChannel) {
             UpdateChannel.STABLE -> MENU_STABLE
             UpdateChannel.BETA -> MENU_BETA
@@ -135,10 +133,6 @@ class AboutActivity : FoldablePopOverActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
             onBackPressedDispatcher.onBackPressed()
-            return true
-        }
-        if (item.itemId == MENU_GITHUB) {
-            openUrl(getString(R.string.link_app_repo))
             return true
         }
         if (item.itemId == MENU_APP_INFO) {
@@ -238,10 +232,16 @@ class AboutActivity : FoldablePopOverActivity() {
 
     private fun setupVersion() {
         val text = getString(R.string.about_version, appVersionName())
-        listOf(R.id.about_header_version, R.id.about_compact_version).forEach { id ->
-            findViewById<TextView>(id).apply {
-                this.text = text
-                setOnClickListener { onVersionTapped() }
+        findViewById<TextView>(R.id.about_header_version).apply {
+            this.text = text
+            setOnClickListener { onVersionTapped() }
+        }
+        findViewById<CardItemView>(R.id.about_compact_header).apply {
+            summary = text
+            getSummaryView().setOnClickListener { onVersionTapped() }
+            getEndImageView().apply {
+                contentDescription = getString(R.string.about_repo_link)
+                setOnClickListener { openUrl(getString(R.string.link_app_repo)) }
             }
         }
     }
@@ -599,7 +599,7 @@ class AboutActivity : FoldablePopOverActivity() {
 
     private fun loadCreditAvatar(rowId: Int, username: String) {
         val row = findViewById<CardItemView>(rowId).apply {
-            iconSize = (48 * resources.displayMetrics.density).toInt()
+            iconSize = (34 * resources.displayMetrics.density).toInt()
             icon = getDrawable(R.drawable.avatar_twidget)
         }
         ProfileImageLoader.loadInto(
@@ -613,20 +613,12 @@ class AboutActivity : FoldablePopOverActivity() {
         val notices = resources.openRawResource(R.raw.open_source_licenses)
             .bufferedReader()
             .use { it.readText() }
-        val padding = (24 * resources.displayMetrics.density).toInt()
-        val textView = TextView(this).apply {
-            text = notices
-            setTextColor(getColor(R.color.oneui_text_primary))
-            textSize = 13f
-            typeface = Typeface.MONOSPACE
-            setTextIsSelectable(true)
-            setPadding(padding, padding / 2, padding, padding)
-        }
         AlertDialog.Builder(this)
             .setTitle(R.string.about_open_source_licenses_title)
-            .setView(ScrollView(this).apply { addView(textView) })
+            .setMessage(notices)
             .setPositiveButton(android.R.string.ok, null)
             .show()
+            .findViewById<TextView>(android.R.id.message)?.setTextIsSelectable(true)
     }
 
     private fun showLegalNotice() {
@@ -691,7 +683,6 @@ class AboutActivity : FoldablePopOverActivity() {
         private const val MENU_UPDATE_CHANNEL = 2
         private const val MENU_STABLE = 3
         private const val MENU_BETA = 4
-        private const val MENU_GITHUB = 5
         private const val MENU_DEBUG = 6
     }
 }
