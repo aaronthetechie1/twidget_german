@@ -23,15 +23,17 @@ object ScheduleDeepLink {
 object ScheduleNotificationHelper {
     const val CHANNEL_ID = "scheduled_post_reminders"
     const val BUFFER_STATUS_CHANNEL_ID = "buffer_post_status"
-    private const val CHANNEL_NAME = "Scheduled tweet reminders"
-    private const val BUFFER_STATUS_CHANNEL_NAME = "Buffer publishing"
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.deleteNotificationChannel("postpone_post_status")
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Reminders to finish and publish locally scheduled tweets"
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.schedule_reminder_channel_name),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = context.getString(R.string.schedule_reminder_channel_description)
                 enableLights(true)
                 lightColor = Color.BLUE
             },
@@ -39,10 +41,10 @@ object ScheduleNotificationHelper {
         manager.createNotificationChannel(
             NotificationChannel(
                 BUFFER_STATUS_CHANNEL_ID,
-                BUFFER_STATUS_CHANNEL_NAME,
+                context.getString(R.string.schedule_buffer_status_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Reports successful and failed Buffer publishing attempts"
+                description = context.getString(R.string.schedule_buffer_status_channel_description)
             },
         )
     }
@@ -139,7 +141,8 @@ object ScheduleNotificationHelper {
 
     private fun buildNotification(context: Context, post: ScheduledPost): Notification {
         val first = post.thread.firstOrNull()
-        val preview = first?.text?.takeIf { it.isNotBlank() } ?: "Media post ready to publish"
+        val preview = first?.text?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.schedule_local_reminder_media_preview)
         val open = scheduleQueuePendingIntent(context, 0)
         val checklist = schedulePendingIntent(context, post.id, ScheduleDeepLink.ACTION_OPEN_CHECKLIST, 1)
         val composeIntent = Intent(
@@ -163,14 +166,14 @@ object ScheduleNotificationHelper {
             .addAction(
                 Notification.Action.Builder(
                     android.R.drawable.ic_menu_agenda,
-                    "Open checklist",
+                    context.getString(R.string.schedule_local_reminder_action_checklist),
                     checklist,
                 ).build()
             )
             .addAction(
                 Notification.Action.Builder(
                     android.R.drawable.ic_menu_send,
-                    "Compose on X",
+                    context.getString(R.string.schedule_local_reminder_action_compose),
                     compose,
                 ).build()
             )

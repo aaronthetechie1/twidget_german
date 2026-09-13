@@ -5,6 +5,8 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 class BriefAiCachePolicyTest {
+    private val strings = TestBriefStrings()
+
     private val now = 20_000_000L
 
     @Test
@@ -26,7 +28,7 @@ class BriefAiCachePolicyTest {
             ),
         )
 
-        val result = BriefAiCachePolicy.retain(cached, refreshed, now)
+        val result = BriefAiCachePolicy.retain(cached, refreshed, strings, now)
 
         assertEquals(BriefProviderUsed.LOCAL, result.providerUsed)
         assertEquals(listOf("growth", "streak"), result.cards.map(BriefCard::id))
@@ -54,7 +56,7 @@ class BriefAiCachePolicyTest {
             ),
         )
 
-        val result = BriefAiCachePolicy.retain(cached, refreshed, now)
+        val result = BriefAiCachePolicy.retain(cached, refreshed, strings, now)
 
         assertEquals(BriefProviderUsed.LOCAL, result.providerUsed)
         assertEquals("Momentum is building", result.cards[0].title)
@@ -75,7 +77,7 @@ class BriefAiCachePolicyTest {
             cards = listOf(card("growth", "Fresh", "You gained 25 followers today.", 90)),
         )
 
-        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, now))
+        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, strings, now))
     }
 
     @Test
@@ -93,7 +95,25 @@ class BriefAiCachePolicyTest {
             engineVersion = 8,
         )
 
-        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, now))
+        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, strings, now))
+    }
+
+    @Test
+    fun `switching the app language discards cached wording`() {
+        val cached = snapshot(
+            generatedAt = now - 60_000L,
+            provider = BriefProviderUsed.LOCAL,
+            cards = listOf(card("growth", "You are flying", "You gained 25 followers today.", 90)),
+            language = "en",
+        )
+        val refreshed = snapshot(
+            generatedAt = now,
+            provider = BriefProviderUsed.TEMPLATE,
+            cards = listOf(card("growth", "Der Schwung nimmt zu", "Du hast heute 25 Follower gewonnen.", 90)),
+            language = "de",
+        )
+
+        assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, strings, now))
     }
 
     private fun snapshot(
@@ -101,6 +121,7 @@ class BriefAiCachePolicyTest {
         provider: BriefProviderUsed,
         cards: List<BriefCard>,
         engineVersion: Int = 0,
+        language: String = "en",
     ) = BriefSnapshot(
         username = "tester",
         generatedAt = generatedAt,
@@ -118,6 +139,7 @@ class BriefAiCachePolicyTest {
         providerMessage = if (provider == BriefProviderUsed.LOCAL) "Gemini Nano" else "Template",
         aiGeneratedAt = if (provider == BriefProviderUsed.TEMPLATE) 0L else generatedAt,
         engineVersion = engineVersion,
+        language = language,
     )
 
     private fun card(id: String, title: String, body: String, score: Int) = BriefCard(

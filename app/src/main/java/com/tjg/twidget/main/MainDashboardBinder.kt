@@ -33,6 +33,7 @@ import com.tjg.twidget.analytics.XAnalyticsMovement
 import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
+import com.tjg.twidget.brief.BriefStrings
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -345,7 +346,7 @@ internal class MainDashboardBinder(
     private fun createBriefCard(stats: ProfileStats, account: String): View {
         val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
         val snapshot = BriefEngine.rebuild(activity, account)
-        val summary = BriefEditorialSummary.from(snapshot)
+        val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(activity))
         val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
             id = "empty",
             type = BriefCardType.SUMMARY,
@@ -719,7 +720,7 @@ internal class MainDashboardBinder(
             DashboardCardType.GROWTH_PACE -> {
                 val daily = dailyAverage(history) { it.followers }
                 InsightSpec(
-                    label = "Growth",
+                    label = activity.getString(R.string.insight_growth),
                     value = TwidgetStore.signedNumber(followersDelta),
                     detail = activity.getString(R.string.per_day, signedDecimal(daily)),
                     accent = if (followersDelta < 0) activity.getColor(R.color.metric_red) else activity.getColor(R.color.metric_green),
@@ -728,7 +729,7 @@ internal class MainDashboardBinder(
             DashboardCardType.BEST_DAY -> {
                 val best = bestRecentDay(history)
                 InsightSpec(
-                    label = "Best day",
+                    label = activity.getString(R.string.insight_best_day),
                     value = if (best == null) "--" else TwidgetStore.signedNumber(best.second),
                     detail = best?.first ?: activity.getString(R.string.no_recent_gain),
                     accent = activity.getColor(R.color.metric_green),
@@ -746,7 +747,7 @@ internal class MainDashboardBinder(
             DashboardCardType.AUDIENCE_BALANCE -> {
                 val ratio = stats.followersCount.toDouble() / stats.followingsCount.coerceAtLeast(1)
                 InsightSpec(
-                    label = "Balance",
+                    label = activity.getString(R.string.insight_balance),
                     value = if (ratio >= 1.0) {
                         String.format(Locale.US, "%.1f:1", ratio)
                     } else {
@@ -759,7 +760,7 @@ internal class MainDashboardBinder(
             DashboardCardType.ACCOUNT_HEALTH -> {
                 // Never claim Public unless the API explicitly said so.
                 InsightSpec(
-                    label = "Health",
+                    label = activity.getString(R.string.insight_health),
                     value = when {
                         stats.isVerified == true -> activity.getString(R.string.verified)
                         stats.isPrivate == true -> activity.getString(R.string.private_profile)

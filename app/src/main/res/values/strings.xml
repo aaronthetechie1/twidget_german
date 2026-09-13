@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Twidget</string>
+    <string name="app_name" translatable="false">Twidget</string>
     <string name="widget_description">X/Twitter follower tracker with blurred home screen widgets</string>
     <string name="widget_label">Twidget Followers</string>
     <string name="widget_language">Language</string>
-    <string name="widget_language_default">System default</string>
+    <string name="widget_language_default">App default</string>
     <string name="widget_language_de">German (Deutsch)</string>
     <string name="widget_language_en">English</string>
     <string name="lockscreen_follower_1x1_label">Followers 1x1</string>
     <string name="lockscreen_follower_2x1_label">Followers 2x1</string>
-    <string name="dashboard_title">That Josh Guy</string>
+    <string name="dashboard_title" translatable="false">That Josh Guy</string>
     <string name="last_synced">Last synced: %1$s</string>
     <string name="not_synced_yet">Not synced yet</string>
     <string name="time_unavailable">Time unavailable</string>
@@ -65,11 +65,11 @@
     <string name="finding_banger">Finding all-time banger</string>
     <string name="banger_scanning">Scanning the full tweet history…</string>
     <string name="banger_scanning_progress">Scanning the full tweet history… %1$s eligible tweets checked</string>
-    <string name="tweet_handle_and_date">\@%1$s · %2$s</string>
-    <string name="account_handle">\@%1$s</string>
+    <string name="tweet_handle_and_date" translatable="false">\@%1$s · %2$s</string>
+    <string name="account_handle" translatable="false">\@%1$s</string>
     <string name="preview_follower_count">7,671</string>
-    <string name="preview_follower_delta">+21</string>
-    <string name="preview_account_handle">\@thatjoshguy69</string>
+    <string name="preview_follower_delta" translatable="false">+21</string>
+    <string name="preview_account_handle" translatable="false">\@thatjoshguy69</string>
     <string name="preview_followers_large">Seven Thousand, Six\nHundred and Seventy\nOne Followers</string>
     <string name="preview_followers_square">Seven Thousand,\nSix Hundred and\nSeventy One\nFollowers</string>
     <string name="tweet_metrics">%1$s views · %2$s replies · %3$s likes</string>
@@ -98,6 +98,10 @@
     <string name="momentum">Momentum</string>
     <string name="audience_balance">Audience balance</string>
     <string name="account_health">Account health</string>
+    <string name="insight_growth">Growth</string>
+    <string name="insight_best_day">Best day</string>
+    <string name="insight_balance">Balance</string>
+    <string name="insight_health">Health</string>
     <string name="steady_growth">Steady growth</string>
     <string name="accelerating">Accelerating</string>
     <string name="cooling">Cooling</string>
@@ -142,21 +146,21 @@
     <string name="open_settings">Open settings</string>
     <string name="refresh_stats">Refresh stats</string>
     <string name="profile_username">Profile username</string>
-    <string name="profile_username_hint">thatjoshguy69</string>
+    <string name="profile_username_hint" translatable="false">thatjoshguy69</string>
     <string name="data_source">Data source</string>
     <string name="analytics">Analytics</string>
     <string name="refresh">Refresh</string>
     <string name="active_source">Active source</string>
     <string name="source_default">Twidget bridge</string>
     <string name="source_default_summary">Shared Twidget server</string>
-    <string name="source_fxtwitter">FxTwitter</string>
+    <string name="source_fxtwitter" translatable="false">FxTwitter</string>
     <string name="source_fxtwitter_summary">Free public FxTwitter API</string>
     <string name="share_history">Contribute to shared history</string>
     <string name="share_history_summary">Share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
     <string name="share_history_onboarding_summary">Optional: share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
     <string name="source_self_hosted">Self-hosted bridge</string>
     <string name="source_self_hosted_summary">Use your own bridge</string>
-    <string name="source_x_api">X API</string>
+    <string name="source_x_api" translatable="false">X API</string>
     <string name="source_x_api_summary">Requires your own paid X API access</string>
     <string name="advanced_options">Advanced options</string>
     <string name="advanced_options_summary">Configure self-hosted and X API sources</string>
@@ -179,7 +183,7 @@
     <string name="status_connected_detail">Connected (%1$s)</string>
     <string name="status_not_configured">Not configured</string>
     <string name="status_failed">Failed: %1$s</string>
-    <string name="status_http_error">HTTP %1$d</string>
+    <string name="status_http_error" translatable="false">HTTP %1$d</string>
     <string name="status_unexpected_response">Unexpected response</string>
     <string name="status_x_client_forbidden">X API access is not active for this project. Free access no longer includes this v2 endpoint.</string>
     <string name="self_hosted_rettiwt">Bridge URL</string>
@@ -251,7 +255,7 @@
     <string name="import_failure_default">The analytics file could not be verified</string>
     <string name="import_failure_range">Follower count was not within range</string>
     <string name="import_stored_followers">Cached follower count</string>
-    <string name="analytics_url">https://analytics.x.com/</string>
+    <string name="analytics_url" translatable="false">https://analytics.x.com/</string>
     <string name="import_no_browser">No web browser is available.</string>
     <string name="import_action">Import</string>
     <string name="analytics_import_sync_first">Sync this account first so Twidget can anchor the import to its current follower count.</string>
@@ -280,12 +284,12 @@
     <string name="widget_tint_dark">Dark</string>
     <string name="widget_tint_system">Match system</string>
     <string name="widget_logo_style">Logo style</string>
-    <string name="widget_logo_x">X</string>
-    <string name="widget_logo_twitter">Twitter</string>
+    <string name="widget_logo_x" translatable="false">X</string>
+    <string name="widget_logo_twitter" translatable="false">Twitter</string>
     <string name="widget_show_delta">Show follower delta</string>
     <string name="widget_font">Font</string>
-    <string name="widget_font_one_ui">One UI Sans</string>
-    <string name="widget_font_google">Google Sans Flex</string>
+    <string name="widget_font_one_ui" translatable="false">One UI Sans</string>
+    <string name="widget_font_google" translatable="false">Google Sans Flex</string>
     <string name="clear_cache">Clear cache</string>
     <string name="about_twidget">About Twidget</string>
     <string name="save">Save</string>
@@ -298,14 +302,14 @@
     <string name="about_developer_section">Made by</string>
     <string name="about_credits_section">Thanks to</string>
     <string name="about_projects_section">Open source projects</string>
-    <string name="about_tjg_title">That Josh Guy</string>
+    <string name="about_tjg_title" translatable="false">That Josh Guy</string>
     <string name="about_tjg_summary">Created the app. Far too many red bulls consumed in the process.</string>
-    <string name="about_kingowen_title">KingOwenFYI</string>
+    <string name="about_kingowen_title" translatable="false">KingOwenFYI</string>
     <string name="about_kingowen_summary">Contributor, motivator and idea generator.</string>
     <string name="about_aaron_title" translatable="false">Aaron the Techie</string>
     <string name="about_aaron_summary">German localisation.</string>
     <string name="link_aaron" translatable="false">https://x.com/aaronthetechie</string>
-    <string name="about_fxtwitter_title">FxTwitter / FxEmbed</string>
+    <string name="about_fxtwitter_title" translatable="false">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Default data source. Public profile, status, media, and recent-post analytics data</string>
     <string name="about_oneui_summary">One UI interface components. The magic behind the app\'s design</string>
     <string name="about_legal_section">Legal</string>
@@ -331,23 +335,24 @@
     <string name="update_invalid_apk">The downloaded update isn\'t a valid Twidget package.</string>
     <string name="update_notification_title">Twidget update available</string>
     <string name="update_notification_body">Version %1$s is ready to install.</string>
+    <string name="update_notification_channel_name">App updates</string>
     <string name="update_notification_channel_description">Notifications when a new Twidget version is available</string>
     <string name="update_remind_later">Remind me later</string>
     <string name="update_install_now">Install now</string>
-    <string name="oneui_project">One UI Project</string>
-    <string name="link_tjg">https://tjg.gg</string>
-    <string name="link_kingowen">https://x.com/KingOwenFYI</string>
-    <string name="link_fxtwitter">https://github.com/FxEmbed/FxEmbed</string>
-    <string name="link_oneui_project">https://github.com/OneUIProject</string>
-    <string name="link_rettiwt">https://github.com/Rishikant181/Rettiwt-API</string>
-    <string name="link_app_repo">https://github.com/thatjoshguy67/twidget</string>
-    <string name="link_privacy_policy">https://tjg.gg/blog/twidget-privacy-policy</string>
+    <string name="oneui_project" translatable="false">One UI Project</string>
+    <string name="link_tjg" translatable="false">https://tjg.gg</string>
+    <string name="link_kingowen" translatable="false">https://x.com/KingOwenFYI</string>
+    <string name="link_fxtwitter" translatable="false">https://github.com/FxEmbed/FxEmbed</string>
+    <string name="link_oneui_project" translatable="false">https://github.com/OneUIProject</string>
+    <string name="link_rettiwt" translatable="false">https://github.com/Rishikant181/Rettiwt-API</string>
+    <string name="link_app_repo" translatable="false">https://github.com/thatjoshguy67/twidget</string>
+    <string name="link_privacy_policy" translatable="false">https://tjg.gg/blog/twidget-privacy-policy</string>
     <string name="sync_failed">Sync failed; showing cached stats.</string>
-    <string name="onboarding_title">Twidget</string>
+    <string name="onboarding_title" translatable="false">Twidget</string>
     <string name="onboarding_overview_title">Welcome to Twidget</string>
     <string name="onboarding_done_title">You\'re all set!</string>
     <string name="onboarding_done_summary">Stats are captured daily, so give it a week to fully populate.</string>
-    <string name="onboarding_handle_hint">\@</string>
+    <string name="onboarding_handle_hint" translatable="false">\@</string>
     <string name="get_started">Get started</string>
     <string name="add_to_home_screen">Add to home screen</string>
     <string name="skip">Skip</string>
@@ -533,8 +538,15 @@
     <string name="schedule_buffer_failed_fallback">Buffer reported a publishing error.</string>
     <string name="schedule_buffer_failed_detail">%1$s\n\nPost: %2$s</string>
     <string name="schedule_local_reminder_title">It’s time to post your scheduled tweet</string>
+    <string name="schedule_local_reminder_media_preview">Media post ready to publish</string>
+    <string name="schedule_local_reminder_action_checklist">Open checklist</string>
+    <string name="schedule_local_reminder_action_compose">Compose on X</string>
+    <string name="schedule_reminder_channel_name">Scheduled tweet reminders</string>
+    <string name="schedule_reminder_channel_description">Reminders to finish and publish locally scheduled tweets</string>
+    <string name="schedule_buffer_status_channel_name">Buffer publishing</string>
+    <string name="schedule_buffer_status_channel_description">Reports successful and failed Buffer publishing attempts</string>
     <string name="schedule_queue_local_account">@%1$s · Local drafts</string>
-    <string name="schedule_queue_buffer_account">@%1$s · Buffer</string>
+    <string name="schedule_queue_buffer_account" translatable="false">@%1$s · Buffer</string>
     <string name="schedule_queue_buffer_pending">Buffer X channel</string>
     <string name="schedule_more_actions">More actions</string>
     <string name="schedule_more">More</string>
@@ -543,7 +555,7 @@
     <string name="schedule_character_limit_over">Character limit exceeded · %1$d over</string>
     <string name="schedule_standard_character_limit_over">Normal character limit exceeded · %1$d over</string>
     <string name="schedule_character_limit_error">Shorten the highlighted text before saving</string>
-    <string name="schedule_compose_time_set">%1$s · %2$s</string>
+    <string name="schedule_compose_time_set" translatable="false">%1$s · %2$s</string>
     <string name="schedule_drafts">Drafts</string>
     <string name="schedule_discard_title">Discard draft?</string>
     <string name="schedule_discard_message">Your changes will be lost.</string>
@@ -558,9 +570,9 @@
     <string name="schedule_account_description">Account for this scheduled tweet</string>
     <string name="schedule_provider_description">Scheduling provider</string>
     <string name="schedule_provider_local">Local reminder</string>
-    <string name="schedule_provider_buffer">Buffer</string>
+    <string name="schedule_provider_buffer" translatable="false">Buffer</string>
     <string name="schedule_thread_item_number">Thread item %1$d</string>
-    <string name="schedule_character_count">%1$d / %2$d</string>
+    <string name="schedule_character_count" translatable="false">%1$d / %2$d</string>
     <string name="schedule_post_hint">What\'s happening?</string>
     <string name="schedule_thread_item_description">Text for thread item %1$d</string>
     <string name="schedule_add_local_media">Add local media</string>
@@ -584,7 +596,7 @@
     <string name="schedule_remove_item">Remove</string>
     <string name="schedule_remove_thread">Remove tweet from thread</string>
     <string name="schedule_remove_media">Remove attached media</string>
-    <string name="schedule_public_url_hint">https://example.com/image.jpg</string>
+    <string name="schedule_public_url_hint" translatable="false">https://example.com/image.jpg</string>
     <string name="schedule_add">Add</string>
     <string name="schedule_invalid_public_url">Enter a valid public HTTP or HTTPS URL.</string>
     <string name="schedule_busy">Scheduling is busy. Try again shortly.</string>
@@ -649,7 +661,7 @@
     <string name="schedule_buffer_account">Buffer X channel</string>
     <string name="schedule_buffer_mapping_required">Map @%1$s to a connected Buffer X channel in Settings first.</string>
     <string name="schedule_buffer_mapping_selected">Buffer X channel selected</string>
-    <string name="schedule_mapping_value">\@%1$s → \@%2$s</string>
+    <string name="schedule_mapping_value" translatable="false">\@%1$s → \@%2$s</string>
     <string name="schedule_mapping_unset">\@%1$s → Not mapped</string>
     <string name="schedule_mapping_clear">Clear mapping</string>
     <string name="schedule_notifications_status">Reminder permissions</string>
@@ -693,7 +705,7 @@
     <string name="twitterapis_personal_key_active">Personal key active · %1$s</string>
     <string name="twitterapis_trial_key_active">App trial key active · One scan per account each day</string>
     <string name="twitterapis_no_key_available">No trial key in this build · Add your own key</string>
-    <string name="source_twitterapis">TwitterAPIs</string>
+    <string name="source_twitterapis" translatable="false">TwitterAPIs</string>
     <string name="twitterapis_status">TwitterAPIs status</string>
     <string name="scan_again">Scan again</string>
     <string name="compact_followers">%1$s followers</string>
@@ -796,6 +808,20 @@
     <string name="brief_widget_empty_body">Open Your Brief to set it up.</string>
     <string name="brief_preview_title">Getting attention</string>
     <string name="brief_preview_body">Your latest post is reaching more people. You’re on a roll.</string>
+    <string name="brief_metric_engagements">Engagements</string>
+    <string name="brief_metric_impressions">Impressions</string>
+    <string name="brief_metric_quote_tweets">Quote tweets</string>
+    <string name="brief_metric_retweets">Retweets</string>
+    <string name="brief_upcoming_scheduled_tweets">Upcoming scheduled tweets</string>
+    <string name="brief_scheduled_tweet_placeholder">Scheduled tweet</string>
+    <string name="brief_scheduled_media_count">%1$d media</string>
+    <string name="brief_draft_source_buffer">Buffer draft</string>
+    <string name="brief_draft_source_local">Local draft</string>
+    <string name="brief_open_scheduled_tweets">Open scheduled tweets</string>
+    <string name="brief_action_review_schedule">Review schedule</string>
+    <string name="brief_action_draft_tweet">Draft a tweet</string>
+    <string name="brief_action_open_tweet">Open tweet</string>
+    <string name="brief_goal_progress_heading">You’re %1$d%% to your goal</string>
     <string name="brief_goal_heading">Your %1$s goal</string>
     <string name="brief_goal_close_heading">You’re close to your %1$s goal</string>
     <string name="brief_goal_reached_heading">Your %1$s goal is reached</string>
@@ -803,4 +829,151 @@
     <string name="back">Back</string>
     <string name="info">Information</string>
     <string name="schedule_status_awaiting_confirmation">Awaiting confirmation</string>
+
+    <!-- Brief template copy written into cards and summaries by BriefEngine. -->
+    <plurals name="brief_follower_count">
+        <item quantity="one">%1$s follower</item>
+        <item quantity="other">%1$s followers</item>
+    </plurals>
+    <string name="brief_provider_note_template">Built on device from your Twidget data</string>
+    <string name="brief_provider_note_nano">Written privately with Gemini Nano on this device</string>
+    <string name="brief_provider_note_cloud">Written with Gemini Cloud using your API key</string>
+    <string name="brief_provider_note_nano_then_cloud">Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key</string>
+    <string name="brief_provider_note_nano_downloadable">Gemini Nano is supported and ready to download</string>
+    <string name="brief_provider_note_nano_downloading">Gemini Nano is still downloading</string>
+    <string name="brief_provider_note_nano_failed">Gemini Nano is available, but couldn’t complete this Brief</string>
+    <string name="brief_provider_note_nano_unavailable">Gemini Nano isn’t available on this device</string>
+    <string name="brief_provider_note_cloud_needs_key">Add a Gemini API key in Settings to enable cloud writing</string>
+    <string name="brief_provider_note_auto_downloadable">Gemini Nano is ready to download; using private factual copy for now</string>
+    <string name="brief_provider_note_auto_none">No AI provider is ready; using private factual copy</string>
+    <string name="brief_provider_note_unreachable">AI wasn’t reachable; using private factual copy</string>
+    <string name="brief_summary_title_moving_closer">Moving closer</string>
+    <string name="brief_summary_title_momentum">Momentum is building</string>
+    <string name="brief_summary_title_reset">A moment to reset</string>
+    <string name="brief_summary_title_next_move">Your next move</string>
+    <string name="brief_summary_title_week">Your week at a glance</string>
+    <string name="brief_summary_title_default">Your Twidget Brief</string>
+    <string name="brief_summary_goal_closer">That progress brings your goal closer.</string>
+    <string name="brief_summary_goal_in_view">Your goal is still in view.</string>
+    <string name="brief_summary_post_both">One recent tweet stood out, while another gives you something to learn from.</string>
+    <string name="brief_summary_post_standout">One recent tweet stood out from your usual performance.</string>
+    <string name="brief_summary_post_lesson">One recent tweet gives you something to learn from.</string>
+    <plurals name="brief_summary_upcoming">
+        <item quantity="one">One scheduled tweet is ready ahead.</item>
+        <item quantity="other">%1$d scheduled tweets are ready ahead.</item>
+    </plurals>
+    <string name="brief_summary_top_followers">There is a meaningful change in your top followers.</string>
+    <string name="brief_summary_streak_restart">It may be time to restart your posting rhythm.</string>
+    <string name="brief_summary_streak_active">Your posting rhythm is active.</string>
+    <string name="brief_summary_schedule_step">Your schedule has a useful next step waiting.</string>
+    <string name="brief_summary_follow_through">A recently scheduled tweet offers a lesson for your next post.</string>
+    <string name="brief_summary_posting_guide">Your recent tweets point to a practical next step.</string>
+    <string name="brief_summary_body_trend">See how your audience changed over the last week.</string>
+    <string name="brief_summary_body_watching">Twidget is watching for your next meaningful account update.</string>
+    <string name="brief_short_post_both">Recent tweets brought a win and a lesson.</string>
+    <string name="brief_short_post_standout">One recent tweet stood out.</string>
+    <string name="brief_short_post_lesson">One recent tweet offers a lesson.</string>
+    <plurals name="brief_short_upcoming">
+        <item quantity="one">One tweet is scheduled next.</item>
+        <item quantity="other">%1$d tweets are scheduled next.</item>
+    </plurals>
+    <string name="brief_short_top_followers">Your top followers have changed.</string>
+    <string name="brief_short_schedule_step">Your schedule has a useful next step.</string>
+    <string name="brief_short_follow_through">Your latest tweet offers a useful lesson.</string>
+    <string name="brief_short_posting_guide">Your recent tweets suggest a next step.</string>
+    <string name="brief_short_watching">Watching for your next meaningful update.</string>
+    <string name="brief_followers_gained_today_week">You gained %1$s today and %2$s this week.</string>
+    <string name="brief_followers_gained_today">You gained %1$s today.</string>
+    <string name="brief_followers_down_today_up_week">You are down %1$s today, but still up %2$s this week.</string>
+    <string name="brief_followers_grew_week">Your audience grew by %1$s this week.</string>
+    <string name="brief_followers_down_today">You are down %1$s today.</string>
+    <string name="brief_followers_down_week">Your audience is down %1$s this week.</string>
+    <string name="brief_card_steady_title">Everything looks steady</string>
+    <string name="brief_card_steady_body">You have %1$s. Keep showing up and Twidget will watch for the next meaningful change.</string>
+    <string name="brief_card_growth_title_attention">You’re getting attention</string>
+    <string name="brief_card_growth_title_taking_off">Your audience is taking off</string>
+    <string name="brief_card_growth_body_today_week">You gained %1$s today and %2$s over the last week.</string>
+    <string name="brief_card_growth_body_week">You gained %1$s over the last week.</string>
+    <string name="brief_card_post_views_likes">This tweet got %1$s views and %2$s likes.</string>
+    <string name="brief_card_post_views">This tweet got %1$s views.</string>
+    <string name="brief_card_post_likes">This tweet got %1$s likes.</string>
+    <string name="brief_card_slowdown_title">Growth has slowed down</string>
+    <string name="brief_card_slowdown_body">Your recent pace is %1$s behind the previous few days. A fresh post could help restart it.</string>
+    <string name="brief_card_streak_start_title">Start a posting streak</string>
+    <string name="brief_card_streak_start_buffer">A tweet is scheduled to publish today and can start a new daily rhythm.</string>
+    <string name="brief_card_streak_start_ready">A tweet is ready to post now. Publish it to start a new daily rhythm.</string>
+    <string name="brief_card_streak_start_queued">You have a tweet queued today. Post it to start a new daily rhythm.</string>
+    <string name="brief_card_streak_start_idle">Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin.</string>
+    <string name="brief_card_streak_title">%1$d-day posting streak</string>
+    <string name="brief_card_streak_kept_today">You’ve already kept the streak alive today. Nice work.</string>
+    <string name="brief_card_streak_buffer">A tweet is scheduled to publish today and keep your %1$d-day rhythm going.</string>
+    <string name="brief_card_streak_ready">Your next tweet is ready now. Post it to keep your %1$d-day rhythm going.</string>
+    <string name="brief_card_streak_queued">You have a tweet queued today. Post it to keep your %1$d-day rhythm going.</string>
+    <string name="brief_card_streak_tweet_today">Tweet today to keep your %1$d-day rhythm going.</string>
+    <string name="brief_card_top_follower_new">A new top follower</string>
+    <string name="brief_card_top_follower_moved">A follower moved up</string>
+    <string name="brief_card_top_follower_title">Your top follower</string>
+    <string name="brief_card_top_follower_body">%1$s has %2$s.</string>
+    <string name="brief_card_top_follower_movement">They moved from #%1$d to #1.</string>
+    <string name="brief_goal_remaining_body">You’re %1$s away from your %2$s %3$s goal.</string>
+    <plurals name="brief_goal_unit_verified_followers">
+        <item quantity="one">%1$s verified follower</item>
+        <item quantity="other">%1$s verified followers</item>
+    </plurals>
+    <plurals name="brief_goal_unit_impressions">
+        <item quantity="one">%1$s impression</item>
+        <item quantity="other">%1$s impressions</item>
+    </plurals>
+    <plurals name="brief_goal_unit_points">
+        <item quantity="one">%1$s percentage point</item>
+        <item quantity="other">%1$s percentage points</item>
+    </plurals>
+    <string name="brief_guide_fix_title">Fix a post before it slips</string>
+    <string name="brief_guide_fix_body">A queued tweet needs your attention. Review it now so your plan stays on track.</string>
+    <string name="brief_guide_draft_title_one">Finish your draft</string>
+    <string name="brief_guide_draft_title_many">Turn a draft into a plan</string>
+    <string name="brief_guide_draft_body_one">You have a draft waiting. Give it a time now and take one decision off your plate.</string>
+    <string name="brief_guide_draft_body_many">You have %1$d drafts waiting. Pick the strongest one and give it a time.</string>
+    <string name="brief_guide_gap_title">Plan your next tweet</string>
+    <string name="brief_guide_gap_body_none">Nothing is scheduled for the next three days. Queue one idea while the week is still flexible.</string>
+    <string name="brief_guide_gap_body_far">Your next scheduled tweet is more than three days away. Fill the gap if you want to stay visible.</string>
+    <string name="brief_guide_follow_through_strong_title">Build on your scheduled tweet</string>
+    <string name="brief_guide_follow_through_quiet_title">Adjust after your scheduled tweet</string>
+    <string name="brief_guide_follow_through_strong_body">It beat your recent baseline. Open it, note what people responded to, then plan a useful follow-up.</string>
+    <string name="brief_guide_follow_through_quiet_body">It landed below your recent baseline. Open it before your next post and reconsider the hook or timing.</string>
+    <string name="brief_guide_source_buffer">Tweeted with Buffer</string>
+    <string name="brief_guide_source_twidget">Scheduled with Twidget</string>
+    <string name="brief_guide_follow_up_title">Follow up while it’s fresh</string>
+    <string name="brief_guide_follow_up_body">A recent tweet clearly beat your baseline. Add a useful update, answer the next question, or show the result.</string>
+    <string name="brief_guide_window_title">Try your next tweet in the %1$s</string>
+    <string name="brief_guide_window_body">Your recent %1$s tweets performed better than your other time windows. Test that timing again.</string>
+    <string name="brief_window_morning">morning</string>
+    <string name="brief_window_afternoon">afternoon</string>
+    <string name="brief_window_evening">evening</string>
+    <string name="brief_window_late_night">late night</string>
+    <string name="brief_guide_format_media_title">Try a visual next</string>
+    <string name="brief_guide_format_text_title">Let the words lead</string>
+    <string name="brief_guide_format_media_body">Your recent tweets with media performed better than text-only posts. Test another clear visual.</string>
+    <string name="brief_guide_format_text_body">Your recent text-only tweets performed better than posts with media. Test a focused, self-contained idea.</string>
+    <string name="tweet_performance_strong_title">Why this tweet worked</string>
+    <string name="tweet_performance_quiet_title">What may have limited it</string>
+    <string name="tweet_performance_strong_engagements">It generated more engagements than your weekly baseline.</string>
+    <string name="tweet_performance_strong_views">It reached substantially more people than your typical tweet this week.</string>
+    <string name="tweet_performance_strong_likes">It drew more likes than your typical tweet this week.</string>
+    <string name="tweet_performance_strong_quotes">It earned more quote tweets than your weekly baseline.</string>
+    <string name="tweet_performance_strong_retweets">It earned more retweets than your weekly baseline.</string>
+    <string name="tweet_performance_strong_replies">It generated more conversation than your weekly baseline.</string>
+    <string name="tweet_performance_quiet_engagements">It generated fewer engagements than your weekly baseline.</string>
+    <string name="tweet_performance_quiet_views">It reached fewer people than your typical tweet this week.</string>
+    <string name="tweet_performance_quiet_likes">It drew fewer likes than your weekly norm.</string>
+    <string name="tweet_performance_quiet_quotes">It earned fewer quote tweets than your weekly baseline.</string>
+    <string name="tweet_performance_quiet_retweets">It earned fewer retweets than your weekly baseline.</string>
+    <string name="tweet_performance_quiet_replies">It generated less conversation than your typical tweet.</string>
+    <string name="tweet_performance_insufficient_data">There isn’t enough complete data yet to identify a clear pattern.</string>
+    <string name="tweet_performance_strong_unexplained">It performed well overall, without one metric clearly explaining the result.</string>
+    <string name="tweet_performance_quiet_unexplained">It was this week’s quietest tweet, but no single metric clearly explains the result.</string>
+    <string name="milestone_noun_follower">follower</string>
+    <string name="milestone_noun_verified_follower">verified follower</string>
+    <string name="milestone_noun_engagement_rate">engagement rate</string>
+    <string name="milestone_noun_impression">impression</string>
 </resources>

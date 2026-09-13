@@ -8,6 +8,7 @@ import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.analytics.TweetPerformanceDirection
 import com.tjg.twidget.analytics.TweetPerformanceExplainer
+import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.data.DailyStreakStore
 import com.tjg.twidget.data.HistorySample
 import com.tjg.twidget.data.ProfileStats
@@ -50,7 +51,8 @@ object BriefEngine {
             emptyList()
         }
         val previous = BriefStore.read(context, clean)
-        val fingerprint = contextFingerprint(context, clean)
+        val strings = BriefStrings.from(context)
+        val fingerprint = contextFingerprint(context, clean, strings)
         if (!force && previous != null &&
             previous.engineVersion == ENGINE_VERSION &&
             BriefAiCachePolicy.isFresh(previous) &&
@@ -66,10 +68,11 @@ object BriefEngine {
             return previous
         }
 
-        val evaluation = evaluate(context, clean, stats, analytics, followerState, previous, upcomingTweets)
+        val evaluation = evaluate(context, clean, stats, analytics, followerState, previous, upcomingTweets, strings)
 
         val editorial = BriefEditorialSummary.from(
             cards = evaluation.selected,
+            strings = strings,
             followersToday = evaluation.report.followersToday,
             followersWeek = evaluation.report.followersWeek,
             upcomingTweets = upcomingTweets.size,
@@ -93,8 +96,10 @@ object BriefEngine {
             topFollowerRanks = evaluation.currentRanks,
             engineVersion = ENGINE_VERSION,
             contextFingerprint = fingerprint,
+            providerMessage = strings.text(R.string.brief_provider_note_template),
+            language = strings.languageTag,
         )
-        val snapshot = BriefAiCachePolicy.retain(previous, rebuilt)
+        val snapshot = BriefAiCachePolicy.retain(previous, rebuilt, strings)
         BriefStore.write(context, snapshot)
         BriefDebugLog.record(context, if (force) "forced rebuild" else "rebuild", evaluation.report)
         return snapshot
@@ -104,6 +109,7 @@ object BriefEngine {
         val clean = username.trim().trimStart('@')
         val content = BriefSettingsStore.enabledContent(context)
         return evaluate(
+            strings = BriefStrings.from(context),
             context = context,
             username = clean,
             stats = TwidgetStore.currentStats(context, clean),
@@ -132,6 +138,7 @@ object BriefEngine {
         followerState: TopFollowersState,
         previous: BriefSnapshot?,
         upcomingTweets: List<BriefUpcomingTweet>,
+        strings: BriefStrings,
     ): Evaluation {
         val history = TwidgetStore.fullHistory(context, username)
             .filterNot { it.estimated }
@@ -152,40 +159,40 @@ object BriefEngine {
         val candidates = mutableListOf<BriefCard>()
 
         if (BriefContentCategory.FOLLOWERS in content) {
-            growthCard(stats.followersCount, todayDelta, weekDelta)?.let(candidates::add)
-            slowdownCard(history, stats.followersCount, todayDelta)?.let(candidates::add)
+            growthCard(stats.followersCount, todayDelta, weekDelta, strings)?.let(candidates::add)
+            slowdownCard(history, stats.followersCount, todayDelta, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.TOP_TWEET in content) {
-            postCard(analytics?.best, analytics, stats.followersCount)?.let(candidates::add)
+            postCard(analytics?.best, analytics, stats.followersCount, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.WORST_TWEET in content) {
-            worstPostCard(analytics)?.let(candidates::add)
+            worstPostCard(analytics, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.ACCOUNT_GOALS in content) {
-            candidates += milestoneCards(context, username, stats, history, analytics, todayDelta, weekDelta)
+            candidates += milestoneCards(context, username, stats, history, analytics, todayDelta, weekDelta, strings)
         }
         if (BriefContentCategory.TWEET_ACTIVITY in content) {
-            activityCard(context, username, upcomingTweets, now)?.let(candidates::add)
+            activityCard(context, username, upcomingTweets, now, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.TOP_FOLLOWERS in content) {
-            topFollowerCard(followerState.top, previous, followerState.completedAt)?.let(candidates::add)
+            topFollowerCard(followerState.top, previous, followerState.completedAt, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.SCHEDULE_HEALTH in content) {
-            BriefGuidePolicy.scheduleCard(schedules, now)?.let(candidates::add)
+            BriefGuidePolicy.scheduleCard(schedules, strings, now)?.let(candidates::add)
         }
         if (BriefContentCategory.POST_FOLLOW_THROUGH in content) {
-            BriefGuidePolicy.followThroughCard(schedules, analytics, now)?.let(candidates::add)
+            BriefGuidePolicy.followThroughCard(schedules, analytics, strings, now)?.let(candidates::add)
         }
         if (BriefContentCategory.POSTING_GUIDANCE in content) {
-            BriefGuidePolicy.postingCard(analytics, now)?.let(candidates::add)
+            BriefGuidePolicy.postingCard(analytics, strings, now)?.let(candidates::add)
         }
 
         if (candidates.isEmpty() && BriefContentCategory.FOLLOWERS in content) {
             candidates += BriefCard(
                 id = "summary-steady",
                 type = BriefCardType.SUMMARY,
-                title = "Everything looks steady",
-                body = "You have ${formatFollowers(stats.followersCount)}. Keep showing up and Twidget will watch for the next meaningful change.",
+                title = strings.text(R.string.brief_card_steady_title),
+                body = strings.text(R.string.brief_card_steady_body, strings.followers(stats.followersCount)),
                 score = 50,
                 rankSignals = BriefRankSignals(contextRelevance = 0.35, timeRelevance = 0.35),
             )
@@ -223,17 +230,23 @@ object BriefEngine {
         )
     }
 
-    private fun growthCard(followers: Long, today: Long, week: Long): BriefCard? {
+    private fun growthCard(followers: Long, today: Long, week: Long, strings: BriefStrings): BriefCard? {
         val weeklyPercent = if (followers - week > 0) week * 100.0 / (followers - week) else 0.0
         if (today < 5 && week < 15 && weeklyPercent < 2.0) return null
-        val headline = when {
-            today >= 25 -> "You’re getting attention"
-            weeklyPercent >= 5.0 -> "Your audience is taking off"
-            else -> "Momentum is building"
-        }
+        val headline = strings.text(
+            when {
+                today >= 25 -> R.string.brief_card_growth_title_attention
+                weeklyPercent >= 5.0 -> R.string.brief_card_growth_title_taking_off
+                else -> R.string.brief_summary_title_momentum
+            },
+        )
         val body = when {
-            today > 0 -> "You gained ${formatFollowers(today)} today and ${formatFollowers(week.coerceAtLeast(today))} over the last week."
-            else -> "You gained ${formatFollowers(week)} over the last week."
+            today > 0 -> strings.text(
+                R.string.brief_card_growth_body_today_week,
+                strings.followers(today),
+                strings.followers(week.coerceAtLeast(today)),
+            )
+            else -> strings.text(R.string.brief_card_growth_body_week, strings.followers(week))
         }
         val score = BriefRankingPolicy.growth(today, week, weeklyPercent)
         return BriefCard(
@@ -246,7 +259,7 @@ object BriefEngine {
         )
     }
 
-    private fun postCard(post: PostSummary?, analytics: PostAnalytics?, followers: Long): BriefCard? {
+    private fun postCard(post: PostSummary?, analytics: PostAnalytics?, followers: Long, strings: BriefStrings): BriefCard? {
         post ?: return null
         analytics ?: return null
         val attentionByViews = post.views >= maxOf(10_000L, followers * 2)
@@ -255,8 +268,8 @@ object BriefEngine {
         return BriefCard(
             id = "post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
             type = BriefCardType.POST,
-            title = "Why this tweet worked",
-            body = "${standoutPostBody(post)} ${TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.STRONG).body}",
+            title = strings.text(R.string.tweet_performance_strong_title),
+            body = "${standoutPostBody(post, strings)} ${TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.STRONG, strings).body}",
             score = BriefRankingPolicy.post(post, followers),
             rankSignals = BriefRankSignals(
                 contextRelevance = 0.78,
@@ -267,11 +280,11 @@ object BriefEngine {
         )
     }
 
-    private fun worstPostCard(analytics: PostAnalytics?): BriefCard? {
+    private fun worstPostCard(analytics: PostAnalytics?, strings: BriefStrings): BriefCard? {
         analytics ?: return null
         val post = analytics.worst ?: return null
         if (!TweetPerformanceExplainer.quietTweetEligible(post, analytics)) return null
-        val explanation = TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.QUIET)
+        val explanation = TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.QUIET, strings)
         return BriefCard(
             id = "worst-post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
             type = BriefCardType.WORST_POST,
@@ -287,17 +300,17 @@ object BriefEngine {
         )
     }
 
-    private fun standoutPostBody(post: PostSummary): String {
+    private fun standoutPostBody(post: PostSummary, strings: BriefStrings): String {
         val views = TwidgetStore.compactNumber(post.views)
         val likes = TwidgetStore.compactNumber(post.likes)
         return when {
-            post.views > 0 && post.likes > 0 -> "This tweet got $views views and $likes likes."
-            post.views > 0 -> "This tweet got $views views."
-            else -> "This tweet got $likes likes."
+            post.views > 0 && post.likes > 0 -> strings.text(R.string.brief_card_post_views_likes, views, likes)
+            post.views > 0 -> strings.text(R.string.brief_card_post_views, views)
+            else -> strings.text(R.string.brief_card_post_likes, likes)
         }
     }
 
-    private fun slowdownCard(history: List<HistorySample>, followers: Long, today: Long): BriefCard? {
+    private fun slowdownCard(history: List<HistorySample>, followers: Long, today: Long, strings: BriefStrings): BriefCard? {
         val recent = deltaSince(history, followers, 3, HistorySample::followers)
         val priorEnd = history.lastOrNull { it.timestamp <= System.currentTimeMillis() - 3 * DAY_MS } ?: return null
         val prior = deltaSince(history.filter { it.timestamp <= priorEnd.timestamp }, priorEnd.followers, 3, HistorySample::followers)
@@ -305,8 +318,8 @@ object BriefEngine {
         return BriefCard(
             "slowdown",
             BriefCardType.SLOWDOWN,
-            "Growth has slowed down",
-            "Your recent pace is ${formatFollowers(abs(prior - recent))} behind the previous few days. A fresh post could help restart it.",
+            strings.text(R.string.brief_card_slowdown_title),
+            strings.text(R.string.brief_card_slowdown_body, strings.followers(abs(prior - recent))),
             BriefRankingPolicy.slowdown(recent, prior, today),
             rankSignals = BriefRankSignals(contextRelevance = 0.92, timeRelevance = 0.95),
         )
@@ -320,15 +333,17 @@ object BriefEngine {
         analytics: PostAnalytics?,
         todayDelta: Long,
         weekDelta: Long,
+        strings: BriefStrings,
     ): List<BriefCard> {
+        val localized = AppLocales.wrap(context)
         val imported = ImportedAnalyticsStore.all(context, username)
         val goals = MilestoneGoalStore.readAll(context, username)
         if (goals.isEmpty()) {
             return listOf(BriefCard(
                 id = "milestone-setup",
                 type = BriefCardType.MILESTONE,
-                title = context.getString(R.string.milestone_account_goals),
-                body = context.getString(R.string.milestone_setup_hint),
+                title = strings.text(R.string.milestone_account_goals),
+                body = strings.text(R.string.milestone_setup_hint),
                 score = 74,
                 actionData = BRIEF_MILESTONE_SETUP_ACTION,
                 rankSignals = BriefRankSignals(
@@ -353,17 +368,17 @@ object BriefEngine {
             val value = snapshot.value ?: 0.0
             val progress = MilestonePolicy.progress(value, settings.target) ?: return@mapNotNull null
             val state = MilestonePolicy.performanceState(snapshot.history)
-            val target = formatGoal(settings.metric, settings.target)
+            val target = formatGoal(settings.metric, settings.target, strings)
             val message = MilestoneCopyFactory.message(
-                context,
+                localized,
                 "$username:${settings.metric.storageId}",
                 state,
                 progress,
                 target,
-                settings.metric.goalNoun,
+                settings.metric.goalNoun(localized),
             )
             val preciseBody = if (progress in 75..99) {
-                BriefGoalCopy.remainingBody(settings.metric, value, settings.target)
+                BriefGoalCopy.remainingBody(settings.metric, value, settings.target, strings)
             } else {
                 message.body
             }
@@ -392,6 +407,7 @@ object BriefEngine {
         username: String,
         upcomingTweets: List<BriefUpcomingTweet>,
         now: Long,
+        strings: BriefStrings,
     ): BriefCard? {
         val streak = DailyStreakStore.snapshot(context, username)
         val scheduledToday = upcomingTweets.firstOrNull { isScheduledToday(it, now) }
@@ -400,19 +416,20 @@ object BriefEngine {
         val urgency = dailyUrgency(now)
         if (streak.streak <= 0 && !BriefActivityPolicy.shouldStart(streak)) return null
         if (streak.streak <= 0) {
-            val body = when {
-                scheduledToday?.provider == ScheduleProvider.BUFFER && scheduledToday.status == ScheduleStatus.SCHEDULED ->
-                    "A tweet is scheduled to publish today and can start a new daily rhythm."
-                scheduledToday?.provider == ScheduleProvider.LOCAL_REMINDER && scheduledToday.status == ScheduleStatus.NEEDS_ACTION ->
-                    "A tweet is ready to post now. Publish it to start a new daily rhythm."
-                scheduledToday != null ->
-                    "You have a tweet queued today. Post it to start a new daily rhythm."
-                else -> "Twidget hasn’t detected an original tweet for more than three days. Tweet today to begin."
-            }
+            val body = strings.text(
+                when {
+                    scheduledToday?.provider == ScheduleProvider.BUFFER && scheduledToday.status == ScheduleStatus.SCHEDULED ->
+                        R.string.brief_card_streak_start_buffer
+                    scheduledToday?.provider == ScheduleProvider.LOCAL_REMINDER && scheduledToday.status == ScheduleStatus.NEEDS_ACTION ->
+                        R.string.brief_card_streak_start_ready
+                    scheduledToday != null -> R.string.brief_card_streak_start_queued
+                    else -> R.string.brief_card_streak_start_idle
+                },
+            )
             return BriefCard(
                 "start-streak",
                 BriefCardType.STREAK,
-                "Start a posting streak",
+                strings.text(R.string.brief_card_streak_start_title),
                 body,
                 84,
                 rankSignals = BriefRankSignals(
@@ -425,15 +442,15 @@ object BriefEngine {
         return BriefCard(
             "streak",
             BriefCardType.STREAK,
-            "${streak.streak}-day posting streak",
+            strings.text(R.string.brief_card_streak_title, streak.streak),
             when {
-                streak.activeToday -> "You’ve already kept the streak alive today. Nice work."
+                streak.activeToday -> strings.text(R.string.brief_card_streak_kept_today)
                 scheduledToday?.provider == ScheduleProvider.BUFFER && scheduledToday.status == ScheduleStatus.SCHEDULED ->
-                    "A tweet is scheduled to publish today and keep your ${streak.streak}-day rhythm going."
+                    strings.text(R.string.brief_card_streak_buffer, streak.streak)
                 scheduledToday?.provider == ScheduleProvider.LOCAL_REMINDER && scheduledToday.status == ScheduleStatus.NEEDS_ACTION ->
-                    "Your next tweet is ready now. Post it to keep your ${streak.streak}-day rhythm going."
-                scheduledToday != null -> "You have a tweet queued today. Post it to keep your ${streak.streak}-day rhythm going."
-                else -> "Tweet today to keep your ${streak.streak}-day rhythm going."
+                    strings.text(R.string.brief_card_streak_ready, streak.streak)
+                scheduledToday != null -> strings.text(R.string.brief_card_streak_queued, streak.streak)
+                else -> strings.text(R.string.brief_card_streak_tweet_today, streak.streak)
             },
             BriefRankingPolicy.streak(streak.streak, streak.activeToday),
             rankSignals = BriefRankSignals(
@@ -485,22 +502,28 @@ object BriefEngine {
         top: List<TopFollower>,
         previous: BriefSnapshot?,
         completedAt: Long,
+        strings: BriefStrings,
     ): BriefCard? {
         val follower = top.firstOrNull() ?: return null
         val oldRank = previous?.topFollowerRanks?.get(followerKey(follower))
         val newScan = previous != null && completedAt > previous.followerScanCompletedAt
-        val title = when {
-            newScan && oldRank == null -> "A new top follower"
-            oldRank != null && oldRank > 1 -> "A follower moved up"
-            previous == null -> "Your top follower"
-            else -> return null
-        }
-        val movement = oldRank?.takeIf { it > 1 }?.let { " They moved from #$it to #1." }.orEmpty()
+        val title = strings.text(
+            when {
+                newScan && oldRank == null -> R.string.brief_card_top_follower_new
+                oldRank != null && oldRank > 1 -> R.string.brief_card_top_follower_moved
+                previous == null -> R.string.brief_card_top_follower_title
+                else -> return null
+            },
+        )
+        val movement = oldRank?.takeIf { it > 1 }
+            ?.let { " " + strings.text(R.string.brief_card_top_follower_movement, it) }
+            .orEmpty()
+        val name = follower.name.ifBlank { "@${follower.username}" }
         return BriefCard(
             "top-follower-${followerKey(follower)}",
             BriefCardType.TOP_FOLLOWER,
             title,
-            "${follower.name.ifBlank { "@${follower.username}" }} has ${formatFollowers(follower.followers)}.$movement",
+            strings.text(R.string.brief_card_top_follower_body, name, strings.followers(follower.followers)) + movement,
             if (newScan && oldRank == null) 92 else 76,
             rankSignals = BriefRankSignals(
                 contextRelevance = if (newScan) 0.85 else 0.55,
@@ -526,7 +549,7 @@ object BriefEngine {
     private fun followerKey(follower: TopFollower): String =
         follower.id.ifBlank { follower.username.lowercase(Locale.US) }
 
-    private fun contextFingerprint(context: Context, username: String): String {
+    private fun contextFingerprint(context: Context, username: String, strings: BriefStrings): String {
         val goals = MilestoneGoalStore.readAll(context, username)
         val streak = DailyStreakStore.snapshot(context, username)
         val now = System.currentTimeMillis()
@@ -548,50 +571,49 @@ object BriefEngine {
             schedule,
             BriefRankingPolicy.contextBucket(now),
             BriefSettingsStore.contentFingerprint(context),
+            strings.languageTag,
         ).joinToString("|")
     }
 
-    private fun formatGoal(metric: MilestoneMetric, target: Double): String =
+    private fun formatGoal(metric: MilestoneMetric, target: Double, strings: BriefStrings): String =
         if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "${(target * 100).toInt()}%"
         } else {
-            format(target.toLong())
+            strings.number(target.toLong())
         }
-
-    private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
-
-    private fun formatFollowers(value: Long): String =
-        "${format(value)} ${if (value == 1L) "follower" else "followers"}"
 }
 
 internal object BriefGoalCopy {
-    fun remainingBody(metric: MilestoneMetric, current: Double, target: Double): String {
+    fun remainingBody(metric: MilestoneMetric, current: Double, target: Double, strings: BriefStrings): String {
         val remaining = (target - current).coerceAtLeast(0.0)
         val amount = when (metric) {
-            MilestoneMetric.FOLLOWERS -> count(remaining, "follower")
-            MilestoneMetric.VERIFIED_FOLLOWERS -> count(remaining, "verified follower")
-            MilestoneMetric.IMPRESSIONS -> count(remaining, "impression")
+            MilestoneMetric.FOLLOWERS -> strings.followers(kotlin.math.ceil(remaining).toLong())
+            MilestoneMetric.VERIFIED_FOLLOWERS -> count(remaining, R.plurals.brief_goal_unit_verified_followers, strings)
+            MilestoneMetric.IMPRESSIONS -> count(remaining, R.plurals.brief_goal_unit_impressions, strings)
             MilestoneMetric.ENGAGEMENT_RATE -> {
                 val points = remaining * 100.0
-                val formatted = NumberFormat.getNumberInstance().apply {
+                val formatted = NumberFormat.getNumberInstance(strings.locale).apply {
                     maximumFractionDigits = 1
                     minimumFractionDigits = 0
                 }.format(points)
-                "$formatted percentage ${if (points == 1.0) "point" else "points"}"
+                strings.quantityText(
+                    R.plurals.brief_goal_unit_points,
+                    if (points == 1.0) 1 else BriefStrings.quantity(kotlin.math.ceil(points).toLong()).coerceAtLeast(2),
+                    formatted,
+                )
             }
         }
         val targetLabel = if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "${(target * 100).toInt()}%"
         } else {
-            NumberFormat.getIntegerInstance().format(target.toLong())
+            strings.number(target.toLong())
         }
-        return "You’re $amount away from your $targetLabel ${metric.goalNoun} goal."
+        return strings.text(R.string.brief_goal_remaining_body, amount, targetLabel, strings.text(metric.goalNounRes))
     }
 
-    private fun count(value: Double, noun: String): String {
+    private fun count(value: Double, pluralRes: Int, strings: BriefStrings): String {
         val roundedUp = kotlin.math.ceil(value).toLong()
-        val formatted = NumberFormat.getIntegerInstance().format(roundedUp)
-        return "$formatted ${if (roundedUp == 1L) noun else "${noun}s"}"
+        return strings.quantityText(pluralRes, BriefStrings.quantity(roundedUp), strings.number(roundedUp))
     }
 }
 

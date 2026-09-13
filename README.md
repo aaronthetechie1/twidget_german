@@ -134,5 +134,6 @@ when a non-Git build needs an explicit sequence number.
 - [Security policy](SECURITY.md)
 - [Privacy and data handling](PRIVACY.md)
 - [Contributing](CONTRIBUTING.md)
+- [Localisation guide](docs/LOCALISATION.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Maintainer release process](docs/RELEASING.md)
