@@ -1,5 +1,7 @@
 package com.tjg.twidget.update
 
+import com.tjg.twidget.BuildConfig
+
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.schedule.json
 import java.io.File
@@ -87,11 +89,13 @@ object AppUpdateManager {
     private const val MAX_APK_BYTES = 250L * 1024L * 1024L
 
     fun findUpdate(installedVersion: String, channel: UpdateChannel): AppRelease? {
+        if (!BuildConfig.IN_APP_UPDATES) return null
         if (channel == UpdateChannel.DEBUG) return findDebugUpdate(installedVersion)
         return checkReleases(installedVersion, channel).update
     }
 
     fun checkReleases(installedVersion: String, channel: UpdateChannel): AppReleaseCheck {
+        if (!BuildConfig.IN_APP_UPDATES) return AppReleaseCheck(null, emptyList())
         if (channel == UpdateChannel.DEBUG) {
             return AppReleaseCheck(findDebugUpdate(installedVersion), emptyList())
         }
@@ -226,6 +230,7 @@ object AppUpdateManager {
     }
 
     fun download(release: AppRelease, destinationDirectory: File): File {
+        check(BuildConfig.IN_APP_UPDATES) { "Updates are managed by Google Play" }
         destinationDirectory.mkdirs()
         val target = File(destinationDirectory, release.assetName)
         val temporary = File(destinationDirectory, "${release.assetName}.part")

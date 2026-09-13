@@ -1,5 +1,7 @@
 package com.tjg.twidget.main
 
+import com.tjg.twidget.BuildConfig
+
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -61,6 +63,7 @@ class AboutActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedInstallVersion = intent.getStringExtra(EXTRA_INSTALL_VERSION)
+            ?.takeIf { BuildConfig.IN_APP_UPDATES }
             ?.takeIf(String::isNotBlank)
         if (requestedInstallVersion != null) UpdateNotificationHelper.cancel(this)
         setContentView(R.layout.activity_about)
@@ -106,6 +109,7 @@ class AboutActivity : FoldablePopOverActivity() {
         menu.add(Menu.NONE, MENU_APP_INFO, 1, R.string.app_info)
             .setIcon(R.drawable.ic_settings_info)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        if (!BuildConfig.IN_APP_UPDATES) return true
         val channels = menu.addSubMenu(Menu.NONE, MENU_UPDATE_CHANNEL, 2, R.string.settings_update_channel)
         channels.item.setIcon(R.drawable.ic_settings_labs)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
@@ -144,8 +148,8 @@ class AboutActivity : FoldablePopOverActivity() {
             )
             return true
         }
-        if (item.itemId == MENU_STABLE || item.itemId == MENU_BETA ||
-            (item.itemId == MENU_DEBUG && AppUpdateManager.isDebugBuild(appVersionName()))
+        if (BuildConfig.IN_APP_UPDATES && (item.itemId == MENU_STABLE || item.itemId == MENU_BETA ||
+            (item.itemId == MENU_DEBUG && AppUpdateManager.isDebugBuild(appVersionName())))
         ) {
             val channel = when (item.itemId) {
                 MENU_BETA -> UpdateChannel.BETA
@@ -165,7 +169,7 @@ class AboutActivity : FoldablePopOverActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (waitingForInstallPermission && packageManager.canRequestPackageInstalls()) {
+        if (BuildConfig.IN_APP_UPDATES && waitingForInstallPermission && packageManager.canRequestPackageInstalls()) {
             waitingForInstallPermission = false
             pendingInstallApk?.let(::launchPackageInstaller)
         }
@@ -175,6 +179,7 @@ class AboutActivity : FoldablePopOverActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         requestedInstallVersion = intent.getStringExtra(EXTRA_INSTALL_VERSION)
+            ?.takeIf { BuildConfig.IN_APP_UPDATES }
             ?.takeIf(String::isNotBlank)
         if (requestedInstallVersion == null) return
         UpdateNotificationHelper.cancel(this)
@@ -293,6 +298,10 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun setupRefresh() {
+        if (!BuildConfig.IN_APP_UPDATES) {
+            findViewById<SwipeRefreshLayout>(R.id.about_refresh).isEnabled = false
+            return
+        }
         val appBar = findViewById<AppBarLayout>(R.id.about_app_bar)
         findViewById<SwipeRefreshLayout>(R.id.about_refresh).apply {
             setOnChildScrollUpCallback { _, child ->
@@ -380,6 +389,10 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun setupUpdates() {
+        if (!BuildConfig.IN_APP_UPDATES) {
+            hideUpdateUi()
+            return
+        }
         findViewById<AppCompatButton>(R.id.about_update_button).setOnClickListener {
             availableRelease?.let(::downloadUpdate)
         }
@@ -387,6 +400,7 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun checkForUpdates(channel: UpdateChannel) {
+        if (!BuildConfig.IN_APP_UPDATES) return
         val generation = ++updateCheckGeneration
         availableRelease = null
         if (TwidgetStore.fakeUpdateAvailable(this)) {
@@ -484,6 +498,7 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun downloadUpdate(release: AppRelease) {
+        if (!BuildConfig.IN_APP_UPDATES) return
         val generation = ++updateCheckGeneration
         findViewById<AppCompatButton>(R.id.about_update_button).apply {
             isEnabled = false
@@ -535,6 +550,7 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun beginInstall(apk: File) {
+        if (!BuildConfig.IN_APP_UPDATES) return
         hideUpdateUi()
         if (packageManager.canRequestPackageInstalls()) {
             launchPackageInstaller(apk)
@@ -551,6 +567,7 @@ class AboutActivity : FoldablePopOverActivity() {
     }
 
     private fun launchPackageInstaller(apk: File) {
+        if (!BuildConfig.IN_APP_UPDATES) return
         val uri = FileProvider.getUriForFile(this, "$packageName.update_files", apk)
         startActivity(
             Intent(Intent.ACTION_INSTALL_PACKAGE).apply {

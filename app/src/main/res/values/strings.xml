@@ -789,6 +789,7 @@
     <string name="brief_provider_local_summary">Use Gemini Nano only. Account facts never leave this device.</string>
     <string name="brief_provider_cloud_summary">Use Gemini Cloud with your own API key</string>
     <string name="brief_cloud_key">Gemini API key</string>
+    <string name="brief_cloud_privacy_summary">Cloud writing sends Brief summaries and cards, including public names, account statistics, goals and scheduling summaries, to Google. Auto mode may use cloud writing when local writing is unavailable. Google’s API terms govern retention and use of this content. ML Kit also collects diagnostic and usage data. Choose Local or remove your key to stop future cloud writing.</string>
     <string name="brief_cloud_key_summary">Sent only to Google’s Gemini API and encrypted in Android Keystore</string>
     <string name="brief_cloud_key_configured">Configured and encrypted</string>
     <string name="brief_open">Open Your Brief</string>

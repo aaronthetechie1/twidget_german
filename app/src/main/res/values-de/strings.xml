@@ -751,6 +751,7 @@
     <string name="brief_provider_local_summary">Nur Gemini Nano verwenden. Account-Stats bleiben lokal auf diesem Gerät.</string>
     <string name="brief_provider_cloud_summary">Gemini Cloud mit deinem eigenen API-Key nutzen</string>
     <string name="brief_cloud_key">Gemini-API-Key</string>
+    <string name="brief_cloud_privacy_summary">Beim Schreiben in der Cloud werden Brief-Zusammenfassungen und Karten mit öffentlichen Namen, Kontostatistiken, Zielen und Zusammenfassungen geplanter Aktivitäten an Google gesendet. Der automatische Modus kann die Cloud nutzen, wenn lokales Schreiben nicht verfügbar ist. Für Speicherung und Nutzung gelten die API-Bedingungen von Google. ML Kit erfasst außerdem Diagnose- und Nutzungsdaten. Wähle „Lokal“ oder entferne deinen Schlüssel, um künftiges Schreiben in der Cloud zu stoppen.</string>
     <string name="brief_cloud_key_summary">Wird nur an Googles Gemini-API übermittelt und ist sicher im Android Keystore verschlüsselt</string>
     <string name="brief_cloud_key_configured">Konfiguriert und verschlüsselt</string>
     <string name="brief_open">Dein Briefing öffnen</string>

@@ -4,6 +4,11 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+- Added a Google Play distribution without APK updates, updater notifications,
+  update badges, or install-package permission. GitHub builds retain the updater.
+- Updated privacy and Data safety disclosures for Your Brief, Gemini Cloud,
+  ML Kit diagnostics, and the current shared Top Followers service.
+
 - Reorganised Settings into Accounts, Appearance, Data and sources, Your Brief,
   Notifications, Scheduled tweets, and Language, following the Figma categories
   with One UI library components and OneUI Icons.

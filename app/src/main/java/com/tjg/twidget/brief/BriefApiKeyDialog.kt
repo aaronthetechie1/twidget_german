@@ -22,9 +22,9 @@ object BriefApiKeyDialog {
         val input = content.findViewById<EditText>(R.id.brief_api_key_input).apply {
             setText(BriefSettingsStore.cloudApiKey(activity))
         }
-        content.findViewById<TextView>(R.id.brief_api_key_message).setText(
-            if (required) R.string.brief_api_key_required_body else R.string.brief_api_key_settings_body,
-        )
+        content.findViewById<TextView>(R.id.brief_api_key_message).text =
+            activity.getString(if (required) R.string.brief_api_key_required_body else R.string.brief_api_key_settings_body) +
+                "\n\n" + activity.getString(R.string.brief_cloud_privacy_summary)
         content.findViewById<TextView>(R.id.brief_api_key_link).setOnClickListener {
             runCatching {
                 activity.startActivity(
@@ -39,9 +39,13 @@ object BriefApiKeyDialog {
             .setTitle(if (required) R.string.brief_api_key_required_title else R.string.brief_ai_studio_key)
             .setView(content)
             .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.about_privacy_policy_title, null)
             .setPositiveButton(R.string.brief_api_key_save, null)
             .create()
         dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(activity.getString(R.string.link_privacy_policy))))
+            }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val key = input.text?.toString().orEmpty().trim()
                 if (required && key.isBlank()) {

@@ -1,5 +1,7 @@
 package com.tjg.twidget.update
 
+import com.tjg.twidget.BuildConfig
+
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -38,6 +40,7 @@ object UpdateNotificationHelper {
         release: AppRelease,
         now: Long = System.currentTimeMillis(),
     ): Boolean {
+        if (!BuildConfig.IN_APP_UPDATES) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -146,7 +149,7 @@ object UpdateNotificationHelper {
 
 class UpdateReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != ACTION_REMIND_LATER) return
+        if (!BuildConfig.IN_APP_UPDATES || intent.action != ACTION_REMIND_LATER) return
         val version = intent.getStringExtra(EXTRA_VERSION)?.takeIf(String::isNotBlank) ?: return
         UpdateNotificationHelper.remindLater(context, version)
         UpdateCheckWorker.scheduleReminder(context)

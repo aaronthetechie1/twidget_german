@@ -26,20 +26,20 @@ permissions through your account settings).
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew testDebugUnitTest assembleDebug lintDebug
+  ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
 ```
 
 **Windows (PowerShell, Android Studio JBR):**
 
 ```powershell
 $env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
-.\gradlew testDebugUnitTest assembleDebug lintDebug
+.\gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
 ```
 
 **Linux (system JDK 17+):**
 
 ```bash
-./gradlew testDebugUnitTest assembleDebug lintDebug
+./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
 ```
 
 The bridge uses the Node version in `bridge/.nvmrc`:

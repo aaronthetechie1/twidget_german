@@ -47,6 +47,30 @@ credentials for Top Followers scans.
 
 ## Stable release checklist
 
+### Distribution flavors
+
+`github` retains the APK updater. `play` delegates updates to Google Play and
+omits the sideload permission, file provider and reminder receiver. Both use
+`com.tjg.twidget` and the same version codes. To preserve upgrades for existing
+installs, configure Play App Signing with the existing app signing identity;
+the upload key alone does not determine the certificate delivered to devices.
+
+Build a signed Play release locally with:
+
+```bash
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+  ./gradlew testPlayReleaseUnitTest bundlePlayRelease lintPlayRelease
+python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playRelease/app-play-release.aab
+```
+
+The **Release** workflow also builds and verifies this flavor and uploads a
+`twidget-play-<version>` workflow artifact. Upload that AAB to Play Console;
+GitHub release assets remain the GitHub distribution. The **Play Build**
+workflow verifies an unsigned Play release on pushes and pull requests.
+Do not upload a GitHub-flavor AAB or a debuggable build to Google Play.
+
+### Publishing
+
 1. Ensure `main` is clean, current with `origin/main`, and green in GitHub
    Actions.
 2. Set the intended stable semantic version in `version.properties`.
@@ -109,7 +133,7 @@ signing credentials. To build an interchangeable debug APK locally, use:
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew assembleDebug -PsignDebugWithRelease=true
+  ./gradlew assembleGithubDebug -PsignDebugWithRelease=true
 ```
 
 This keeps the `-debug.N` version name but makes the APK signature compatible
@@ -118,9 +142,9 @@ must not be published or shared.
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew testDebugUnitTest assembleDebug lintDebug \
-  bundleDebug testReleaseUnitTest assembleRelease bundleRelease lintVitalRelease \
-  testBetaUnitTest assembleBeta bundleBeta lintVitalBeta
+  ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug \
+  bundleGithubDebug testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease \
+  testGithubBetaUnitTest assembleGithubBeta bundleGithubBeta lintVitalGithubBeta
 
 cd bridge
 npm ci

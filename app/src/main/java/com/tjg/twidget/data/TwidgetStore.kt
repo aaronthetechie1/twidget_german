@@ -1,5 +1,7 @@
 package com.tjg.twidget.data
 
+import com.tjg.twidget.BuildConfig
+
 import android.content.Context
 import android.content.SharedPreferences
 import com.tjg.twidget.R
@@ -249,7 +251,7 @@ object TwidgetStore {
     }
 
     fun fakeUpdateAvailable(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_FAKE_UPDATE, false)
+        BuildConfig.IN_APP_UPDATES && prefs(context).getBoolean(KEY_FAKE_UPDATE, false)
 
     fun setFakeUpdateAvailable(context: Context, enabled: Boolean) {
         val preferences = prefs(context)
@@ -263,8 +265,8 @@ object TwidgetStore {
     // Powers the update badges (Settings "About Twidget" row, drawer settings
     // cog). Reflects the last completed real check, or the debug fake flag.
     fun updateAvailable(context: Context): Boolean =
-        fakeUpdateAvailable(context) ||
-            prefs(context).getBoolean(KEY_UPDATE_AVAILABLE, false)
+        BuildConfig.IN_APP_UPDATES && (fakeUpdateAvailable(context) ||
+            prefs(context).getBoolean(KEY_UPDATE_AVAILABLE, false))
 
     fun setUpdateAvailable(context: Context, available: Boolean, version: String? = null) {
         val preferences = prefs(context)
@@ -284,6 +286,7 @@ object TwidgetStore {
     }
 
     fun updateSuggestionVersion(context: Context): String? {
+        if (!BuildConfig.IN_APP_UPDATES) return null
         val preferences = prefs(context)
         if (preferences.getBoolean(KEY_UPDATE_SUGGESTION_DISMISSED, false)) return null
         if (fakeUpdateAvailable(context)) return fakeUpdateVersion(context)

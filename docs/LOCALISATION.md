@@ -207,7 +207,7 @@ If you have an Android build environment (see
 a `github.properties` with a `read:packages` token), run:
 
 ```bash
-./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
 ```
 
 Lint catches missing translations, placeholder mismatches, malformed XML, and

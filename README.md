@@ -83,20 +83,20 @@ app bytecode target is JVM 17.
 **macOS:**
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleDebug
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleGithubDebug
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
 $env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
-.\gradlew :app:assembleDebug
+.\gradlew :app:assembleGithubDebug
 ```
 
 **Linux:**
 
 ```bash
-./gradlew :app:assembleDebug
+./gradlew :app:assembleGithubDebug
 ```
 
 The app id is `com.tjg.twidget`.

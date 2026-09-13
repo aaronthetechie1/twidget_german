@@ -101,7 +101,7 @@ jobs:
           BUFFER_OAUTH_CLIENT_ID: ${{ vars.BUFFER_OAUTH_CLIENT_ID }}
           CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
-        run: ./gradlew testReleaseUnitTest assembleRelease bundleRelease lintVitalRelease --no-daemon --stacktrace
+        run: ./gradlew testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease testPlayReleaseUnitTest bundlePlayRelease lintPlayRelease --no-daemon --stacktrace
 
       - name: Verify signed release APK and AAB
         run: |
@@ -110,20 +110,20 @@ jobs:
             echo "::error::Unable to locate apksigner in the Android SDK"
             exit 1
           fi
-          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
-          APK_CERT=$("$APKSIGNER" verify --print-certs-pem app/build/outputs/apk/release/app-release.apk \
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/github/release/app-github-release.apk
+          APK_CERT=$("$APKSIGNER" verify --print-certs-pem app/build/outputs/apk/github/release/app-github-release.apk \
             | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' \
             | openssl x509 -outform DER \
             | openssl dgst -sha256 -r \
             | awk '{print $1}')
-          AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/release/app-release.aab \
+          AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/githubRelease/app-github-release.aab \
             | sed -n -E '/^META-INF\/.*\.(RSA|DSA|EC)$/ {p;q;}')
-          AAB_CERT=$(unzip -p app/build/outputs/bundle/release/app-release.aab "$AAB_SIGNATURE" \
+          AAB_CERT=$(unzip -p app/build/outputs/bundle/githubRelease/app-github-release.aab "$AAB_SIGNATURE" \
             | openssl pkcs7 -inform DER -print_certs \
             | openssl x509 -outform DER \
             | openssl dgst -sha256 -r \
             | awk '{print $1}')
-          if ! jarsigner -verify app/build/outputs/bundle/release/app-release.aab >/dev/null 2>&1; then
+          if ! jarsigner -verify app/build/outputs/bundle/githubRelease/app-github-release.aab >/dev/null 2>&1; then
             echo "::error::Release AAB signature verification failed"
             exit 1
           fi
@@ -133,6 +133,18 @@ jobs:
             exit 1
           fi
           echo "Release APK and AAB certificate SHA-256: $APK_CERT"
+
+      - name: Verify Play distribution
+        run: |
+          jarsigner -verify app/build/outputs/bundle/playRelease/app-play-release.aab
+          python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playRelease/app-play-release.aab
+
+      - name: Upload signed Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: twidget-play-${{ github.event.inputs.version }}
+          path: app/build/outputs/bundle/playRelease/app-play-release.aab
+          if-no-files-found: error
 
       - name: Create tag if missing
         run: |
@@ -144,8 +156,8 @@ jobs:
 
       - name: Stage APK and AAB with version in filenames
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "twidget-v${{ github.event.inputs.version }}.apk"
-          cp app/build/outputs/bundle/release/app-release.aab "twidget-v${{ github.event.inputs.version }}.aab"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "twidget-v${{ github.event.inputs.version }}.apk"
+          cp app/build/outputs/bundle/githubRelease/app-github-release.aab "twidget-v${{ github.event.inputs.version }}.aab"
 
       - name: Generate changelog
         env:

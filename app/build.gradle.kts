@@ -104,6 +104,22 @@ android {
     namespace = "com.tjg.twidget"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "IN_APP_UPDATES", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "IN_APP_UPDATES", "false")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.tjg.twidget"
         minSdk = 26
@@ -211,9 +227,9 @@ androidComponents {
             output.versionCode.set(versionCode)
         }
         if (variant.buildType == "debug") {
-            val changelog = tasks.register<GenerateDebugChangelog>("generateDebugChangelog") {
+            val changelog = tasks.register<GenerateDebugChangelog>("generate${variant.name.replaceFirstChar(Char::uppercaseChar)}Changelog") {
                 changelogFile.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
-                outputDirectory.set(layout.buildDirectory.dir("generated/debugChangelog/assets"))
+                outputDirectory.set(layout.buildDirectory.dir("generated/${variant.name}Changelog/assets"))
             }
             variant.sources.assets?.addGeneratedSourceDirectory(changelog, GenerateDebugChangelog::outputDirectory)
         }

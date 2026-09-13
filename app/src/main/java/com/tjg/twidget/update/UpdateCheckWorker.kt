@@ -1,5 +1,7 @@
 package com.tjg.twidget.update
 
+import com.tjg.twidget.BuildConfig
+
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -18,6 +20,10 @@ import java.util.concurrent.TimeUnit
 class UpdateCheckWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val context = applicationContext
+        if (!BuildConfig.IN_APP_UPDATES) {
+            cancelLegacyUpdates(context)
+            return Result.success()
+        }
         val installedVersion = runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: return Result.failure()
@@ -46,6 +52,10 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : Worker(con
         private const val REMIND_LATER_HOURS = 24L
 
         fun schedule(context: Context) {
+            if (!BuildConfig.IN_APP_UPDATES) {
+                cancelLegacyUpdates(context)
+                return
+            }
             val request = PeriodicWorkRequest.Builder(
                 UpdateCheckWorker::class.java,
                 CHECK_INTERVAL_HOURS,
@@ -59,6 +69,10 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : Worker(con
         }
 
         fun scheduleReminder(context: Context) {
+            if (!BuildConfig.IN_APP_UPDATES) {
+                cancelLegacyUpdates(context)
+                return
+            }
             val request = OneTimeWorkRequest.Builder(UpdateCheckWorker::class.java)
                 .setInitialDelay(REMIND_LATER_HOURS, TimeUnit.HOURS)
                 .setConstraints(networkConstraints())
@@ -68,6 +82,20 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : Worker(con
                 ExistingWorkPolicy.REPLACE,
                 request,
             )
+        }
+
+        // The package ID is shared with GitHub builds. An existing installation
+        // can retain its workers, notifications and cached APKs after migration.
+        private fun cancelLegacyUpdates(context: Context) {
+            val manager = WorkManager.getInstance(context.applicationContext)
+            manager.cancelUniqueWork(PERIODIC_WORK_NAME)
+            manager.cancelUniqueWork(REMINDER_WORK_NAME)
+            UpdateNotificationHelper.cancel(context)
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                .deleteNotificationChannel("app_updates")
+            TwidgetStore.setUpdateAvailable(context, false)
+            TwidgetStore.setFakeUpdateAvailable(context, false)
+            java.io.File(context.cacheDir, "updates").deleteRecursively()
         }
 
         private fun networkConstraints(): Constraints = Constraints.Builder()

@@ -1,5 +1,7 @@
 package com.tjg.twidget.settings
 
+import com.tjg.twidget.BuildConfig
+
 import androidx.appcompat.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
@@ -71,6 +73,7 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
             }
         })
         screen.addPreference(SwitchPreferenceCompat(context).apply {
+            isVisible = BuildConfig.IN_APP_UPDATES
             key = "debug_fake_update_pref"
             title = getString(R.string.trigger_fake_update)
             isChecked = TwidgetStore.fakeUpdateAvailable(context)

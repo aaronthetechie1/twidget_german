@@ -102,7 +102,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
         run: |
-          ./gradlew testBetaUnitTest assembleBeta bundleBeta lintVitalBeta \
+          ./gradlew testGithubBetaUnitTest assembleGithubBeta bundleGithubBeta lintVitalGithubBeta \
             -PbetaNumber=${{ steps.beta.outputs.number }} --no-daemon --stacktrace
 
       - name: Verify signed beta APK and AAB
@@ -112,20 +112,20 @@ jobs:
             echo "::error::Unable to locate apksigner in the Android SDK"
             exit 1
           fi
-          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/beta/app-beta.apk
-          APK_CERT=$("$APKSIGNER" verify --print-certs-pem app/build/outputs/apk/beta/app-beta.apk \
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/github/beta/app-github-beta.apk
+          APK_CERT=$("$APKSIGNER" verify --print-certs-pem app/build/outputs/apk/github/beta/app-github-beta.apk \
             | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' \
             | openssl x509 -outform DER \
             | openssl dgst -sha256 -r \
             | awk '{print $1}')
-          AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/beta/app-beta.aab \
+          AAB_SIGNATURE=$(zipinfo -1 app/build/outputs/bundle/githubBeta/app-github-beta.aab \
             | sed -n -E '/^META-INF\/.*\.(RSA|DSA|EC)$/ {p;q;}')
-          AAB_CERT=$(unzip -p app/build/outputs/bundle/beta/app-beta.aab "$AAB_SIGNATURE" \
+          AAB_CERT=$(unzip -p app/build/outputs/bundle/githubBeta/app-github-beta.aab "$AAB_SIGNATURE" \
             | openssl pkcs7 -inform DER -print_certs \
             | openssl x509 -outform DER \
             | openssl dgst -sha256 -r \
             | awk '{print $1}')
-          if ! jarsigner -verify app/build/outputs/bundle/beta/app-beta.aab >/dev/null 2>&1; then
+          if ! jarsigner -verify app/build/outputs/bundle/githubBeta/app-github-beta.aab >/dev/null 2>&1; then
             echo "::error::Beta AAB signature verification failed"
             exit 1
           fi
@@ -139,7 +139,7 @@ jobs:
       - name: Read and validate beta version
         id: version
         run: |
-          VERSION=$(jq -r '.elements[0].versionName' app/build/outputs/apk/beta/output-metadata.json)
+          VERSION=$(jq -r '.elements[0].versionName' app/build/outputs/apk/github/beta/output-metadata.json)
           if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$'; then
             echo "::error::Built APK has invalid beta version $VERSION"
             exit 1
@@ -170,8 +170,8 @@ jobs:
 
       - name: Stage APK and AAB with version in filenames
         run: |
-          cp app/build/outputs/apk/beta/app-beta.apk "twidget-v${{ steps.version.outputs.version }}.apk"
-          cp app/build/outputs/bundle/beta/app-beta.aab "twidget-v${{ steps.version.outputs.version }}.aab"
+          cp app/build/outputs/apk/github/beta/app-github-beta.apk "twidget-v${{ steps.version.outputs.version }}.apk"
+          cp app/build/outputs/bundle/githubBeta/app-github-beta.aab "twidget-v${{ steps.version.outputs.version }}.aab"
 
       - name: Generate changelog
         env:
