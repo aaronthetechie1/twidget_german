@@ -56,7 +56,10 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          # The legacy "tools" package was removed from Google's repository.
+          packages: platform-tools
 
       # Only trusted branch/manual builds receive the production signing key.
       # Pull-request code must never run with production signing credentials.

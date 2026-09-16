@@ -23,7 +23,10 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          # The legacy "tools" package was removed from Google's repository.
+          packages: platform-tools
 
       # Production signing credentials are only available to trusted branch
       # and manual builds, never to pull-request build steps.
