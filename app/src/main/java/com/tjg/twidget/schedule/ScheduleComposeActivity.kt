@@ -87,8 +87,12 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         handlePickedMedia(uris.distinct())
     }
 
-    private fun handlePickedMedia(uris: List<Uri>) {
-        val target = editorItems.getOrNull(mediaTarget) ?: return
+    private fun handlePickedMedia(
+        uris: List<Uri>,
+        targetIndex: Int = mediaTarget,
+        restoreInputFocus: Boolean = false,
+    ) {
+        val target = editorItems.getOrNull(targetIndex) ?: return
         val room = SchedulePolicy.MAX_MEDIA_PER_ITEM - target.media.size
         val selected = uris.take(room.coerceAtLeast(0))
         if (selected.isEmpty()) return
@@ -114,7 +118,8 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
                 currentTarget.media += retained.map(ImportedMedia::source)
                 imported.drop(retained.size).forEach { it.file.delete() }
                 if (imported.size < selected.size) toast(R.string.schedule_media_permission_failed)
-                composeUi.refreshMediaForActiveItem()
+                val currentIndex = editorItems.indexOfFirst { it.id == targetId }
+                composeUi.refreshMediaForItem(currentIndex, restoreInputFocus)
             }
         }
     }
@@ -277,6 +282,14 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
             file.delete()
             toast(R.string.schedule_camera_unavailable)
         }
+    }
+
+    internal fun onComposePasteImages(index: Int, uris: List<Uri>) {
+        handlePickedMedia(
+            uris = uris.distinct(),
+            targetIndex = index,
+            restoreInputFocus = true,
+        )
     }
 
     internal fun onComposePickTimeRequested() = pickDate()
