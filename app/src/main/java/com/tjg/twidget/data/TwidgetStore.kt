@@ -115,6 +115,7 @@ object TwidgetStore {
     const val COLOR_MODE_LIGHT = "light"
     const val COLOR_MODE_DARK = "dark"
     const val COLOR_MODE_SYSTEM = "system"
+    const val FONT_SYSTEM = "system"
     const val FONT_ONE_UI_SANS = "one_ui_sans"
     const val FONT_GOOGLE_SANS_FLEX = "google_sans_flex"
 
@@ -391,8 +392,11 @@ object TwidgetStore {
             .apply()
     }
 
-    fun normalizeWidgetFont(fontFamily: String?): String =
-        if (fontFamily == FONT_GOOGLE_SANS_FLEX) FONT_GOOGLE_SANS_FLEX else FONT_ONE_UI_SANS
+    fun normalizeWidgetFont(fontFamily: String?): String = when (fontFamily) {
+        FONT_SYSTEM -> FONT_SYSTEM
+        FONT_GOOGLE_SANS_FLEX -> FONT_GOOGLE_SANS_FLEX
+        else -> FONT_ONE_UI_SANS
+    }
 
     fun accounts(context: Context): List<String> {
         val saved = prefs(context).getString(KEY_ACCOUNTS, null)?.let { encoded ->

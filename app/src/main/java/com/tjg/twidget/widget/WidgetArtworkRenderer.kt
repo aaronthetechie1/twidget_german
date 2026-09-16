@@ -187,12 +187,7 @@ object WidgetArtworkRenderer {
             Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
                 this.color = color
                 textSize = sizeSp * density
-                typeface = if (settings.fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                    gsfTypeface(context)
-                } else {
-                    oneUiTypeface(context)
-                }
-                setFontVariationSettings("'wght' $weight")
+                applyWidgetTypeface(context, settings.fontFamily, weight)
             }
 
         if (mode == TwidgetWidget.LAYOUT_MODE_COMPACT_2X1) {
@@ -391,9 +386,11 @@ object WidgetArtworkRenderer {
         return Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             // Label opacity (0.6) comes straight from the design.
             color = if (role == WordRole.LABEL) withAlpha(primary, 0.6f) else primary
-            typeface = if (gsf) gsfTypeface(context) else oneUiTypeface(context)
-            setFontVariationSettings(
-                if (gsf) "'wght' $weight, 'wdth' ${gsfWidthFor(role)}" else "'wght' $weight",
+            applyWidgetTypeface(
+                context = context,
+                fontFamily = settings.fontFamily,
+                weight = weight,
+                googleWidth = gsfWidthFor(role),
             )
         }
     }
@@ -412,13 +409,29 @@ object WidgetArtworkRenderer {
     private fun textPaint(context: Context, settings: TwidgetWidgetSettings, color: Int, bold: Boolean): Paint =
         Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             this.color = color
-            typeface = if (settings.fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                TwidgetFonts.googleSansFlex(context)
-            } else {
-                TwidgetFonts.oneUiSansVariable(context)
-            }
-            setFontVariationSettings("'wght' ${if (bold) 700 else 400}")
+            applyWidgetTypeface(context, settings.fontFamily, if (bold) 700 else 400)
         }
+
+    private fun Paint.applyWidgetTypeface(
+        context: Context,
+        fontFamily: String,
+        weight: Int,
+        googleWidth: Int? = null,
+    ) {
+        when (fontFamily) {
+            TwidgetStore.FONT_SYSTEM -> typeface = TwidgetFonts.system(weight)
+            TwidgetStore.FONT_GOOGLE_SANS_FLEX -> {
+                typeface = gsfTypeface(context)
+                setFontVariationSettings(
+                    googleWidth?.let { "'wght' $weight, 'wdth' $it" } ?: "'wght' $weight",
+                )
+            }
+            else -> {
+                typeface = oneUiTypeface(context)
+                setFontVariationSettings("'wght' $weight")
+            }
+        }
+    }
 
     private fun dp(context: Context, value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()

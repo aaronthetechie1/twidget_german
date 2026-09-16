@@ -288,6 +288,7 @@
     <string name="widget_logo_twitter" translatable="false">Twitter</string>
     <string name="widget_show_delta">Show follower delta</string>
     <string name="widget_font">Font</string>
+    <string name="widget_font_system">System default</string>
     <string name="widget_font_one_ui" translatable="false">One UI Sans</string>
     <string name="widget_font_google" translatable="false">Google Sans Flex</string>
     <string name="clear_cache">Clear cached data</string>

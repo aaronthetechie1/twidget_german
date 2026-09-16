@@ -355,7 +355,11 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     }
 
     private fun pickFont(anchor: View) {
-        val values = arrayOf(TwidgetStore.FONT_ONE_UI_SANS, TwidgetStore.FONT_GOOGLE_SANS_FLEX)
+        val values = arrayOf(
+            TwidgetStore.FONT_SYSTEM,
+            TwidgetStore.FONT_ONE_UI_SANS,
+            TwidgetStore.FONT_GOOGLE_SANS_FLEX,
+        )
         showDropDown(anchor, values.map { fontLabel(it) }, values.indexOf(fontFamily).coerceAtLeast(0)) { which ->
             fontFamily = values[which]
             render()
@@ -485,6 +489,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         else -> getString(R.string.widget_tint_light)
     }
     private fun fontLabel(font: String): String = when (font) {
+        TwidgetStore.FONT_SYSTEM -> getString(R.string.widget_font_system)
         TwidgetStore.FONT_GOOGLE_SANS_FLEX -> getString(R.string.widget_font_google)
         else -> getString(R.string.widget_font_one_ui)
     }

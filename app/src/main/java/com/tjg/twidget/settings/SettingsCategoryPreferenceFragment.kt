@@ -394,8 +394,12 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
             update(defaults.copy(colorMode = it, tintColor = if (it == TwidgetStore.COLOR_MODE_DARK) 0x00000000 else 0x00FFFFFF))
         }
         choice("settings_widget_font", R.string.widget_font,
-            arrayOf(TwidgetStore.FONT_ONE_UI_SANS, TwidgetStore.FONT_GOOGLE_SANS_FLEX),
-            arrayOf(getString(R.string.widget_font_one_ui), getString(R.string.widget_font_google)), defaults.fontFamily) {
+            arrayOf(TwidgetStore.FONT_SYSTEM, TwidgetStore.FONT_ONE_UI_SANS, TwidgetStore.FONT_GOOGLE_SANS_FLEX),
+            arrayOf(
+                getString(R.string.widget_font_system),
+                getString(R.string.widget_font_one_ui),
+                getString(R.string.widget_font_google),
+            ), defaults.fontFamily) {
             update(defaults.copy(fontFamily = it))
         }
         val logoValues = arrayOf(TwidgetStore.LOGO_X, TwidgetStore.LOGO_TWITTER)

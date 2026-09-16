@@ -26,6 +26,22 @@ object TwidgetFonts {
     private val weightedTypefaces = mutableMapOf<Pair<Int, Boolean>, Typeface>()
     private var googleTypeface: Typeface? = null
 
+    /** Uses the device's default UI family while retaining the requested text styling. */
+    fun system(weight: Int = 400, italic: Boolean = false): Typeface {
+        val safeWeight = weight.coerceIn(1, 1_000)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            Typeface.create(Typeface.DEFAULT, safeWeight, italic)
+        } else {
+            val style = when {
+                safeWeight >= 600 && italic -> Typeface.BOLD_ITALIC
+                safeWeight >= 600 -> Typeface.BOLD
+                italic -> Typeface.ITALIC
+                else -> Typeface.NORMAL
+            }
+            Typeface.create(Typeface.DEFAULT, style)
+        }
+    }
+
     fun oneUiSans(context: Context, weight: Int = 400, italic: Boolean = false): Typeface {
         val key = weight.coerceIn(1, 1_000) to italic
         return weightedTypefaces.getOrPut(key) {

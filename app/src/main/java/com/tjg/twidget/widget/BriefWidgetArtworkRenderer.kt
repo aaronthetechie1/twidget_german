@@ -332,12 +332,17 @@ internal object BriefWidgetArtworkRenderer {
         Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             this.color = color
             textSize = sizeSp * context.resources.displayMetrics.scaledDensity
-            typeface = if (fontFamily == TwidgetStore.FONT_GOOGLE_SANS_FLEX) {
-                TwidgetFonts.googleSansFlex(context)
-            } else {
-                TwidgetFonts.oneUiSansVariable(context)
+            when (fontFamily) {
+                TwidgetStore.FONT_SYSTEM -> typeface = TwidgetFonts.system(weight)
+                TwidgetStore.FONT_GOOGLE_SANS_FLEX -> {
+                    typeface = TwidgetFonts.googleSansFlex(context)
+                    setFontVariationSettings("'wght' $weight")
+                }
+                else -> {
+                    typeface = TwidgetFonts.oneUiSansVariable(context)
+                    setFontVariationSettings("'wght' $weight")
+                }
             }
-            setFontVariationSettings("'wght' $weight")
         }
 
     private fun wrap(text: String, paint: Paint, width: Float, maxLines: Int): List<String> {
