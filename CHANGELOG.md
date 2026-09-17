@@ -4,6 +4,10 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+- Shortened German onboarding and streak labels, separated the add-widget
+  button from its page title, and improved Brief wording. Thanks to
+  [Aaron the Techie](https://x.com/aaronthetechie).
+
 ## [1.2.3] - 2026-09-13
 
 - Top Followers now uses the shared-history bridge in both distributions. Removed
