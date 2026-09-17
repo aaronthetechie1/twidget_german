@@ -7,9 +7,14 @@ import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.ListPreference
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tjg.twidget.R
+import com.tjg.twidget.BuildConfig
+import com.tjg.twidget.ui.AppAppearance
+import com.tjg.twidget.ui.TwidgetFonts
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.schedule.ScheduleProvider
@@ -221,8 +226,13 @@ class SettingsNavigationInstrumentedTest {
             }
             assertEquals("settings_theme", ordered[0].key)
             assertEquals("settings_theme_system", ordered[1].key)
-            assertEquals(context.getString(R.string.settings_widget_defaults), ordered[2].title)
-            assertEquals("settings_widget_opacity", ordered[3].key)
+            assertTrue(ordered[2] is dev.oneuiproject.oneui.preference.InsetPreferenceCategory)
+            assertEquals("settings_app_font", ordered[3].key)
+            val defaultsIndex = ordered.indexOfFirst { it.title == context.getString(R.string.settings_widget_defaults) }
+            assertTrue(defaultsIndex > 3)
+            assertEquals("settings_widget_opacity", ordered[defaultsIndex + 1].key)
+            assertEquals(BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans,
+                screen.findPreference<Preference>("settings_app_font_tip") != null)
             screen.findPreference<Preference>("settings_widget_font")!!.callChangeListener(TwidgetStore.FONT_GOOGLE_SANS_FLEX)
             screen.findPreference<Preference>("settings_widget_colours")!!.callChangeListener(TwidgetStore.COLOR_MODE_DARK)
             activity.findViewById<androidx.appcompat.widget.SeslSeekBar>(R.id.opacity_slider).progress = 1
@@ -233,6 +243,79 @@ class SettingsNavigationInstrumentedTest {
             assertEquals(TwidgetStore.LOGO_TWITTER, TwidgetStore.widgetSettings(context).logo)
             assertEquals(specific, TwidgetStore.widgetSettings(context, widgetId))
             assertEquals(TwidgetStore.FONT_GOOGLE_SANS_FLEX, TwidgetStore.widgetSettings(context, widgetId + 1).fontFamily)
+        }
+    }
+
+    @Test fun appFontSelectionPersistsAndKeepsWidgetFontsIndependent() {
+        val widgets = TwidgetStore.widgetSettings(context)
+        AppAppearance.setFont(context, AppAppearance.Font.DEFAULT)
+        ActivityScenario.launch<SettingsCategoryActivity>(
+            SettingsCategoryActivity.intent(context, SettingsPage.APPEARANCE)
+        ).use { scenario ->
+            listOf(AppAppearance.Font.GOOGLE_SANS_FLEX, AppAppearance.Font.SYSTEM,
+                AppAppearance.Font.DEFAULT).forEach { font ->
+                scenario.onActivity { activity ->
+                    val preference = fragment(activity).findPreference<ListPreference>("settings_app_font")!!
+                    assertEquals(listOf(context.getString(R.string.settings_app_font_default),
+                        context.getString(R.string.widget_font_google), context.getString(R.string.widget_font_system)),
+                        preference.entries.map { it.toString() })
+                    assertTrue(preference.callChangeListener(font.value))
+                }
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity ->
+                    assertEquals(font, AppAppearance.font(activity))
+                    assertEquals(font.value, fragment(activity).findPreference<ListPreference>("settings_app_font")!!.value)
+                    assertEquals(widgets, TwidgetStore.widgetSettings(activity))
+                    val title = activity.findViewById<android.widget.TextView>(
+                        com.google.android.material.R.id.collapsing_appbar_extended_title)
+                    assertEquals(TwidgetFonts.forApp(activity, 700), title.typeface)
+                }
+                scenario.recreate()
+                scenario.onActivity { assertEquals(font, AppAppearance.font(it)) }
+            }
+        }
+    }
+
+    @Test fun appFontsPreserveWeightsAndStyleInViewsAndDialogWindows() {
+        ActivityScenario.launch<SettingsCategoryActivity>(
+            SettingsCategoryActivity.intent(context, SettingsPage.APPEARANCE)
+        ).use { scenario ->
+            AppAppearance.Font.entries.forEach { font ->
+                AppAppearance.setFont(context, font)
+                scenario.recreate()
+                lateinit var dialog: androidx.appcompat.app.AlertDialog
+                scenario.onActivity { activity ->
+                    val column = android.widget.LinearLayout(activity)
+                    listOf(200, 400, 600, 700).forEach { weight ->
+                        val label = android.widget.TextView(activity).apply {
+                            text = "Weight $weight"
+                            typeface = if (android.os.Build.VERSION.SDK_INT >= 28)
+                                android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, weight, true)
+                            else android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT,
+                                if (weight >= 600) android.graphics.Typeface.BOLD_ITALIC else android.graphics.Typeface.ITALIC)
+                        }
+                        column.addView(label)
+                        TwidgetFonts.applyTo(label)
+                        if (android.os.Build.VERSION.SDK_INT >= 28) assertEquals(weight, label.typeface.weight)
+                        assertTrue(label.typeface.isItalic)
+                        val first = label.typeface
+                        TwidgetFonts.applyTo(label)
+                        assertEquals(first, label.typeface)
+                    }
+                    dialog = androidx.appcompat.app.AlertDialog.Builder(activity)
+                        .setTitle("Font preview")
+                        .setMessage("Dialog body")
+                        .setView(column)
+                        .setPositiveButton(android.R.string.ok, null).show()
+                }
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity ->
+                    val body = dialog.findViewById<android.widget.TextView>(android.R.id.message)!!
+                    val weight = if (android.os.Build.VERSION.SDK_INT >= 28) body.typeface.weight else 400
+                    assertEquals(TwidgetFonts.forApp(activity, weight), body.typeface)
+                    dialog.dismiss()
+                }
+            }
         }
     }
 

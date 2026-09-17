@@ -286,10 +286,10 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
                 // RecyclerView rows are inflated after the activity's initial font pass.
                 // Apply the app typeface before first draw so recycled/new rows never
                 // fall back to Roboto while waiting for another global layout.
-                rank.typeface = TwidgetFonts.oneUiSans(itemView.context, 200)
-                name.typeface = TwidgetFonts.oneUiSans(itemView.context, 700)
-                handle.typeface = TwidgetFonts.oneUiSans(itemView.context, 400)
-                count.typeface = TwidgetFonts.oneUiSans(itemView.context, 400)
+                rank.typeface = TwidgetFonts.forApp(itemView.context, 200)
+                name.typeface = TwidgetFonts.forApp(itemView.context, 700)
+                handle.typeface = TwidgetFonts.forApp(itemView.context, 400)
+                count.typeface = TwidgetFonts.forApp(itemView.context, 400)
                 TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
                     rank,
                     12,

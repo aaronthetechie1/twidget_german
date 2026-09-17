@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -17,10 +16,7 @@ import dev.oneuiproject.oneui.utils.applyEdgeToEdge
  * their own padding while their backgrounds continue beneath both system bars.
  */
 abstract class EdgeToEdgeActivity : AppCompatActivity() {
-    private var fontRoot: ViewGroup? = null
-    private val fontLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-        fontRoot?.let(TwidgetFonts::applyTo)
-    }
+    private lateinit var createdFont: AppAppearance.Font
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
@@ -28,6 +24,7 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        createdFont = AppAppearance.font(this)
         super.onCreate(savedInstanceState)
         // Apply after AppCompat installs the themed decor so the parent One UI
         // theme cannot restore an opaque navigation-bar colour afterwards.
@@ -35,11 +32,9 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
     }
 
     override fun onContentChanged() {
-        fontRoot?.viewTreeObserver?.removeOnGlobalLayoutListener(fontLayoutListener)
         super.onContentChanged()
-        fontRoot = findViewById<ViewGroup>(android.R.id.content)?.also { root ->
-            TwidgetFonts.applyTo(root)
-            root.viewTreeObserver.addOnGlobalLayoutListener(fontLayoutListener)
+        findViewById<ViewGroup>(android.R.id.content)?.let { root ->
+            TwidgetFonts.observeWindow(root.rootView)
         }
     }
 
@@ -48,15 +43,15 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
         TwidgetAppVisibility.activityStarted()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Refresh screens already in the back stack, including their Canvas text.
+        if (createdFont != AppAppearance.font(this)) recreate()
+    }
+
     override fun onStop() {
         TwidgetAppVisibility.activityStopped()
         super.onStop()
-    }
-
-    override fun onDestroy() {
-        fontRoot?.viewTreeObserver?.removeOnGlobalLayoutListener(fontLayoutListener)
-        fontRoot = null
-        super.onDestroy()
     }
 
     /**

@@ -535,7 +535,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             text = calendarMonth.format(DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())).uppercase(Locale.getDefault())
             gravity = Gravity.CENTER
             textSize = 18f
-            typeface = TwidgetFonts.oneUiSans(context, 700)
+            typeface = TwidgetFonts.forApp(context, 700)
             setTextColor(ContextCompat.getColor(context, R.color.oneui_text_primary))
         }, LinearLayout.LayoutParams(0, scheduleDp(48), 1f))
         addView(actionButton("›") {
@@ -567,7 +567,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 text = day.getDisplayName(TextStyle.NARROW, Locale.getDefault())
                 gravity = Gravity.CENTER
                 textSize = 12f
-                typeface = TwidgetFonts.oneUiSans(context, 700)
+                typeface = TwidgetFonts.forApp(context, 700)
                 setTextColor(ContextCompat.getColor(context, R.color.oneui_text_secondary))
             }, calendarCellParams(0, column, scheduleDp(28)))
         }
@@ -597,7 +597,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         addView(TextView(this@ScheduleQueueHostActivity).apply {
             text = date.dayOfMonth.toString()
             textSize = 14f
-            typeface = TwidgetFonts.oneUiSans(context, if (date == LocalDate.now()) 700 else 600)
+            typeface = TwidgetFonts.forApp(context, if (date == LocalDate.now()) 700 else 600)
             setTextColor(ContextCompat.getColor(
                 context,
                 if (date == LocalDate.now()) R.color.oneui_accent else R.color.oneui_text_primary,
@@ -733,7 +733,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 getString(R.string.schedule_media_post)
             } ?: getString(R.string.schedule_empty_post)
             textSize = 16f
-            typeface = TwidgetFonts.oneUiSans(context, 400)
+            typeface = TwidgetFonts.forApp(context, 400)
             setTextColor(ContextCompat.getColor(context, R.color.oneui_text_primary))
             maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -781,7 +781,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         addView(TextView(this@ScheduleQueueHostActivity).apply {
             text = queueCardTitle(post)
             textSize = 14f
-            typeface = TwidgetFonts.oneUiSans(context, 400)
+            typeface = TwidgetFonts.forApp(context, 400)
             setTextColor(ContextCompat.getColor(context, R.color.oneui_text_secondary))
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1636,7 +1636,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private fun sectionTitle(value: String): TextView = TextView(this).apply {
         text = value
         textSize = 19f
-        typeface = TwidgetFonts.oneUiSans(context, 700)
+        typeface = TwidgetFonts.forApp(context, 700)
         setTextColor(ContextCompat.getColor(context, R.color.oneui_text_primary))
         setPadding(scheduleDp(24), scheduleDp(14), scheduleDp(24), scheduleDp(8))
     }
@@ -1644,7 +1644,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private fun titleText(value: String): TextView = TextView(this).apply {
         text = value
         textSize = 15f
-        typeface = TwidgetFonts.oneUiSans(context, 600)
+        typeface = TwidgetFonts.forApp(context, 600)
         setTextColor(ContextCompat.getColor(context, R.color.oneui_text_primary))
         maxLines = 4
     }
