@@ -231,8 +231,13 @@ class SettingsNavigationInstrumentedTest {
             val defaultsIndex = ordered.indexOfFirst { it.title == context.getString(R.string.settings_widget_defaults) }
             assertTrue(defaultsIndex > 3)
             assertEquals("settings_widget_opacity", ordered[defaultsIndex + 1].key)
-            assertEquals(BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans,
-                screen.findPreference<Preference>("settings_app_font_tip") != null)
+            val showsFontTip = BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans
+            assertEquals(showsFontTip, screen.findPreference<Preference>("settings_app_font_tip") != null)
+            assertEquals(showsFontTip, screen.findPreference<Preference>("settings_app_font_inset") != null)
+            if (showsFontTip) {
+                assertEquals("settings_app_font_inset", ordered[4].key)
+                assertEquals("settings_app_font_tip", ordered[5].key)
+            }
             screen.findPreference<Preference>("settings_widget_font")!!.callChangeListener(TwidgetStore.FONT_GOOGLE_SANS_FLEX)
             screen.findPreference<Preference>("settings_widget_colours")!!.callChangeListener(TwidgetStore.COLOR_MODE_DARK)
             activity.findViewById<androidx.appcompat.widget.SeslSeekBar>(R.id.opacity_slider).progress = 1

@@ -4,14 +4,17 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+## [1.2.4] - 2026-09-17
+
 - Shortened German onboarding and streak labels, separated the add-widget
   button from its page title, and improved Brief wording. Thanks to
   [Aaron the Techie](https://x.com/aaronthetechie).
-
 - Choose Default (One UI Sans), Google Sans Flex, or System default for the app
   interface in Settings → Appearance, independently of widget fonts. Text keeps
   its existing weights and styles across pages, dialogs, and charts.
 - GitHub builds on One UI show a SamFonts tip for using other custom system fonts.
+- Separated the app font selector and SamFonts tip into distinct Appearance
+  sections for clearer spacing and rounded-card treatment.
 
 ## [1.2.3] - 2026-09-13
 
@@ -376,3 +379,4 @@ First public release of Twidget, an X/Twitter follower dashboard and Samsung One
 [1.0.0]: https://github.com/thatjoshguy67/twidget/releases/tag/twidget-v1.0.0
 
 [1.2.3]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.1...twidget-v1.2.3
+[1.2.4]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.3...twidget-v1.2.4

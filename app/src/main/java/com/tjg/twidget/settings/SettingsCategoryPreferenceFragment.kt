@@ -377,6 +377,9 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
             }
         })
         if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans) {
+            screen.addPreference(InsetPreferenceCategory(context).apply {
+                key = "settings_app_font_inset"
+            })
             val tip = BottomTipView(context).apply {
                 setTitle(R.string.settings_font_tip_title)
                 setSummary(R.string.settings_font_tip_summary)
