@@ -26,4 +26,9 @@
     <string name="settings_demo_name">Twidget Demo</string>
     <string name="settings_brief_description">%1$s\n\n%2$s</string>
     <string name="settings_update_channel">Update channel</string>
+    <string name="settings_app_font">App font</string>
+    <string name="settings_app_font_default">Default (One UI Sans)</string>
+    <string name="settings_font_tip_title">Tip</string>
+    <string name="settings_font_tip_summary">For a custom font not listed here, use SamFonts to change your One UI system font, then select System default above.</string>
+    <string name="settings_font_tip_link">Get SamFonts</string>
 </resources>

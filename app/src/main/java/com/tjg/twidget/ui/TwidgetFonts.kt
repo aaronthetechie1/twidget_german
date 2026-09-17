@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import com.tjg.twidget.R
@@ -13,7 +14,7 @@ import dev.oneuiproject.oneui.utils.getLightFont
 import dev.oneuiproject.oneui.utils.getRegularFont
 import dev.oneuiproject.oneui.utils.getSemiBoldFont
 
-/** Uses the bundled One UI Sans variable font on devices without Samsung's `sec` family. */
+/** Shared font families, with an independent selection for the app interface. */
 object TwidgetFonts {
     /** Samsung exposes this framework field only on its One UI builds. */
     val hasSystemOneUiSans: Boolean by lazy {
@@ -25,6 +26,35 @@ object TwidgetFonts {
     private var baseTypeface: Typeface? = null
     private val weightedTypefaces = mutableMapOf<Pair<Int, Boolean>, Typeface>()
     private var googleTypeface: Typeface? = null
+    private val googleWeightedTypefaces = mutableMapOf<Pair<Int, Boolean>, Typeface>()
+
+    fun forApp(context: Context, weight: Int = 400, italic: Boolean = false): Typeface =
+        forApp(context, AppAppearance.font(context), weight, italic)
+
+    private fun forApp(context: Context, font: AppAppearance.Font, weight: Int, italic: Boolean): Typeface =
+        when (font) {
+            AppAppearance.Font.DEFAULT -> oneUiSans(context, weight, italic)
+            AppAppearance.Font.SYSTEM -> system(weight, italic)
+            AppAppearance.Font.GOOGLE_SANS_FLEX -> {
+                val key = weight.coerceIn(1, 1_000) to italic
+                googleWeightedTypefaces.getOrPut(key) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        Typeface.create(googleSansFlex(context), key.first, italic)
+                    } else {
+                        // Static faces preserve real bold outlines on Android 8's font API.
+                        val base = ResourcesCompat.getFont(context, if (key.first >= 600)
+                            R.font.google_sans_flex_bold else R.font.google_sans_flex_regular)
+                        val style = when {
+                            key.first >= 600 && italic -> Typeface.BOLD_ITALIC
+                            key.first >= 600 -> Typeface.BOLD
+                            italic -> Typeface.ITALIC
+                            else -> Typeface.NORMAL
+                        }
+                        Typeface.create(base, style)
+                    }
+                }
+            }
+        }
 
     /** Uses the device's default UI family while retaining the requested text styling. */
     fun system(weight: Int = 400, italic: Boolean = false): Typeface {
@@ -65,7 +95,13 @@ object TwidgetFonts {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     Typeface.create(base, key.first, italic)
                 } else {
-                    Typeface.create(base, if (key.first >= 700) Typeface.BOLD else Typeface.NORMAL)
+                    val style = when {
+                        key.first >= 700 && italic -> Typeface.BOLD_ITALIC
+                        key.first >= 700 -> Typeface.BOLD
+                        italic -> Typeface.ITALIC
+                        else -> Typeface.NORMAL
+                    }
+                    Typeface.create(base, style)
                 }
             }
         }
@@ -84,7 +120,26 @@ object TwidgetFonts {
         googleTypeface ?: (ResourcesCompat.getFont(context, R.font.google_sans_flex)
             ?: Typeface.DEFAULT).also { googleTypeface = it }
 
-    fun applyTo(view: View) {
+    /** Watch each window once, including dialog and popup windows inflated by AppCompat. */
+    fun observeWindow(root: View) {
+        if (root.getTag(R.id.app_font_observer) != null) return
+        val listener = ViewTreeObserver.OnGlobalLayoutListener { applyTo(root) }
+        root.setTag(R.id.app_font_observer, listener)
+        root.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+            override fun onViewDetachedFromWindow(view: View) {
+                view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
+                view.setTag(R.id.app_font_observer, null)
+                view.removeOnAttachStateChangeListener(this)
+            }
+        })
+        applyTo(root)
+    }
+
+    fun applyTo(view: View) = applyTo(view, AppAppearance.font(view.context))
+
+    private fun applyTo(view: View, font: AppAppearance.Font) {
         if (view is TextView) {
             val current = view.typeface ?: Typeface.DEFAULT
             val isExpandedHeader = !hasSystemOneUiSans && runCatching {
@@ -99,11 +154,11 @@ object TwidgetFonts {
             } else {
                 400
             }
-            val desired = oneUiSans(view.context, weight, current.isItalic)
+            val desired = forApp(view.context, font, weight, current.isItalic)
             if (current !== desired) view.typeface = desired
         }
         if (view is ViewGroup) {
-            for (index in 0 until view.childCount) applyTo(view.getChildAt(index))
+            for (index in 0 until view.childCount) applyTo(view.getChildAt(index), font)
         }
     }
 }

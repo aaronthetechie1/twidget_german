@@ -4,6 +4,11 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+- Choose Default (One UI Sans), Google Sans Flex, or System default for the app
+  interface in Settings → Appearance, independently of widget fonts. Text keeps
+  its existing weights and styles across pages, dialogs, and charts.
+- GitHub builds on One UI show a SamFonts tip for using other custom system fonts.
+
 ## [1.2.3] - 2026-09-13
 
 - Top Followers now uses the shared-history bridge in both distributions. Removed

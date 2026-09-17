@@ -1,6 +1,7 @@
 package com.tjg.twidget.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.text.SpannableString
@@ -16,6 +17,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.SwitchPreferenceCompat
 import com.tjg.twidget.R
+import com.tjg.twidget.BuildConfig
 import com.tjg.twidget.analytics.AnalyticsImportActivity
 import com.tjg.twidget.data.TwidgetSettings
 import com.tjg.twidget.data.TwidgetStore
@@ -41,6 +43,8 @@ import dev.oneuiproject.oneui.widget.RadioItemViewGroup
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference
 import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
+import com.tjg.twidget.ui.TwidgetFonts
+import dev.oneuiproject.oneui.widget.BottomTipView
 
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
@@ -352,6 +356,41 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         followSystem.order = Preference.DEFAULT_ORDER
         screen.addPreference(picker)
         screen.addPreference(followSystem)
+        screen.addPreference(InsetPreferenceCategory(context))
+        screen.addPreference(ListPreference(context).apply {
+            key = "settings_app_font"
+            isPersistent = false
+            setTitle(R.string.settings_app_font)
+            setDialogTitle(R.string.settings_app_font)
+            entries = arrayOf(getString(R.string.settings_app_font_default),
+                getString(R.string.widget_font_google), getString(R.string.widget_font_system))
+            entryValues = AppAppearance.Font.entries.map { it.value }.toTypedArray()
+            value = AppAppearance.font(context).value
+            summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
+            setOnPreferenceChangeListener { _, value ->
+                val font = AppAppearance.Font.entries.first { it.value == value }
+                if (font != AppAppearance.font(context)) {
+                    AppAppearance.setFont(context, font)
+                    listView.post { if (isAdded) requireActivity().recreate() }
+                }
+                true
+            }
+        })
+        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans) {
+            val tip = BottomTipView(context).apply {
+                setTitle(R.string.settings_font_tip_title)
+                setSummary(R.string.settings_font_tip_summary)
+                setLink(R.string.settings_font_tip_link) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fahadalijaved/SamFonts")))
+                }
+            }
+            screen.addPreference(LayoutPreference(context, tip).apply {
+                key = "settings_app_font_tip"
+                isSelectable = false
+                setAllowDividerAbove(false)
+                setAllowDividerBelow(false)
+            })
+        }
         screen.addPreference(category(R.string.settings_widget_defaults))
         var defaults = TwidgetStore.widgetSettings(context)
         fun update(next: TwidgetWidgetSettings) {

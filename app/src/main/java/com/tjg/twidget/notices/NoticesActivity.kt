@@ -177,7 +177,7 @@ class NoticesActivity : FoldablePopOverActivity() {
     private fun titleText(value: String): TextView = TextView(this).apply {
         text = value
         textSize = 16f
-        typeface = TwidgetFonts.oneUiSans(context, 700)
+        typeface = TwidgetFonts.forApp(context, 700)
         setTextColor(getColor(R.color.oneui_text_primary))
     }
 

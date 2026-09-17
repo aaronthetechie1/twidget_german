@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Twidget" parent="OneUITheme">
+        <item name="viewInflaterClass">com.tjg.twidget.ui.TwidgetViewInflater</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="colorPrimary">@color/oneui_accent</item>
