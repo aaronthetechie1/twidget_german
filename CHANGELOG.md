@@ -4,6 +4,10 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
+- Shortened German onboarding and streak labels, separated the add-widget
+  button from its page title, and improved Brief wording. Thanks to
+  [Aaron the Techie](https://x.com/aaronthetechie).
+
 - Choose Default (One UI Sans), Google Sans Flex, or System default for the app
   interface in Settings → Appearance, independently of widget fonts. Text keeps
   its existing weights and styles across pages, dialogs, and charts.
