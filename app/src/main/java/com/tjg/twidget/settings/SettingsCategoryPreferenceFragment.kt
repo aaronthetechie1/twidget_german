@@ -1,5 +1,6 @@
 package com.tjg.twidget.settings
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -85,6 +86,10 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         buildScreen()
     }
 
+    // The pinned SESL adapter is restricted to its library group, but extending it
+    // through the fragment's adapter hook preserves its binding and rounded cards.
+    // HorizontalRadioPreference is final and offers no preview-size/spacing API.
+    @SuppressLint("RestrictedApi")
     override fun onCreateAdapter(preferenceScreen: PreferenceScreen): RecyclerView.Adapter<*> {
         if (page != SettingsPage.APPEARANCE) return super.onCreateAdapter(preferenceScreen)
         return object : PreferenceGroupAdapter(preferenceScreen) {
@@ -397,7 +402,8 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         return AppearanceThemePreview.forDevice(
             smallestDisplayWidthDp = smallestDisplayWidthDp,
             isTabletDevice = DeviceLayoutUtil.isTabletCategoryOrBuild(requireContext()),
-            hasHinge = requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE),
+            hasHinge = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE),
             isSamsungDevice = Build.MANUFACTURER.equals("samsung", ignoreCase = true),
         )
     }
