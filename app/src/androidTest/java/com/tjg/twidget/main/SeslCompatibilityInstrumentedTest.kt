@@ -150,7 +150,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun composerActionsStayInsideWindowWithScrollAndKeyboard() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         val post = ScheduleStore(context).create(ScheduledPost(
             provider = ScheduleProvider.LOCAL_REMINDER, accountUsername = account,
             scheduledAt = System.currentTimeMillis() + 3_600_000,
@@ -230,7 +229,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun widgetSettingsUsesNativeFloatingActions() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         ActivityScenario.launch(com.tjg.twidget.widget.WidgetConfigActivity::class.java).use { scenario ->
             settle()
             repeat(3) { step ->
@@ -274,7 +272,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun widgetSettingsNativeActionsInDarkMode() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         instrumentation.runOnMainSync {
             com.tjg.twidget.ui.AppAppearance.setMode(context, androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES)
         }
@@ -288,7 +285,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun drawerHeaderClearsStatusBar() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             settle()
             // Test the permanent tablet rail as well as the open drawer. A margin
@@ -299,6 +295,7 @@ class SeslCompatibilityInstrumentedTest {
                         .setDrawerOpen(open, false)
                 }
                 settle()
+                capture("DrawerSafeHeader-${if (open) "Expanded" else "Collapsed"}")
                 scenario.onActivity { activity ->
                     val drawer = activity.findViewById<dev.oneuiproject.oneui.layout.NavDrawerLayout>(R.id.main_toolbar_layout)
                     if (open || drawer.isLargeScreenMode) {
@@ -327,7 +324,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun preferencePageBindsNativeFadeBehindStatusBar() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         ActivityScenario.launch(com.tjg.twidget.settings.SettingsActivity::class.java).use { scenario ->
             settle()
             // Keep this scroll test independent of how many real settings fit
@@ -362,8 +358,45 @@ class SeslCompatibilityInstrumentedTest {
         }
     }
 
+    @Test fun settingsExplanationsUseNativeDescriptionsInBothThemes() {
+        val originalMode = com.tjg.twidget.ui.AppAppearance.mode(context)
+        val pages = listOf(
+            "share_history_pref" to com.tjg.twidget.settings.SettingsCategoryActivity.intent(context, com.tjg.twidget.settings.SettingsPage.DATA),
+            "twitterapis_configure_pref" to Intent(context, com.tjg.twidget.settings.SettingsAdvancedActivity::class.java)
+                .putExtra(com.tjg.twidget.settings.SettingsAdvancedActivity.EXTRA_SOURCE, TwidgetStore.DATA_SOURCE_TWITTERAPIS),
+        )
+        try {
+            listOf(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
+                androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES).forEach { mode ->
+                instrumentation.runOnMainSync { com.tjg.twidget.ui.AppAppearance.setMode(context, mode) }
+                pages.forEach { (key, intent) ->
+                    ActivityScenario.launch<androidx.fragment.app.FragmentActivity>(intent).use { scenario ->
+                        settle()
+                        scenario.onActivity { activity ->
+                            val fragment = activity.supportFragmentManager.findFragmentById(R.id.preference_fragment_container)
+                                as androidx.preference.PreferenceFragmentCompat
+                            val row = fragment.findPreference<androidx.preference.Preference>(key)!!
+                            assertNull("Explanatory copy must sit outside the action card", row.summary)
+                            val description = fragment.findPreference<androidx.preference.SeslPreferenceCaption>("${key}_description")!!
+                            assertFalse(description.isSelectable)
+                            assertFalse(description.title.isNullOrBlank())
+                            assertEquals(androidx.preference.R.layout.sesl_preference_caption, description.layoutResource)
+                            val screen = fragment.preferenceScreen
+                            val rowIndex = (0 until screen.preferenceCount).first { screen.getPreference(it) === row }
+                            assertSame(description, screen.getPreference(rowIndex + 1))
+                            fragment.scrollToPreference(description)
+                        }
+                        settle()
+                        capture("NativeDescription-$key")
+                    }
+                }
+            }
+        } finally {
+            instrumentation.runOnMainSync { com.tjg.twidget.ui.AppAppearance.setMode(context, originalMode) }
+        }
+    }
+
     @Test fun settingsCardsUseNativeSpacingInBothThemes() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         val originalMode = com.tjg.twidget.ui.AppAppearance.mode(context)
         try {
             listOf(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
@@ -396,7 +429,6 @@ class SeslCompatibilityInstrumentedTest {
 
     /** Captures real pages in both themes, before and after nested scrolling. */
     @Test fun visualAuditPagesInBothThemes() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         val originalMode = com.tjg.twidget.ui.AppAppearance.mode(context)
         val pages = listOf(
             "Dashboard" to Intent(context, MainActivity::class.java),
@@ -534,7 +566,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun floatingScheduleNavigationSelectionAndFab() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE).edit()
             .putString("username", account).putBoolean("refresh_on_launch", false).commit()
         ScheduleSettingsStore.setDefaultProvider(context, ScheduleProvider.LOCAL_REMINDER)
@@ -623,7 +654,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun floatingScheduleNavigationInDarkMode() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         instrumentation.runOnMainSync {
             com.tjg.twidget.ui.AppAppearance.setMode(context, androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES)
         }
@@ -637,7 +667,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun embeddedScheduleNavigationDoesNotLeakOntoDashboard() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE).edit()
             .putString("username", account).putBoolean("refresh_on_launch", false).commit()
         TwidgetStore.saveStats(context, ProfileStats("SESL Test", account, 7757, 200, 400, 900))
@@ -665,7 +694,6 @@ class SeslCompatibilityInstrumentedTest {
     }
 
     @Test fun noticeReaderUsesNativeFloatingBack() {
-        assumeTrue(context.packageName.endsWith(".sesl9"))
         val notice = ReleaseNotice("chrome-test", "Twidget release", "Reader text.\n\n".repeat(100),
             "https://github.com", false, "2026-09-18T12:00:00Z")
         ReleaseNoticesStore.save(context, listOf(notice))

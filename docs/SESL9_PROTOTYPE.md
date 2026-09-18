@@ -1,8 +1,13 @@
-# SESL9 prototype
+# SESL9 migration and prototype history
 
-This experiment runs SESL9 underneath Twidget's existing `oneui-design:0.9.13+oneui8`
-components. It is opt-in and lives on `codex/sesl9-prototype`; it does not migrate
-the staging installation or its data.
+As of 1.3.0, SESL9 is the default for GitHub and Play builds on staging, including
+debug, beta and release variants. Native chrome and spacing live in `main`; the
+SESL8 fallback has been removed. Normal builds keep `com.tjg.twidget`, updater
+behavior and Buffer OAuth. CI uses JDK 25 and compile SDK 37.
+
+The optional `sesl9Prototype` flag still creates an isolated debug installation
+for device testing. The dated verification sections below describe the prototype
+work before promotion; references there to SESL8 describe that historical state.
 
 ## Build and install alongside staging
 
@@ -10,7 +15,7 @@ Use JDK 25 or newer for the prototype (locally verified with JDK 26), Android SD
 37, and the existing GitHub Packages credentials described in CONTRIBUTING.md.
 The published SESL9 libraries contain Java 24 bytecode. Twidget's own bytecode
 target remains Java 17, minimum Android version remains API 26, and target SDK
-remains 36. Only compile SDK rises to 37 when the flag is enabled.
+remains 36. All builds compile against SDK 37.
 
 ```sh
 JAVA_HOME=/path/to/jdk25 ./gradlew \
@@ -34,9 +39,8 @@ isolation, not a separate staging server.
 
 Both GitHub and Play debug distributions can be built, but they use the same
 prototype package ID and replace each other. Neither replaces ordinary Twidget.
-The prototype flag disables beta/release variants. Builds without the flag retain
-SESL8, the original app ID, and normal distribution behavior. The AGP/Gradle
-upgrade applies to this entire branch; the original staging branch is unchanged.
+The prototype flag disables beta/release variants. Builds without the flag use the same SESL9 implementation with the original app
+ID and normal distribution behavior.
 
 ## Deliberate prototype limitations
 
@@ -87,7 +91,7 @@ JAVA_HOME=/path/to/jdk25 ./gradlew \
 JAVA_HOME=/path/to/jdk25 ./gradlew \
   :app:connectedGithubDebugAndroidTest -Psesl9Prototype=true
 
-# Verify the normal build still uses SESL8 and the original application ID.
+# Verify the normal SESL9 build with the original application ID.
 JAVA_HOME=/path/to/jdk21 ./gradlew :app:assembleGithubDebug
 ```
 
@@ -318,3 +322,17 @@ The regression test reproduced the collapsed tablet panel at y=0 below a 74px
 status-bar inset before the fix, then passed collapsed/open/collapsed checks in
 light and dark mode on the 2208×1840 tablet emulator. Screenshots were reviewed;
 no display-size or density overrides were applied.
+
+### Promotion to 1.3.0 staging
+
+SESL9 is now the default in main sources for both distributions and every build
+type. The optional isolated debug flag retains its separate app ID and disabled
+OAuth/updater behavior. GitHub/Play debug builds, the GitHub debug bundle, both
+lint tasks, and all 311 JVM tests pass.
+
+Explanatory preference text uses the new `androidx.preference.SeslPreferenceCaption`,
+including its native 12sp typography, adaptive side padding, 8dp top and 16dp
+bottom padding, and light/dark subheader colours. It replaces the old wrapper's
+DescriptionPreference; no caption style or dimension overrides are added. Current
+values remain inside their rows. Phone screenshots in both themes and settings
+interaction tests were checked before promotion.

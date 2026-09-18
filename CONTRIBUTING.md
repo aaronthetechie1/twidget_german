@@ -15,28 +15,28 @@ language, follow the [localisation guide](docs/LOCALISATION.md).
 
 ## Development setup
 
-The Android app requires JDK 17 or newer and an Android SDK. GitHub Actions
-uses JDK 21; the app bytecode target remains JVM 17. Dependencies from the
+The Android app requires JDK 25 or newer and Android SDK 37. GitHub Actions
+uses JDK 25; the app bytecode target remains JVM 17. Dependencies from the
 Tribalfs GitHub Packages registry require a GitHub token with `read:packages`;
 copy `github.properties.example` to `~/.config/twidget/github.properties`,
 populate it, and run `chmod 600` on the result (on Windows, restrict file
 permissions through your account settings).
 
-**macOS (Android Studio bundled JBR):**
+**macOS (JDK 25+):**
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+JAVA_HOME="/path/to/jdk25/Contents/Home" \
   ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
 ```
 
-**Windows (PowerShell, Android Studio JBR):**
+**Windows (PowerShell, JDK 25+):**
 
 ```powershell
-$env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
+$env:JAVA_HOME = "C:\path\to\jdk25"
 .\gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
 ```
 
-**Linux (system JDK 17+):**
+**Linux (system JDK 25+):**
 
 ```bash
 ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug
@@ -56,11 +56,12 @@ The values in `bridge/.env.example` are documentation, not hosted-service
 credentials. Put local overrides in an ignored `.env` file and never submit a
 populated environment file.
 
-## SESL9 experiment
+## SESL9 and isolated device testing
 
-The opt-in SESL9 build installs alongside staging as **Twidget SESL9**. It requires
-JDK 25+ and SDK 37; see [SESL9 prototype](docs/SESL9_PROTOTYPE.md) for the build flag,
-installation, compatibility notes, and validation commands.
+All builds use SESL9. The optional `-Psesl9Prototype=true` flag changes only the
+installation identity and disables updater/OAuth integration so **Twidget SESL9**
+can remain installed alongside Twidget. See [SESL9 notes](docs/SESL9_PROTOTYPE.md)
+for installation, compatibility notes, and validation commands.
 
 ## Pull requests
 

@@ -77,19 +77,19 @@ The **Your Top Followers** dashboard card uses the shared-history bridge in both
 
 ## Build it yourself
 
-Requires JDK 17 or newer and the Android SDK. GitHub Actions uses JDK 21; the
+Requires JDK 25 or newer and Android SDK 37. GitHub Actions uses JDK 25; the
 app bytecode target is JVM 17.
 
 **macOS:**
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleGithubDebug
+JAVA_HOME="/path/to/jdk25/Contents/Home" ./gradlew :app:assembleGithubDebug
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-$env:JAVA_HOME = "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
+$env:JAVA_HOME = "C:\path\to\jdk25"
 .\gradlew :app:assembleGithubDebug
 ```
 

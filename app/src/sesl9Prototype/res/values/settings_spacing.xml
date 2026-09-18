@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Keep settings cards and radio rows tied to the installed SESL version.
-         The SESL8 build retains its existing values in main/res. -->
-    <item type="dimen" name="settings_row_height">@dimen/sesl_list_preferred_item_height_small</item>
-    <item type="dimen" name="settings_content_inset">@dimen/sesl_list_item_padding_horizontal</item>
-    <item type="dimen" name="settings_account_min_height">@dimen/sesl_list_preferred_item_height</item>
-    <item type="dimen" name="widget_settings_content_inset">@dimen/sesl_list_item_padding_horizontal</item>
-</resources>
