@@ -4,8 +4,8 @@
     <string name="settings_your_brief">Dein Briefing</string>
     <string name="settings_notifications">Benachrichtigungen</string>
     <string name="settings_scheduled_tweets">Geplante Tweets</string>
-    <string name="settings_main_account">Hauptkonto</string>
-    <string name="settings_other_accounts">Weitere Konten</string>
+    <string name="settings_main_account">Hauptaccount</string>
+    <string name="settings_other_accounts">Weitere Accounts</string>
     <string name="settings_alternate_sources">Alternative Quellen verwalten</string>
     <string name="settings_self_hosted_bridge">Selbst gehostete Twidget-Bridge</string>
     <string name="settings_widget_defaults">Widget-Standardeinstellungen</string>

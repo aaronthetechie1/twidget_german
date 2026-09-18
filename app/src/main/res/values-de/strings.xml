@@ -211,7 +211,7 @@
     <string name="import_premium_title">Nur X Premium/Premium+ Abonnenten</string>
     <string name="import_premium_summary">Das Abrufen deiner Statistiken von X Analytics erfordert ein kostenpflichtiges X-Abo.</string>
     <string name="import_accuracy_title">Daten überprüfen</string>
-    <string name="import_accuracy_summary">Wir überprüfen deine Statistiken vor dem Import. Der Vorgang bricht ab, wenn die Statistiken ungenau sind.</string>
+    <string name="import_accuracy_summary">Twidget überprüft deine Statistiken vor dem Import. Der Vorgang bricht ab, wenn diese ungenau sind.</string>
     <string name="import_for_account">Daten für @%1$s importieren?</string>
     <string name="import_range">Bereich</string>
     <string name="import_detected_followers">Erkannte Follower-Zahl</string>
@@ -303,7 +303,7 @@
     <string name="about_repo_link">App-Repository</string>
     <string name="about_version">Version %1$s</string>
     <string name="app_info">App-Info</string>
-    <string name="update">Update</string>
+    <string name="update">Herunterladen</string>
     <string name="update_suggestion_title">Update verfügbar</string>
     <string name="update_suggestion_summary">Twidget Version %1$s ist verfügbar</string>
     <string name="update_to_version">Auf Version %1$s aktualisieren</string>
