@@ -1,6 +1,7 @@
 package com.tjg.twidget.settings
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -11,13 +12,19 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.view.ViewGroup
+import android.view.Gravity
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceGroupAdapter
+import androidx.preference.PreferenceViewHolder
 import androidx.preference.SwitchPreferenceCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.tjg.twidget.R
 import com.tjg.twidget.BuildConfig
 import com.tjg.twidget.analytics.AnalyticsImportActivity
@@ -47,10 +54,13 @@ import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
 import com.tjg.twidget.ui.TwidgetFonts
 import dev.oneuiproject.oneui.preference.SuggestionCardPreference
+import dev.oneuiproject.oneui.utils.DeviceLayoutUtil
+import dev.oneuiproject.oneui.design.R as OneUiR
 
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
     private var fontTipDismissed = false
+    private var appearancePreview = AppearanceThemePreview.PHONE
     private val page get() = SettingsCategoryActivity.page(arguments?.getString(SettingsCategoryActivity.EXTRA_PAGE))
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -73,6 +83,41 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     override fun onResume() {
         super.onResume()
         buildScreen()
+    }
+
+    override fun onCreateAdapter(preferenceScreen: PreferenceScreen): RecyclerView.Adapter<*> {
+        if (page != SettingsPage.APPEARANCE) return super.onCreateAdapter(preferenceScreen)
+        return object : PreferenceGroupAdapter(preferenceScreen) {
+            override fun onBindViewHolder(holder: PreferenceViewHolder, position: Int) {
+                super.onBindViewHolder(holder, position)
+                if (getItem(position)?.key != "settings_theme") return
+                // Match Samsung's preview sizing and spacing without replacing the
+                // library's selection, disabled-state, or accessibility behaviour.
+                for (id in intArrayOf(OneUiR.id.item1, OneUiR.id.item2)) {
+                    val item = holder.itemView.findViewById<View>(id)
+                    item.findViewById<LinearLayout>(OneUiR.id.image_frame).gravity = Gravity.CENTER_HORIZONTAL
+                    item.findViewById<ImageView>(OneUiR.id.icon).apply {
+                        adjustViewBounds = true
+                        maxWidth = dp(appearancePreview.widthDp)
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        layoutParams = layoutParams.apply {
+                            width = ViewGroup.LayoutParams.WRAP_CONTENT
+                            height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
+                    }
+                    item.findViewById<View>(OneUiR.id.icon_title).apply {
+                        layoutParams = (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = dp(10)
+                        }
+                    }
+                    item.findViewById<View>(OneUiR.id.radio_button).apply {
+                        layoutParams = (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = dp(4)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun buildScreen() {
@@ -340,7 +385,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         })
     }
 
-    private fun appearanceThemeResource(): Int {
+    private fun appearanceThemePreview(): AppearanceThemePreview {
         // Maximum bounds describe the active display even in split screen or a Samsung
         // pop-over. A narrow window on an unfolded device should still preview a wide UI.
         val smallestDisplayWidthDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -349,17 +394,19 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         } else {
             resources.configuration.smallestScreenWidthDp.toFloat()
         }
-        return when {
-            smallestDisplayWidthDp >= 720 -> R.xml.settings_appearance_theme_tablet
-            smallestDisplayWidthDp >= 600 -> R.xml.settings_appearance_theme_wide
-            else -> R.xml.settings_appearance_theme
-        }
+        return AppearanceThemePreview.forDevice(
+            smallestDisplayWidthDp = smallestDisplayWidthDp,
+            isTabletDevice = DeviceLayoutUtil.isTabletCategoryOrBuild(requireContext()),
+            hasHinge = requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE),
+            isSamsungDevice = Build.MANUFACTURER.equals("samsung", ignoreCase = true),
+        )
     }
 
     private fun appearance(screen: PreferenceScreen) {
         val context = requireContext()
         // Inflate the library component so its image and entry arrays use its supported XML API.
-        setPreferencesFromResource(appearanceThemeResource(), null)
+        appearancePreview = appearanceThemePreview()
+        setPreferencesFromResource(appearancePreview.preferenceResource, null)
         val themeScreen = preferenceScreen
         val picker = themeScreen.findPreference<HorizontalRadioPreference>("settings_theme")!!
         val followSystem = themeScreen.findPreference<SwitchPreferenceCompat>("settings_theme_system")!!
