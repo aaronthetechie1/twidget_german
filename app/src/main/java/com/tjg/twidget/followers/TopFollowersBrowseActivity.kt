@@ -1,9 +1,12 @@
 package com.tjg.twidget.followers
 
+import android.app.SearchManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.Menu
@@ -13,6 +16,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SearchView
 import androidx.core.widget.TextViewCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -20,13 +24,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.transition.ChangeBounds
+import androidx.transition.TransitionManager
 import com.tjg.twidget.R
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.FoldablePopOverActivity
+import com.tjg.twidget.ui.OneUiSpinner
 import com.tjg.twidget.ui.ProfileImageLoader
 import com.tjg.twidget.ui.TwidgetFonts
-import com.tjg.twidget.ui.OneUiSpinner
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import dev.oneuiproject.oneui.R as OneUiIconR
 
@@ -39,9 +45,19 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private lateinit var listView: RecyclerView
     private lateinit var refreshView: SwipeRefreshLayout
     private lateinit var toolbarLayout: ToolbarLayout
+    private lateinit var searchView: SearchView
     private var refreshItem: MenuItem? = null
     private var refreshGeneration = 0
     private var refreshing = false
+    private val voiceSearch = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let {
+                searchView.setQuery(it, false)
+                searchView.clearFocus()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_top_followers_browse)
@@ -53,7 +69,6 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
         toolbarLayout = findViewById(R.id.top_followers_browse_root)
         toolbarLayout.setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        applyEdgeToEdgeInsets(toolbarLayout)
 
         emptyView = findViewById(R.id.top_followers_browse_empty)
         listView = findViewById(R.id.top_followers_browse_list)
@@ -77,6 +92,56 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             setColor(getColor(R.color.oneui_card_bg))
         }
         listView.clipToOutline = true
+
+        searchView = findViewById(R.id.top_followers_browse_search)
+        searchView.setSearchableInfo(getSystemService(SearchManager::class.java).getSearchableInfo(componentName))
+        searchView.findViewById<View>(androidx.appcompat.R.id.search_voice_btn).setOnClickListener {
+            try {
+                voiceSearch.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.top_followers_browser_search))
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                })
+            } catch (_: ActivityNotFoundException) {
+                // A recognizer can be removed after SESL checks its availability.
+                searchView.requestFocus()
+            }
+        }
+        searchView.setOnQueryTextFocusChangeListener { _, _ -> updateSearchWidth() }
+        query = savedInstanceState?.getString(STATE_QUERY).orEmpty()
+        searchView.setQuery(query, false)
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(value: String?): Boolean {
+                updateQuery(value)
+                searchView.clearFocus()
+                return true
+            }
+
+            override fun onQueryTextChange(value: String?): Boolean {
+                updateQuery(value)
+                return true
+            }
+        })
+        updateSearchWidth()
+        // Reserve scrollable space for the native search bar; content can still
+        // move behind it, and the final follower can be brought fully above it.
+        applyEdgeToEdgeInsets(toolbarLayout) { navigationInset ->
+            searchView.updateBottomMarginForNavigationBar(0, navigationInset)
+        }
+
+        // AppBarLayout's scrolling child can extend below the window while the
+        // header is expanded. Use the actual overlap, not just the bar's height.
+        val listPosition = IntArray(2)
+        val searchPosition = IntArray(2)
+        listView.viewTreeObserver.addOnPreDrawListener {
+            listView.getLocationInWindow(listPosition)
+            searchView.getLocationInWindow(searchPosition)
+            val bottomPadding = (listPosition[1] + listView.height - searchPosition[1]).coerceAtLeast(0) + dp(4)
+            if (listView.paddingBottom != bottomPadding) {
+                listView.setPadding(listView.paddingLeft, listView.paddingTop, listView.paddingRight, bottomPadding)
+            }
+            true
+        }
 
         allFollowers = TopFollowersArchiveStore.readAll(this, username)
         render()
@@ -104,40 +169,13 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
                     true
                 }
             }
-        menu
-            .add(Menu.NONE, View.generateViewId(), Menu.NONE, R.string.top_followers_browser_search)
-            .apply {
-                setIcon(OneUiIconR.drawable.ic_oui_search)
-                setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
-                setOnMenuItemClickListener {
-                    toolbarLayout.startSearchMode(
-                        object : ToolbarLayout.SearchModeListener {
-                            override fun onSearchModeToggle(searchView: SearchView, isActive: Boolean) {
-                                if (isActive) {
-                                    searchView.queryHint = getString(R.string.top_followers_browser_search_hint)
-                                } else {
-                                    query = ""
-                                    render()
-                                }
-                            }
 
-                            override fun onQueryTextSubmit(submittedQuery: String?): Boolean {
-                                updateQuery(submittedQuery)
-                                return true
-                            }
-
-                            override fun onQueryTextChange(newText: String?): Boolean {
-                                updateQuery(newText)
-                                return true
-                            }
-                        },
-                        ToolbarLayout.SearchModeOnBackBehavior.CLEAR_DISMISS,
-                        true,
-                    )
-                    true
-                }
-            }
         return true
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_QUERY, query)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
@@ -228,10 +266,25 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
         listView.visibility = if (empty) View.GONE else View.VISIBLE
     }
 
+    private fun updateSearchWidth() {
+        searchView.findViewById<View>(androidx.appcompat.R.id.search_voice_btn).isSelected = searchView.hasFocus()
+        val width = resources.getDimensionPixelSize(if (searchView.hasFocus() || query.isNotBlank()) {
+            androidx.appcompat.R.dimen.sesl_search_view_preferred_width
+        } else {
+            R.dimen.top_followers_search_compact_width
+        })
+        if (searchView.maxWidth == width) return
+        if (searchView.isLaidOut) {
+            TransitionManager.beginDelayedTransition(searchView.parent as ViewGroup, ChangeBounds())
+        }
+        searchView.maxWidth = width
+    }
+
     private fun updateQuery(value: String?) {
         val nextQuery = value.orEmpty()
         if (query == nextQuery) return
         query = nextQuery
+        updateSearchWidth()
         render()
     }
 
@@ -367,6 +420,7 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     }
 
     companion object {
+        private const val STATE_QUERY = "top_followers_query"
         const val EXTRA_USERNAME = "username"
     }
 }

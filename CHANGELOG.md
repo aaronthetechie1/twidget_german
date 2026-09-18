@@ -20,6 +20,9 @@ personalise Twidget. This release includes all changes since stable 1.2.1.
   native bottom actions. Fixed overlapping titles, clipped labels, and spacing.
 - Widget settings uses native floating Cancel/Save buttons. The changelog reader
   uses a native back toolbar.
+- Top Followers search now uses SESL9's native floating bottom search bar,
+  expanding from a compact pill when focused, with voice search, live filtering,
+  and keyboard-aware positioning.
 - Explanatory settings text now appears below its card using the native
   description component, while selected values stay in their setting rows.
 - Updated settings card heights and adaptive padding across the main page,
