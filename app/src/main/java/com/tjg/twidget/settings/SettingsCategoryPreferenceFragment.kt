@@ -1,7 +1,9 @@
 package com.tjg.twidget.settings
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.text.SpannableString
@@ -44,15 +46,28 @@ import dev.oneuiproject.oneui.preference.HorizontalRadioPreference
 import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
 import com.tjg.twidget.ui.TwidgetFonts
-import dev.oneuiproject.oneui.widget.BottomTipView
+import dev.oneuiproject.oneui.preference.SuggestionCardPreference
 
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
+    private var fontTipDismissed = false
     private val page get() = SettingsCategoryActivity.page(arguments?.getString(SettingsCategoryActivity.EXTRA_PAGE))
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        fontTipDismissed = savedInstanceState?.getBoolean("font_tip_dismissed") ?: false
         preferenceManager.sharedPreferencesName = TwidgetStore.PREFS
         buildScreen()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("font_tip_dismissed", fontTipDismissed)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // The activity handles display changes itself, so reload the image arrays here.
+        if (page == SettingsPage.APPEARANCE) buildScreen()
     }
 
     override fun onResume() {
@@ -325,10 +340,26 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         })
     }
 
+    private fun appearanceThemeResource(): Int {
+        // Maximum bounds describe the active display even in split screen or a Samsung
+        // pop-over. A narrow window on an unfolded device should still preview a wide UI.
+        val smallestDisplayWidthDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = requireActivity().windowManager.maximumWindowMetrics.bounds
+            minOf(bounds.width(), bounds.height()) / resources.displayMetrics.density
+        } else {
+            resources.configuration.smallestScreenWidthDp.toFloat()
+        }
+        return when {
+            smallestDisplayWidthDp >= 720 -> R.xml.settings_appearance_theme_tablet
+            smallestDisplayWidthDp >= 600 -> R.xml.settings_appearance_theme_wide
+            else -> R.xml.settings_appearance_theme
+        }
+    }
+
     private fun appearance(screen: PreferenceScreen) {
         val context = requireContext()
         // Inflate the library component so its image and entry arrays use its supported XML API.
-        setPreferencesFromResource(R.xml.settings_appearance_theme, null)
+        setPreferencesFromResource(appearanceThemeResource(), null)
         val themeScreen = preferenceScreen
         val picker = themeScreen.findPreference<HorizontalRadioPreference>("settings_theme")!!
         val followSystem = themeScreen.findPreference<SwitchPreferenceCompat>("settings_theme_system")!!
@@ -376,22 +407,23 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans) {
-            screen.addPreference(InsetPreferenceCategory(context).apply {
+        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans && !fontTipDismissed) {
+            val tipInset = InsetPreferenceCategory(context).apply {
                 key = "settings_app_font_inset"
-            })
-            val tip = BottomTipView(context).apply {
+            }
+            screen.addPreference(tipInset)
+            screen.addPreference(SuggestionCardPreference(context).apply {
+                key = "settings_app_font_tip"
                 setTitle(R.string.settings_font_tip_title)
                 setSummary(R.string.settings_font_tip_summary)
-                setLink(R.string.settings_font_tip_link) {
+                setActionButtonText(getString(R.string.settings_font_tip_link))
+                setActionButtonOnClickListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fahadalijaved/SamFonts")))
                 }
-            }
-            screen.addPreference(LayoutPreference(context, tip).apply {
-                key = "settings_app_font_tip"
-                isSelectable = false
-                setAllowDividerAbove(false)
-                setAllowDividerBelow(false)
+                setOnClosedClickedListener {
+                    fontTipDismissed = true
+                    screen.removePreference(tipInset)
+                }
             })
         }
         screen.addPreference(category(R.string.settings_widget_defaults))
