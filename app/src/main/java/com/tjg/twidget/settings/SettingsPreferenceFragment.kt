@@ -43,7 +43,7 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
         }
         val stats = TwidgetStore.currentStats(context, settings.username)
         val profile = CardItemView(context).apply {
-            minimumHeight = (85 * resources.displayMetrics.density).toInt()
+            minimumHeight = resources.getDimensionPixelSize(R.dimen.settings_account_min_height)
             gravity = android.view.Gravity.CENTER_VERTICAL
             title = stats.fullName.ifBlank { settings.username }
             summary = getString(R.string.account_handle, settings.username.trimStart('@'))

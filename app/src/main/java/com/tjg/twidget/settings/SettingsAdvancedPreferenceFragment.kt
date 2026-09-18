@@ -69,7 +69,7 @@ class SettingsAdvancedPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "twitterapis_configure_pref"
             title = getString(R.string.configure)
             summary = getString(R.string.twitterapis_explainer)
@@ -131,7 +131,7 @@ class SettingsAdvancedPreferenceFragment : InsetPreferenceFragment() {
 
     private fun addXApi(screen: androidx.preference.PreferenceScreen) {
         val context = requireContext()
-        screen.addPreference(dev.oneuiproject.oneui.preference.DescriptionPreference(context).apply {
+        screen.addPreference(androidx.preference.SeslPreferenceCaption(context).apply {
             title = getString(R.string.x_api_explainer_short)
         })
         screen.addPreference(EditTextPreference(context).apply {

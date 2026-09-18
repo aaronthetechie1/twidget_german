@@ -65,6 +65,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             isLockWide = providerClass == com.tjg.twidget.LockScreenFollowerWideWidget::class.java.name
         }
         setContentView(R.layout.activity_widget_config)
+        WidgetConfigChrome.install(findViewById(R.id.widget_config_root))
         val buttonBar = findViewById<View>(R.id.config_button_bar)
         val baseButtonMargin = (16 * resources.displayMetrics.density).toInt()
         applyEdgeToEdgeInsets(findViewById(R.id.widget_config_root)) { navigationBarInset ->
@@ -129,11 +130,11 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             findViewById<SwitchCompat>(R.id.delta_switch).isChecked = showDelta
             render()
         }
-        findViewById<TextView>(R.id.btn_cancel).setOnClickListener {
+        findViewById<View>(R.id.btn_cancel).setOnClickListener {
             setResult(RESULT_CANCELED)
             finish()
         }
-        findViewById<TextView>(R.id.btn_save).setOnClickListener { saveAndFinish() }
+        findViewById<View>(R.id.btn_save).setOnClickListener { saveAndFinish() }
         findViewById<RadioItemViewGroup>(R.id.tap_action_group).apply {
             check(tapActionRowId(tapAction))
             setOnCheckedChangeListener(object : RadioItemViewGroup.OnCheckedChangeListener {

@@ -11,6 +11,8 @@
     <dimen name="notice_detail_header_height">280dp</dimen>
     <dimen name="notice_detail_content_padding">24dp</dimen>
     <dimen name="about_hero_content_height">274dp</dimen>
-    <dimen name="settings_row_height">64dp</dimen>
-    <dimen name="settings_content_inset">20dp</dimen>
+    <item type="dimen" name="settings_row_height">@dimen/sesl_list_preferred_item_height_small</item>
+    <item type="dimen" name="settings_content_inset">@dimen/sesl_list_item_padding_horizontal</item>
+    <item type="dimen" name="settings_account_min_height">@dimen/sesl_list_preferred_item_height</item>
+    <item type="dimen" name="widget_settings_content_inset">@dimen/sesl_list_item_padding_horizontal</item>
 </resources>

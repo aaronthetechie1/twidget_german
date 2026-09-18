@@ -169,7 +169,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(SwitchPreferenceCompat(context).apply {
+        screen.addDescribedPreference(SwitchPreferenceCompat(context).apply {
             key = "share_history_pref"
             title = getString(R.string.share_history)
             summary = getString(R.string.share_history_summary)
@@ -284,7 +284,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         val context = requireContext()
         val stats = TwidgetStore.currentStats(context, username)
         val row = CardItemView(context).apply {
-            minimumHeight = dp(85)
+            minimumHeight = resources.getDimensionPixelSize(R.dimen.settings_account_min_height)
             gravity = android.view.Gravity.CENTER_VERTICAL
             title = stats.fullName.ifBlank { username }
             summary = getString(R.string.account_handle, username.trimStart('@'))
@@ -465,7 +465,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 key = "settings_app_font_inset"
             }
             screen.addPreference(tipInset)
-            screen.addPreference(SuggestionCardPreference(context).apply {
+            screen.addDescribedPreference(SuggestionCardPreference(context).apply {
                 key = "settings_app_font_tip"
                 setTitle(R.string.settings_font_tip_title)
                 setSummary(R.string.settings_font_tip_summary)
@@ -476,6 +476,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 setOnClosedClickedListener {
                     fontTipDismissed = true
                     screen.removePreference(tipInset)
+                    screen.findPreference<Preference>("settings_app_font_tip_description")?.let(screen::removePreference)
                 }
             })
         }

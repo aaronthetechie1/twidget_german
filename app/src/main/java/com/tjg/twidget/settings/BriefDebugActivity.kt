@@ -105,7 +105,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_open_preview"
             title = getString(R.string.brief_debug_open_preview)
             summary = getString(R.string.brief_debug_open_preview_summary, scenario.label)
@@ -114,7 +114,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_open_onboarding"
             title = getString(R.string.brief_debug_open_onboarding)
             summary = getString(R.string.brief_debug_open_onboarding_summary)
@@ -185,7 +185,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
             } ?: getString(R.string.brief_debug_nano_no_attempt)
             isSelectable = false
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_nano_refresh"
             title = getString(R.string.brief_debug_nano_refresh)
             summary = getString(R.string.brief_debug_nano_refresh_summary)
@@ -195,7 +195,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_nano_test"
             title = getString(R.string.brief_debug_nano_test)
             summary = getString(R.string.brief_debug_nano_test_summary)
@@ -234,7 +234,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
         }
 
         screen.addPreference(category(R.string.brief_debug_actions_category))
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_refresh"
             title = getString(R.string.brief_debug_refresh)
             summary = getString(R.string.brief_debug_refresh_summary)
@@ -244,7 +244,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_force_rebuild"
             title = getString(R.string.brief_debug_force_rebuild)
             summary = getString(R.string.brief_debug_force_rebuild_summary)
@@ -255,7 +255,7 @@ class BriefDebugFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(Preference(context).apply {
+        screen.addDescribedPreference(Preference(context).apply {
             key = "brief_debug_full_report"
             title = getString(R.string.brief_debug_full_report)
             summary = getString(R.string.brief_debug_full_report_summary)
