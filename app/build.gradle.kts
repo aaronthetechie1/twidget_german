@@ -12,8 +12,12 @@ import org.gradle.api.tasks.TaskAction
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
+
+// An opt-in, separately installed SESL9 experiment. Ordinary builds retain SESL8.
+val sesl9Prototype = providers.gradleProperty("sesl9Prototype")
+    .map(String::toBooleanStrict)
+    .getOrElse(false)
 
 // Release signing config. Local production credentials live outside the
 // checkout by default, under ~/.config/twidget/keystore.properties. CI uses
@@ -102,17 +106,18 @@ require(versionMajor in 0..20 && stableVersionCode <= 2_100_000_000) {
 
 android {
     namespace = "com.tjg.twidget"
-    compileSdk = 36
+    compileSdk = if (sesl9Prototype) 37 else 36
 
     buildFeatures {
         buildConfig = true
+        resValues = true
     }
 
     flavorDimensions += "distribution"
     productFlavors {
         create("github") {
             dimension = "distribution"
-            buildConfigField("boolean", "IN_APP_UPDATES", "true")
+            buildConfigField("boolean", "IN_APP_UPDATES", (!sesl9Prototype).toString())
         }
         create("play") {
             dimension = "distribution"
@@ -122,12 +127,17 @@ android {
 
     defaultConfig {
         applicationId = "com.tjg.twidget"
+        if (sesl9Prototype) applicationIdSuffix = ".sesl9"
+        manifestPlaceholders["twidgetAppLabel"] = if (sesl9Prototype) "Twidget SESL9" else "@string/app_name"
+        // The hosted OAuth relay targets the staging app's scheme. Keep the prototype
+        // out of that route until it has a separately registered callback.
+        manifestPlaceholders["bufferOAuthEnabled"] = (!sesl9Prototype).toString()
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = stableVersionCode
         versionName = baseVersionName
-        resValue("string", "buffer_oauth_client_id", bufferOAuthClientId)
+        resValue("string", "buffer_oauth_client_id", if (sesl9Prototype) "" else bufferOAuthClientId)
         resValue("string", "cloudinary_cloud_name", cloudinaryCloudName)
         resValue("string", "cloudinary_upload_preset", cloudinaryUploadPreset)
         resValue(
@@ -162,7 +172,7 @@ android {
 
     buildTypes {
         debug {
-            versionNameSuffix = "-debug.$debugNumber"
+            versionNameSuffix = if (sesl9Prototype) "-sesl9.$debugNumber" else "-debug.$debugNumber"
             if (signDebugWithRelease) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -185,6 +195,13 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+
+    if (sesl9Prototype) {
+        sourceSets.getByName("debug").res.directories.add("src/sesl9Prototype/res")
+        sourceSets.getByName("main").kotlin.directories.add("src/sesl9Prototype/java")
+    } else {
+        sourceSets.getByName("main").kotlin.directories.add("src/sesl8/java")
     }
 
     compileOptions {
@@ -217,6 +234,9 @@ abstract class GenerateDebugChangelog : DefaultTask() {
 }
 
 androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        if (sesl9Prototype && variant.buildType != "debug") variant.enable = false
+    }
     onVariants(selector().all()) { variant ->
         val versionCode = when (variant.buildType) {
             "debug" -> versionCodeBase + 98
@@ -248,6 +268,14 @@ configurations.configureEach {
     // Play Services pulls stock Fragment, but One UI Design supplies the SESL
     // implementation under the same AndroidX package names.
     exclude(group = "androidx.fragment", module = "fragment")
+    if (sesl9Prototype) {
+        // SESL9 Core and Fragment include their Kotlin extensions.
+        exclude(group = "sesl.androidx.core", module = "core-ktx")
+        exclude(group = "androidx.fragment", module = "fragment-ktx")
+        exclude(group = "androidx.preference", module = "preference")
+        exclude(group = "androidx.recyclerview", module = "recyclerview")
+        exclude(group = "androidx.swiperefreshlayout", module = "swiperefreshlayout")
+    }
     exclude(group = "androidx.slidingpanelayout", module = "slidingpanelayout")
     exclude(group = "com.google.android.material", module = "material")
 }
@@ -259,7 +287,34 @@ dependencies {
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("io.github.oneuiproject:icons:1.1.0")
-    implementation("sesl.androidx.swiperefreshlayout:swiperefreshlayout:1.2.0-alpha01+1.0.0-sesl8+rev0")
+    if (sesl9Prototype) {
+        // Pin the whole family: oneui-design and some SESL9 POMs still request
+        // SESL8, whose numerically higher versions can otherwise win resolution.
+        val sesl9 = mapOf(
+            "sesl.androidx.core:core" to "1.19.0+1.0.29-sesl9+rev0",
+            "sesl.androidx.customview:customview" to "1.2.0-rc01+1.0.1-sesl9+rev0",
+            "sesl.androidx.drawerlayout:drawerlayout" to "1.2.0+1.0.5-sesl9+rev0",
+            "sesl.androidx.viewpager:viewpager" to "1.1.0-beta01+1.0.1-sesl9+rev0",
+            "sesl.androidx.fragment:fragment" to "1.9.0+1.0.6-sesl9+rev0",
+            "sesl.androidx.appcompat:appcompat" to "1.8.0+1.0.38-sesl9+rev0",
+            "sesl.androidx.swiperefreshlayout:swiperefreshlayout" to "1.2.0-alpha01+1.0.2-sesl9+rev0",
+            "sesl.androidx.coordinatorlayout:coordinatorlayout" to "1.3.0+1.0.6-sesl9+rev0",
+            "sesl.androidx.recyclerview:recyclerview" to "1.4.0+1.0.25-sesl9+rev0",
+            "sesl.androidx.preference:preference" to "1.2.1+1.0.5-sesl9+rev0",
+            "sesl.androidx.viewpager2:viewpager2" to "1.1.0+1.0.5-sesl9+rev0",
+            "sesl.androidx.picker:picker-basic" to "1.0.8+1.0.8-sesl9+rev0",
+            "sesl.androidx.slidingpanelayout:slidingpanelayout" to "1.2.0+1.0.2-sesl9+rev0",
+            "sesl.androidx.indexscroll:indexscroll" to "1.0.2+1.0.2-sesl9+rev0",
+            "sesl.androidx.picker:picker-app" to "1.0.17+1.0.17-sesl9+rev0",
+            "sesl.androidx.picker:picker-color" to "1.0.8+1.0.8-sesl9+rev0",
+            "sesl.com.google.android.material:material" to "1.14.0+1.0.47-sesl9+rev0",
+        )
+        sesl9.forEach { (module, pinnedVersion) ->
+            implementation(module) { version { strictly(pinnedVersion) } }
+        }
+    } else {
+        implementation("sesl.androidx.swiperefreshlayout:swiperefreshlayout:1.2.0-alpha01+1.0.0-sesl8+rev0")
+    }
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20251224")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

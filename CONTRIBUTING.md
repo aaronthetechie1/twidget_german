@@ -56,6 +56,12 @@ The values in `bridge/.env.example` are documentation, not hosted-service
 credentials. Put local overrides in an ignored `.env` file and never submit a
 populated environment file.
 
+## SESL9 experiment
+
+The opt-in SESL9 build installs alongside staging as **Twidget SESL9**. It requires
+JDK 25+ and SDK 37; see [SESL9 prototype](docs/SESL9_PROTOTYPE.md) for the build flag,
+installation, compatibility notes, and validation commands.
+
 ## Pull requests
 
 - Keep each pull request focused and explain the user-visible behavior.

@@ -13,4 +13,6 @@
     <dimen name="about_hero_content_height">274dp</dimen>
     <dimen name="settings_row_height">64dp</dimen>
     <dimen name="settings_content_inset">20dp</dimen>
+    <dimen name="settings_account_min_height">85dp</dimen>
+    <dimen name="widget_settings_content_inset">18dp</dimen>
 </resources>

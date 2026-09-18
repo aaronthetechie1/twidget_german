@@ -234,7 +234,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         val context = requireContext()
         val stats = TwidgetStore.currentStats(context, username)
         val row = CardItemView(context).apply {
-            minimumHeight = dp(85)
+            minimumHeight = resources.getDimensionPixelSize(R.dimen.settings_account_min_height)
             gravity = android.view.Gravity.CENTER_VERTICAL
             title = stats.fullName.ifBlank { username }
             summary = getString(R.string.account_handle, username.trimStart('@'))

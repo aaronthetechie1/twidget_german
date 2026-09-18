@@ -128,8 +128,8 @@ class SettingsNavigationInstrumentedTest {
             assertTrue(activity.findViewById<android.view.View>(R.id.about_tjg_credit).findViewById<android.view.View>(dev.oneuiproject.oneui.design.R.id.cardview_container).hasOnClickListeners())
             assertNull(activity.findViewById<dev.oneuiproject.oneui.widget.CardItemView>(R.id.about_fxtwitter_credit).summary)
             val toolbar = activity.findViewById<androidx.appcompat.widget.Toolbar>(R.id.about_toolbar)
-            assertEquals(2, toolbar.menu.size())
-            assertTrue(toolbar.menu.getItem(1).hasSubMenu())
+            assertEquals(if (BuildConfig.IN_APP_UPDATES) 2 else 1, toolbar.menu.size())
+            if (BuildConfig.IN_APP_UPDATES) assertTrue(toolbar.menu.getItem(1).hasSubMenu())
             assertEquals("https://github.com/tribalfs/oneui-design", context.getString(R.string.link_oneui_project))
             TwidgetStore.setDebugMenuUnlocked(context, false)
             repeat(7) { header.getSummaryView().performClick() }
