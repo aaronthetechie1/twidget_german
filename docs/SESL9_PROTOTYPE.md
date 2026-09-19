@@ -336,3 +336,28 @@ bottom padding, and light/dark subheader colours. It replaces the old wrapper's
 DescriptionPreference; no caption style or dimension overrides are added. Current
 values remain inside their rows. Phone screenshots in both themes and settings
 interaction tests were checked before promotion.
+
+### Beta release hardening — 2026-09-19
+
+The maintainer reports that keyboard, blur, and One UI tablet/fold layouts work
+on their devices. This is separate from the emulator verification above.
+
+AGP's debug-only unit-test default is disabled so beta and release retain their
+variant-specific test tasks. The One UI 8 wrapper's unused immersive-scroll API
+is disabled during shrinking: its setter is otherwise retained by Android's
+default View rules and reaches a class removed in SESL9. The narrow R8 rule is
+paired with `-checkdiscard` for the legacy helper and its nested classes; a
+minified build must fail if that incompatible implementation survives.
+
+Verification with JDK 26: the complete beta build command from Pre-release
+passes for GitHub and Play (unit tests, minified APK/AAB, GitHub vital lint and
+Play full lint). GitHub runs 311 tests and Play runs 313, with no failures; the
+same counts pass for both release variants. Both APK/AAB pairs have matching
+signatures, the distributions share a signing certificate, and the Play bundle
+passes the updater/foreground-service exclusion check. The optimized DEX type
+tables contain neither the legacy helper nor the removed SESL8 behavior.
+
+A temporary read-only API 37 emulator successfully upgraded the published
+1.2.1 APK to the signed GitHub 1.3.0-beta.1 APK and launched onboarding. The signed
+Play beta then replaced it and cold-launched onboarding; the crash buffer was
+empty. This verifies installation and startup, not signed-in account workflows.

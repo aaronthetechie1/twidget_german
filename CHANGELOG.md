@@ -76,6 +76,9 @@ personalise Twidget. This release includes all changes since stable 1.2.1.
   Minimum Android version remains Android 8.0 (API 26), with target SDK 36.
 - Added layout and interaction regression checks for floating controls, system-bar
   insets, light/dark cards, drawer states, and settings navigation.
+- Restored beta/release unit-test tasks after the AGP upgrade and removed the
+  unused legacy immersive-scroll path from minified builds, with an R8 guard
+  against retaining its incompatible SESL8 helper.
 
 [1.3.0]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.1...staging
 

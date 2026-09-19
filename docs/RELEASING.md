@@ -57,11 +57,13 @@ omits the sideload permission, file provider and reminder receiver. Both use
 installs, configure Play App Signing with the existing app signing identity;
 the upload key alone does not determine the certificate delivered to devices.
 
+Use JDK 25 or newer for all commands below; the SESL9 dependencies contain
+Java 24 bytecode. Set `JAVA_HOME` to that JDK (CI uses JDK 25).
+
 Build a signed Play release locally with:
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease
+./gradlew testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease
 python3 scripts/verify-play-bundle.py app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
 
@@ -148,8 +150,7 @@ checked-in debug certificate so pull-request code never receives production
 signing credentials. To build an interchangeable debug APK locally, use:
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew assembleGithubDebug -PsignDebugWithRelease=true
+./gradlew assembleGithubDebug -PsignDebugWithRelease=true
 ```
 
 This keeps the `-debug.N` version name but makes the APK signature compatible
@@ -157,10 +158,10 @@ with beta and stable builds. It is a debuggable production-signed artifact and
 must not be published or shared.
 
 ```bash
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-  ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug \
+./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug \
   bundleGithubDebug testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease \
-  testGithubBetaUnitTest assembleGithubBeta bundleGithubBeta lintVitalGithubBeta
+  testGithubBetaUnitTest assembleGithubBeta bundleGithubBeta lintVitalGithubBeta \
+  testPlayBetaUnitTest assemblePlayBeta bundlePlayBeta lintPlayBeta
 
 cd bridge
 npm ci
@@ -171,6 +172,16 @@ npm audit --omit=dev
 
 Release and Pre-release workflows run the bridge checks automatically before
 building the Android APK and AAB. The local checklist above mirrors both jobs.
+
+Keep unit tests enabled for every build type in `gradle.properties`: AGP 9's
+default only creates them for the instrumentation-tested build type (`debug`).
+The beta and release workflows need their own variant tests, including the Play
+updater boundary checks. Minified builds also enforce that the unused SESL8
+immersive-scroll helper is discarded; do not remove that R8 guard when changing
+the One UI wrapper or SESL dependencies. The scoped rule makes the old wrapper's
+activation API a no-op in optimized builds. On wrapper upgrades, also review
+new uses of that API: the discard check cannot detect a newly intended call
+that the rule would silently disable.
 
 Before making the repository public, scan the complete Git history—not merely
 the working tree—for credentials and sensitive signing files. If a real secret
