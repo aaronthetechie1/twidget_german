@@ -41,27 +41,19 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         })
 
         screen.addPreference(spacerCategory())
-        val preview = androidx.appcompat.widget.AppCompatImageView(context).apply {
-            layoutParams = android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                (220 * resources.displayMetrics.density).toInt(),
-            )
-            setImageResource(R.drawable.brief_settings_preview)
-            setBackgroundResource(R.drawable.brief_settings_preview_background)
-            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            clipToOutline = true
-            contentDescription = getString(R.string.brief_settings_preview_description)
-        }
+        val preview = layoutInflater.inflate(R.layout.preference_brief_preview, null)
         screen.addPreference(dev.oneuiproject.oneui.preference.LayoutPreference(context, preview).apply {
             key = "brief_preview"
             isSelectable = false
             setAllowDividerAbove(false)
             setAllowDividerBelow(false)
         })
-        screen.addPreference(androidx.preference.SeslPreferenceCaption(context).apply {
+        val intro = layoutInflater.inflate(R.layout.preference_brief_intro, null)
+        screen.addPreference(dev.oneuiproject.oneui.preference.LayoutPreference(context, intro).apply {
             key = "brief_intro"
-            title = getString(R.string.settings_brief_description,
-                getString(R.string.brief_settings_intro), getString(R.string.brief_settings_ai_intro))
+            isSelectable = false
+            setAllowDividerAbove(false)
+            setAllowDividerBelow(false)
         })
 
         screen.addPreference(spacerCategory())
