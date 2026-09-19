@@ -313,7 +313,7 @@
     <string name="link_aaron" translatable="false">https://x.com/aaronthetechie</string>
     <string name="about_fxtwitter_title" translatable="false">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Default data source. Public profile, status, media, and recent-post analytics data</string>
-    <string name="about_oneui_summary">Tribalfs fork - SESL 8.0</string>
+    <string name="about_oneui_summary">Tribalfs fork - SESL 9.0</string>
     <string name="about_legal_section">Boring stuff</string>
     <string name="about_privacy_policy_title">Privacy policy</string>
     <string name="about_privacy_policy_summary">How Twidget handles, protects and deletes information</string>

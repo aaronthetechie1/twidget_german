@@ -1,7 +1,11 @@
 package com.tjg.twidget.settings
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.text.SpannableString
@@ -9,13 +13,19 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.view.ViewGroup
+import android.view.Gravity
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceGroupAdapter
+import androidx.preference.PreferenceViewHolder
 import androidx.preference.SwitchPreferenceCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.tjg.twidget.R
 import com.tjg.twidget.BuildConfig
 import com.tjg.twidget.analytics.AnalyticsImportActivity
@@ -44,20 +54,75 @@ import dev.oneuiproject.oneui.preference.HorizontalRadioPreference
 import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
 import com.tjg.twidget.ui.TwidgetFonts
-import dev.oneuiproject.oneui.widget.BottomTipView
+import dev.oneuiproject.oneui.preference.SuggestionCardPreference
+import dev.oneuiproject.oneui.utils.DeviceLayoutUtil
+import dev.oneuiproject.oneui.design.R as OneUiR
 
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
+    private var fontTipDismissed = false
+    private var appearancePreview = AppearanceThemePreview.PHONE
     private val page get() = SettingsCategoryActivity.page(arguments?.getString(SettingsCategoryActivity.EXTRA_PAGE))
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        fontTipDismissed = savedInstanceState?.getBoolean("font_tip_dismissed") ?: false
         preferenceManager.sharedPreferencesName = TwidgetStore.PREFS
         buildScreen()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("font_tip_dismissed", fontTipDismissed)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // The activity handles display changes itself, so reload the image arrays here.
+        if (page == SettingsPage.APPEARANCE) buildScreen()
     }
 
     override fun onResume() {
         super.onResume()
         buildScreen()
+    }
+
+    // The pinned SESL adapter is restricted to its library group, but extending it
+    // through the fragment's adapter hook preserves its binding and rounded cards.
+    // HorizontalRadioPreference is final and offers no preview-size/spacing API.
+    @SuppressLint("RestrictedApi")
+    override fun onCreateAdapter(preferenceScreen: PreferenceScreen): RecyclerView.Adapter<*> {
+        if (page != SettingsPage.APPEARANCE) return super.onCreateAdapter(preferenceScreen)
+        return object : PreferenceGroupAdapter(preferenceScreen) {
+            override fun onBindViewHolder(holder: PreferenceViewHolder, position: Int) {
+                super.onBindViewHolder(holder, position)
+                if (getItem(position)?.key != "settings_theme") return
+                // Match Samsung's preview sizing and spacing without replacing the
+                // library's selection, disabled-state, or accessibility behaviour.
+                for (id in intArrayOf(OneUiR.id.item1, OneUiR.id.item2)) {
+                    val item = holder.itemView.findViewById<View>(id)
+                    item.findViewById<LinearLayout>(OneUiR.id.image_frame).gravity = Gravity.CENTER_HORIZONTAL
+                    item.findViewById<ImageView>(OneUiR.id.icon).apply {
+                        adjustViewBounds = true
+                        maxWidth = dp(appearancePreview.widthDp)
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        layoutParams = layoutParams.apply {
+                            width = ViewGroup.LayoutParams.WRAP_CONTENT
+                            height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
+                    }
+                    item.findViewById<View>(OneUiR.id.icon_title).apply {
+                        layoutParams = (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = dp(10)
+                        }
+                    }
+                    item.findViewById<View>(OneUiR.id.radio_button).apply {
+                        layoutParams = (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            topMargin = dp(4)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun buildScreen() {
@@ -104,7 +169,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        screen.addPreference(SwitchPreferenceCompat(context).apply {
+        screen.addDescribedPreference(SwitchPreferenceCompat(context).apply {
             key = "share_history_pref"
             title = getString(R.string.share_history)
             summary = getString(R.string.share_history_summary)
@@ -219,7 +284,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         val context = requireContext()
         val stats = TwidgetStore.currentStats(context, username)
         val row = CardItemView(context).apply {
-            minimumHeight = dp(85)
+            minimumHeight = resources.getDimensionPixelSize(R.dimen.settings_account_min_height)
             gravity = android.view.Gravity.CENTER_VERTICAL
             title = stats.fullName.ifBlank { username }
             summary = getString(R.string.account_handle, username.trimStart('@'))
@@ -325,10 +390,29 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         })
     }
 
+    private fun appearanceThemePreview(): AppearanceThemePreview {
+        // Maximum bounds describe the active display even in split screen or a Samsung
+        // pop-over. A narrow window on an unfolded device should still preview a wide UI.
+        val smallestDisplayWidthDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = requireActivity().windowManager.maximumWindowMetrics.bounds
+            minOf(bounds.width(), bounds.height()) / resources.displayMetrics.density
+        } else {
+            resources.configuration.smallestScreenWidthDp.toFloat()
+        }
+        return AppearanceThemePreview.forDevice(
+            smallestDisplayWidthDp = smallestDisplayWidthDp,
+            isTabletDevice = DeviceLayoutUtil.isTabletCategoryOrBuild(requireContext()),
+            hasHinge = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE),
+            isSamsungDevice = Build.MANUFACTURER.equals("samsung", ignoreCase = true),
+        )
+    }
+
     private fun appearance(screen: PreferenceScreen) {
         val context = requireContext()
         // Inflate the library component so its image and entry arrays use its supported XML API.
-        setPreferencesFromResource(R.xml.settings_appearance_theme, null)
+        appearancePreview = appearanceThemePreview()
+        setPreferencesFromResource(appearancePreview.preferenceResource, null)
         val themeScreen = preferenceScreen
         val picker = themeScreen.findPreference<HorizontalRadioPreference>("settings_theme")!!
         val followSystem = themeScreen.findPreference<SwitchPreferenceCompat>("settings_theme_system")!!
@@ -376,22 +460,24 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans) {
-            screen.addPreference(InsetPreferenceCategory(context).apply {
+        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans && !fontTipDismissed) {
+            val tipInset = InsetPreferenceCategory(context).apply {
                 key = "settings_app_font_inset"
-            })
-            val tip = BottomTipView(context).apply {
+            }
+            screen.addPreference(tipInset)
+            screen.addDescribedPreference(SuggestionCardPreference(context).apply {
+                key = "settings_app_font_tip"
                 setTitle(R.string.settings_font_tip_title)
                 setSummary(R.string.settings_font_tip_summary)
-                setLink(R.string.settings_font_tip_link) {
+                setActionButtonText(getString(R.string.settings_font_tip_link))
+                setActionButtonOnClickListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fahadalijaved/SamFonts")))
                 }
-            }
-            screen.addPreference(LayoutPreference(context, tip).apply {
-                key = "settings_app_font_tip"
-                isSelectable = false
-                setAllowDividerAbove(false)
-                setAllowDividerBelow(false)
+                setOnClosedClickedListener {
+                    fontTipDismissed = true
+                    screen.removePreference(tipInset)
+                    screen.findPreference<Preference>("settings_app_font_tip_description")?.let(screen::removePreference)
+                }
             })
         }
         screen.addPreference(category(R.string.settings_widget_defaults))

@@ -29,6 +29,7 @@
         android:stateListAnimator="@null"
         app:elevation="0dp"
         app:liftOnScroll="false"
+        app:expanded="true"
         app:seslHeightProportion="0.5"
         app:seslUseCustomHeight="true">
 

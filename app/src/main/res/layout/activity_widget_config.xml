@@ -124,17 +124,17 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="18dp"
-                        android:layout_marginEnd="18dp"
+                        android:layout_marginStart="@dimen/widget_settings_content_inset"
+                        android:layout_marginEnd="@dimen/widget_settings_content_inset"
                         android:background="@color/oneui_divider" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="64dp"
+                        android:layout_height="@dimen/settings_row_height"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingStart="18dp"
-                        android:paddingEnd="18dp">
+                        android:paddingStart="@dimen/widget_settings_content_inset"
+                        android:paddingEnd="@dimen/widget_settings_content_inset">
 
                         <TextView
                             android:layout_width="0dp"

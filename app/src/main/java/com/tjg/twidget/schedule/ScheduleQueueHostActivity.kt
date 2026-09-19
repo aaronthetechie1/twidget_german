@@ -53,7 +53,7 @@ import dev.oneuiproject.oneui.layout.ToolbarLayout
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout
 import dev.oneuiproject.oneui.widget.RoundedNestedScrollView
 import dev.oneuiproject.oneui.widget.RoundedTabLayout
-import dev.oneuiproject.oneui.widget.ScrollAwareFloatingActionButton
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.text.DateFormat
 import java.time.DayOfWeek
 import java.time.Instant
@@ -73,7 +73,8 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
 
     private lateinit var scheduleToolbar: ToolbarLayout
     private lateinit var content: LinearLayout
-    private lateinit var primaryButton: ScrollAwareFloatingActionButton
+    private lateinit var primaryButton: FloatingActionButton
+    private lateinit var queueChrome: ScheduleQueueChrome
     private lateinit var queueRoot: View
     private lateinit var queueTabs: RoundedTabLayout
     private lateinit var scroll: RoundedNestedScrollView
@@ -94,7 +95,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private var activeQueueMenu: PopupMenu? = null
     private var viewingTrash = false
     private val bottomNavigationAnchor = ViewTreeObserver.OnPreDrawListener {
-        if (::selectionBottomNav.isInitialized) {
+        if (::selectionBottomNav.isInitialized && !queueChrome.floating) {
             anchorBottomNavigation(selectionBottomNav)
             anchorBottomNavigation(trashBottomNav)
         }
@@ -169,6 +170,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         }
         selectionBottomNav = findViewById(R.id.schedule_selection_bottom_nav)
         trashBottomNav = findViewById(R.id.schedule_trash_bottom_nav)
+        queueChrome = ScheduleQueueChrome(toolbar, root, primaryButton, queueTabs, selectionBottomNav, trashBottomNav, scroll)
         queueRoot.viewTreeObserver.addOnPreDrawListener(bottomNavigationAnchor)
         setupBottomNavigation()
         setupQueueViewSwitcher()
@@ -178,6 +180,10 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     protected fun updateScheduleBottomInsets(inset: Int) {
         if (!::primaryButton.isInitialized) return
         navigationBarInset = inset
+        if (queueChrome.floating) {
+            queueChrome.updateInsets(inset)
+            return
+        }
         primaryButton.updateBottomMarginForNavigationBar(scheduleDp(20), inset)
         selectionBottomNav.updateBottomMarginForNavigationBar(0, inset)
         trashBottomNav.updateBottomMarginForNavigationBar(0, inset)
@@ -205,6 +211,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         if (::queueRoot.isInitialized && queueRoot.viewTreeObserver.isAlive) {
             queueRoot.viewTreeObserver.removeOnPreDrawListener(bottomNavigationAnchor)
         }
+        if (::queueChrome.isInitialized) queueChrome.dispose()
         super.onDestroy()
     }
 
@@ -332,12 +339,12 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         val posts = currentQueuePosts()
         val calendarMode = !viewingTrash && selectedQueueView == ScheduleQueueView.CALENDAR
         refresh.isEnabled = isBufferMode() && !viewingTrash && !calendarMode && !queueSelectionMode
-        queueTabs.visibility = if (viewingTrash) View.GONE else View.VISIBLE
+        setQueueSwitcherVisible(!viewingTrash)
         scroll.setPadding(
             scroll.paddingLeft,
             scroll.paddingTop,
             scroll.paddingRight,
-            if (calendarMode) 0 else if (viewingTrash) scheduleDp(88) else scheduleDp(104),
+            if (queueChrome.floating) queueChrome.contentBottomInset else if (calendarMode) 0 else if (viewingTrash) scheduleDp(88) else scheduleDp(104),
         )
         scroll.isVerticalScrollBarEnabled = !calendarMode
         scroll.overScrollMode = if (calendarMode) {
@@ -445,6 +452,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 enabled = total > 0,
                 checked = total > 0 && selectedQueueIds.size == total,
             )
+            queueChrome.updateSelectionCount(selectedQueueIds.size)
         }
         selectionBottomNav.visibility = if (showSelection) View.VISIBLE else View.GONE
         trashBottomNav.visibility = if (showTrashBar) View.VISIBLE else View.GONE
@@ -470,6 +478,11 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         }
     }
 
+    private fun setQueueSwitcherVisible(visible: Boolean) {
+        queueTabs.visibility = if (visible && !queueChrome.floating) View.VISIBLE else View.GONE
+        queueChrome.setSwitcherVisible(visible)
+    }
+
     private fun setupQueueViewSwitcher() {
         queueTabs.removeAllTabs()
         queueTabs.addTab(
@@ -490,6 +503,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 exitQueueSelection()
                 selectedQueueView = next
                 selectedCalendarDate = null
+                if (queueChrome.floating) scheduleToolbar.setExpanded(false, false)
                 animateQueueModeChange(if (tab.position == 0) -1 else 1)
             }
 
@@ -549,7 +563,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         val firstDay = calendarMonth.atDay(1)
         val leadingDays = (firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
         val rowCount = (leadingDays + calendarMonth.lengthOfMonth() + 6) / 7
-        val viewportHeight = scroll.height.takeIf { it > 0 }
+        val viewportHeight = (scroll.height - scroll.paddingBottom).takeIf { it > 0 }
             ?: (resources.displayMetrics.heightPixels - scheduleDp(220))
         val gridPadding = scheduleDp(16)
         val weekHeaderHeight = scheduleDp(28)
@@ -1390,7 +1404,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
 
     private fun showQueueMode() {
         queueRoot.visibility = View.VISIBLE
-        queueTabs.visibility = if (viewingTrash) View.GONE else View.VISIBLE
+        setQueueSwitcherVisible(!viewingTrash)
     }
 
     private fun runRemote(work: () -> ScheduleCoordinatorResult?) {
@@ -1431,7 +1445,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
 
     private fun renderChecklist(post: ScheduledPost) {
         showQueueMode()
-        queueTabs.visibility = View.GONE
+        setQueueSwitcherVisible(false)
         content.removeAllViews()
         content.addView(sectionTitle(getString(R.string.schedule_publish_checklist)))
         content.addView(actionButton(getString(R.string.schedule_back_to_queue)) { renderQueue() }.apply {

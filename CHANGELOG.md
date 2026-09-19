@@ -4,40 +4,80 @@ All notable changes to Twidget are documented here.
 
 ## Unreleased
 
-## [1.2.4] - 2026-09-17
+## [1.3.0] - Unreleased
 
-- Shortened German onboarding and streak labels, separated the add-widget
-  button from its page title, and improved Brief wording. Thanks to
-  [Aaron the Techie](https://x.com/aaronthetechie).
+A new One UI 9 foundation, a reorganised Settings experience, and more ways to
+personalise Twidget. This release includes all changes since stable 1.2.1.
+
+### One UI 9
+
+- Updated the app to the SESL9 AndroidX and Material components, with native
+  floating toolbars and top/bottom scroll fades. Floating toolbar actions stay
+  visible while scrolling.
+- Scheduled tweets now uses a floating List/Calendar navigation bar with an
+  active-tab indicator, light/dark surfaces, and a separate native compose FAB.
+- Long-press selection uses floating count/select-all and Cancel controls, with
+  native bottom actions. Fixed overlapping titles, clipped labels, and spacing.
+- Widget settings uses native floating Cancel/Save buttons. The changelog reader
+  uses a native back toolbar.
+- Top Followers search now uses SESL9's native floating bottom search bar,
+  expanding from a compact pill when focused, with voice search, live filtering,
+  and keyboard-aware positioning.
+- Explanatory settings text now appears below its card using the native
+  description component, while selected values stay in their setting rows.
+- Updated settings card heights and adaptive padding across the main page,
+  subpages, About, and widget settings to follow SESL9's dimensions.
+- Fixed clipped FABs and composer controls, the Save action overflowing its
+  toolbar, and content/inset handling around system bars and the keyboard.
+- About opens expanded on a fresh visit, with a header that clears the toolbar
+  during scrolling. Widget settings now shows its title and preview correctly.
+- Drawers clear the status bar on phones and tablets, including the collapsed
+  tablet rail. Fixed dark-mode calendar colours and chart back navigation.
+- Milestone goal entry preserves exact values when using the number picker.
+
+### Settings, fonts, and widgets
+
+- Reorganised Settings into Accounts, Appearance, Data and sources, Your Brief,
+  Notifications, Scheduled tweets, and Language, using One UI components and icons.
+  Source credentials now have dedicated pages, with updated About and Debug layouts.
+- Added an app theme picker with One UI 9 previews matched to phones, tablets,
+  and foldables, plus widget defaults that preserve individual widget choices.
 - Choose Default (One UI Sans), Google Sans Flex, or System default for the app
-  interface in Settings → Appearance, independently of widget fonts. Text keeps
-  its existing weights and styles across pages, dialogs, and charts.
-- GitHub builds on One UI show a SamFonts tip for using other custom system fonts.
-- Separated the app font selector and SamFonts tip into distinct Appearance
-  sections for clearer spacing and rounded-card treatment.
+  interface independently of widget fonts. Font weights and styles are preserved
+  across pages, dialogs, and charts. Widgets also gain a System default font option.
+- GitHub builds on One UI show a separate SamFonts tip for other custom system fonts.
+- Language opens Android's app-language settings on Android 13+, with a
+  single-choice language dialog on older versions.
+- The Your Brief indicator remains until setup is complete and its Settings page
+  has been viewed. Added the Buffer logo to Accounts and onboarding.
 
-## [1.2.3] - 2026-09-13
+### Scheduling and follower rankings
 
-- Top Followers now uses the shared-history bridge in both distributions. Removed
-  device-side scans and foreground-service permissions, preserving cached
+- Paste images from the clipboard directly into the composer.
+- Top Followers now uses the shared-history bridge in both distributions.
+  Removed device-side scans and foreground-service permissions, preserving cached
   rankings and cancelling old queued scans when upgrading.
-- CI produces signed Play APK and AAB downloads alongside GitHub builds.
+
+### Distribution and localisation
 
 - Added a Google Play distribution without APK updates, updater notifications,
   update badges, or install-package permission. GitHub builds retain the updater.
+  CI produces signed Play APK and AAB downloads alongside GitHub builds.
 - Updated privacy and Data safety disclosures for Your Brief, Gemini Cloud,
-  ML Kit diagnostics, and the current shared Top Followers service.
+  ML Kit diagnostics, and the shared Top Followers service.
+- Added German translations for the new Settings pages, shortened onboarding and
+  streak labels, separated the add-widget button from its page title, and improved
+  Brief fallback and goal wording. Thanks to
+  [Aaron the Techie](https://x.com/aaronthetechie).
 
-- Reorganised Settings into Accounts, Appearance, Data and sources, Your Brief,
-  Notifications, Scheduled tweets, and Language, following the Figma categories
-  with One UI library components and OneUI Icons.
-- Added an app theme picker and widget defaults while preserving individual
-  widget choices. Split alternate source credentials into dedicated pages.
-- Updated the About layout and Debug groups, and added German translations for the new Settings copy.
-- Open Android app-language settings on Android 13 and newer, with a radio-button
-  language dialog on Android 12 and older.
-- Show the Your Brief indicator until setup is complete and its Settings page has
-  been viewed. Added the Buffer logo to Accounts and onboarding.
+### Development
+
+- Updated to AGP 9.3.3, Gradle 9.5, compile SDK 37, and JDK 25 in CI for SESL9.
+  Minimum Android version remains Android 8.0 (API 26), with target SDK 36.
+- Added layout and interaction regression checks for floating controls, system-bar
+  insets, light/dark cards, drawer states, and settings navigation.
+
+[1.3.0]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.1...staging
 
 ## [1.2.1] - 2026-09-13
 
@@ -377,6 +417,3 @@ First public release of Twidget, an X/Twitter follower dashboard and Samsung One
 - Removed the onboarding widget preview's hard-coded follower delta; unknown movement is no longer displayed as an invented gain.
 
 [1.0.0]: https://github.com/thatjoshguy67/twidget/releases/tag/twidget-v1.0.0
-
-[1.2.3]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.1...twidget-v1.2.3
-[1.2.4]: https://github.com/thatjoshguy67/twidget/compare/twidget-v1.2.3...twidget-v1.2.4

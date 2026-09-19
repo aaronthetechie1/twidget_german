@@ -48,11 +48,11 @@ jobs:
         with:
           fetch-depth: 0 # prerelease number is the distance from the base-version commit
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: gradle
 
       - name: Set up Android SDK

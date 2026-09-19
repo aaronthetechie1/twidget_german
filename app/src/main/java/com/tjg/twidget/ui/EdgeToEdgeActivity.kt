@@ -34,6 +34,7 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
     override fun onContentChanged() {
         super.onContentChanged()
         findViewById<ViewGroup>(android.R.id.content)?.let { root ->
+            SeslToolbarCompatibility.install(root)
             TwidgetFonts.observeWindow(root.rootView)
         }
     }
@@ -70,7 +71,8 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
             )
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime()) && ime.bottom > 0
-            view.setPadding(safe.left, safe.top, safe.right, ime.bottom)
+            val topPadding = if (SeslToolbarCompatibility.applyTopInset(view, safe.top)) 0 else safe.top
+            view.setPadding(safe.left, topPadding, safe.right, ime.bottom)
             // IME insets already include the navigation region on Samsung and
             // several other OEM keyboards. Do not add it to floating chrome twice.
             onNavigationBarInset(if (imeVisible) 0 else safe.bottom)

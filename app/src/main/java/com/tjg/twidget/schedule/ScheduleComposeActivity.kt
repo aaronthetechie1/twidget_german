@@ -154,6 +154,7 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_schedule_compose)
         val root = findViewById<ToolbarLayout>(R.id.schedule_compose_root)
+        ScheduleComposeChrome.install(root)
         val bottomBar = findViewById<View>(R.id.schedule_compose_bottom_bar)
         root.setNavigationButtonOnClickListener { requestClose() }
         applyEdgeToEdgeInsets(root) { navigationBarInset ->
@@ -203,10 +204,15 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         draftButton?.alpha = if (draftEnabled) 1f else 0.45f
         saveButton?.isEnabled = saveEnabled
         saveButton?.alpha = if (saveEnabled) 1f else 0.45f
+        ScheduleComposeChrome.prepareMenu(menu, draftEnabled, saveEnabled)
         return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.schedule_compose_draft_button) {
+            saveDraft()
+            return true
+        }
         if (item.itemId != R.id.schedule_compose_save) return super.onOptionsItemSelected(item)
         submitSchedule()
         return true
