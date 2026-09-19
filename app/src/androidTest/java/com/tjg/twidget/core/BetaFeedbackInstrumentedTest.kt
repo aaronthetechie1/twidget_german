@@ -79,12 +79,20 @@ class BetaFeedbackInstrumentedTest {
             assertEquals(0, result.updated)
             assertFalse(store.list().any { it.id == post.id })
             assertEquals(now, store.listTrash().single { it.id == post.id }.deletedAt)
+            val duplicateText = remote.copy(id = "beta-new-remote")
+            val imported = sync.reconcileRemotePosts("beta-channel", "beta-account", listOf(remote, duplicateText), now)
+            assertEquals(1, imported.imported)
+            assertTrue(store.list().any { it.remotePostId == duplicateText.id })
+            assertFalse(store.list().any { it.id == post.id })
             sync.reconcileRemotePosts("beta-channel", "beta-account", emptyList(), now)
             assertTrue(store.listTrash().any { it.id == post.id })
             store.restoreFromTrash(post.id, now + 1)
             sync.reconcileRemotePosts("beta-channel", "beta-account", listOf(remote), now + 2)
             assertEquals("Draft", store.list().single { it.id == post.id }.thread.first().text)
-        } finally { store.remove(post.id) }
+        } finally {
+            store.remove(post.id)
+            store.remove(BufferScheduleSync.remoteLocalId("beta-new-remote"))
+        }
     }
 
     @Test fun briefWidgetLanguageOverrideUsesGermanResourcesWithoutChangingEnglishCache() {

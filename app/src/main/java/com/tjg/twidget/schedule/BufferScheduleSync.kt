@@ -84,7 +84,7 @@ class BufferScheduleSync(
         remotePosts.forEach { bufferPost ->
             seen += bufferPost.id
             val current = existing.firstOrNull { it.remotePostId == bufferPost.id }
-                ?: existing.firstOrNull { it.matches(bufferPost, channelId) }
+                ?: existing.firstOrNull { it.deletedAt == null && it.matches(bufferPost, channelId) }
             // A remote draft can outlive its local trash entry. Do not resurrect it.
             if (current?.deletedAt != null) return@forEach
             val status = resolvedStatus(bufferPost.status, bufferPost.dueAt, now) ?: return@forEach
