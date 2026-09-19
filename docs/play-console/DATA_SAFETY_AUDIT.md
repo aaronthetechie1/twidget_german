@@ -34,7 +34,7 @@ the optional scheduling feature.
 | Photos | Collected | No | Optional | App functionality | A user-selected image attached to a Buffer post is uploaded to Cloudinary and retained for Buffer to fetch. |
 | Videos | Collected | No | Optional | App functionality | A user-selected video attached to a Buffer post is uploaded to Cloudinary and retained for Buffer to fetch. |
 | Contacts | Collected and shared | No | Optional | App functionality | Google's definition includes social-graph usernames. With shared history enabled, the public Top Followers social-graph ranking can be stored in the shared bridge. A Brief card can send a public follower name/identifier and ranking context to Gemini Cloud. |
-| Other user-generated content | Collected | No | Optional | App functionality | Post and thread text explicitly saved or scheduled through Buffer is transmitted to Buffer. Local-reminder drafts remain on-device. |
+| Other user-generated content | Collected | No | Optional | App functionality | Post and thread text explicitly saved or scheduled through Buffer is transmitted to Buffer. Shared history also retains the current public Hall of Fame post text and metadata on the bridge. Local-reminder drafts remain on-device. |
 | Device or other identifiers | Collected | No | Required | Analytics; fraud prevention, security and compliance | Bridge IP rate limits and ML Kit GenAI identifiers used for diagnostics and usage analytics. |
 | Diagnostics | Collected | No | Required | Analytics | ML Kit reports device/app configuration, latency, event errors, feature versions, input/output sizes, and configured languages. |
 | Page views and taps / app interactions | Collected | No | Required | Analytics | ML Kit records SDK feature events such as initialization, model downloads, and generation. These are SDK usage events, not a custom screen/tap tracking system. |
@@ -78,6 +78,15 @@ not control Google retention or deletion; the privacy policy explains this.
   Hidden Twidget debug logs stay on-device and are not uploaded automatically.
 - **Installed apps:** package visibility queries are used locally to resolve
   browsers, X, and Samsung Gallery; results are not transmitted.
+
+## Hall of Fame storage
+
+With shared history enabled, the bridge retains the current public Hall of Fame
+post in account metadata: text, links, media URLs/alt text, engagement metrics,
+timestamps, author details, and resumable scan progress. It is replaced by a
+new winning post or removed with the shared account, with no independent post
+expiry. Removing an account in the app clears local data, not shared records.
+See the policy for the operator deletion process.
 
 ## Security and retention evidence
 

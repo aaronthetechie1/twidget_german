@@ -1,7 +1,7 @@
 # Twidget Privacy Policy
 
 **Effective date:** 26 July 2026
-**Last updated:** 13 September 2026
+**Last updated:** 19 September 2026
 
 This Privacy Policy explains how **Twidget** (`com.tjg.twidget`) accesses,
 uses, stores, transmits, and deletes information. Twidget is developed and
@@ -89,7 +89,10 @@ maintainer-operated Twidget bridge may store:
 - the latest completed Top Followers scan for that public account, including
   the public names, usernames, account IDs, follower counts, verification
   state, avatar URLs, mutual-follow state when the provider supplies it, and
-  scan metadata for the public accounts in the follower list.
+  scan metadata for the public accounts in the follower list; and
+- the current Hall of Fame post and scan progress, including public post text,
+  links, media URLs and alt text, engagement metrics, timestamps, and author
+  details. The bridge stores this in the shared account metadata.
 
 This information is pooled so participating Twidget users can receive genuine
 historical samples or reuse a completed public ranking. Ordinary direct
@@ -279,6 +282,9 @@ Twidget bridge.
   configured sample-retention and inactive-account rules. The operator may
   retain history until a deletion request when automatic limits are not
   configured. A public account that becomes private is removed from the pool.
+  Hall of Fame post data is retained in account metadata until replaced or the
+  account is deleted; it has no separate post-expiry timer. Turning off sharing
+  or removing an account locally does not delete its shared bridge records.
 - **Bridge caches and request limits:** retained only for their configured
   cache or rate-limit window. Hosting-platform logs may follow the hosting
   provider's operational retention settings.

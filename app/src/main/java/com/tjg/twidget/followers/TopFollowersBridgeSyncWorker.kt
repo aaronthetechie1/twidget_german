@@ -24,7 +24,8 @@ import java.util.concurrent.TimeUnit
 class TopFollowersBridgeSyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val username = inputData.getString(KEY_USERNAME).orEmpty().trim().trimStart('@')
-        if (username.isBlank() || !TwidgetStore.settings(applicationContext).shareHistory) {
+        if (username.isBlank() || !TwidgetStore.settings(applicationContext).shareHistory ||
+            TwidgetStore.accounts(applicationContext).none { it.equals(username, ignoreCase = true) }) {
             return Result.success()
         }
         return try {
@@ -92,6 +93,10 @@ internal object TopFollowersBridgeSync {
             return previousState
         }
 
+        if (TwidgetStore.accounts(context).none { it.equals(username, ignoreCase = true) }) {
+            TopFollowersStore.clear(context, username)
+            return null
+        }
         val completed = latest.copy(
             scanning = false,
             complete = true,

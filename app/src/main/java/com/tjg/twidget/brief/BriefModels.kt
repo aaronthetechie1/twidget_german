@@ -128,7 +128,9 @@ data class BriefEditorialSummary(
         fun from(snapshot: BriefSnapshot, strings: BriefStrings): BriefEditorialSummary {
             val generatedTitle = snapshot.headline.trim().takeIf(String::isNotBlank)
             val generatedBody = snapshot.subheading.trim().takeIf(String::isNotBlank)
-            if (generatedTitle != null && generatedBody != null) {
+            if (snapshot.language.equals(strings.languageTag, ignoreCase = true) &&
+                generatedTitle != null && generatedBody != null
+            ) {
                 return BriefEditorialSummary(
                     generatedTitle,
                     generatedBody,

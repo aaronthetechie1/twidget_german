@@ -99,6 +99,14 @@ object TopFollowersStore {
     }
 
     @Synchronized
+    fun clear(context: Context, username: String) {
+        prefs(context).edit().remove(key(username)).apply()
+        TopFollowersArchiveStore.clear(context, username)
+        androidx.work.WorkManager.getInstance(context.applicationContext)
+            .cancelUniqueWork("twidget-top-followers-bridge-${key(username)}")
+    }
+
+    @Synchronized
     fun stopScan(context: Context, username: String): TopFollowersState {
         val stopped = read(context, username).copy(scanning = false, error = "", activeRunId = "")
         write(context, username, stopped)

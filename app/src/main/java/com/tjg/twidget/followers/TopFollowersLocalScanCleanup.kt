@@ -9,12 +9,14 @@ object TopFollowersLocalScanCleanup {
     @Synchronized
     fun run(context: Context) {
         val prefs = context.getSharedPreferences("twidget_top_followers_migrations", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("bridge_only", false)) return
+        if (prefs.getBoolean("bridge_only_v2", false)) return
         WorkManager.getInstance(context)
             .cancelAllWorkByTag(TopFollowersScanWorker::class.java.name).result.get()
+        WorkManager.getInstance(context)
+            .cancelAllWorkByTag("com.tjg.twidget.TopFollowersScanWorker").result.get()
         TopFollowersStore.clearLocalScanState(context)
         context.getSystemService(NotificationManager::class.java)
             .deleteNotificationChannel("top_followers_scan_progress")
-        prefs.edit().putBoolean("bridge_only", true).apply()
+        prefs.edit().putBoolean("bridge_only_v2", true).apply()
     }
 }

@@ -45,7 +45,7 @@ object WidgetArtworkRenderer {
         val footerPaint = textPaint(context, settings, primary, bold = true).apply {
             textSize = 12f * density
         }
-        val deltaText = if (!settings.showDelta || delta == 0L) "" else TwidgetStore.signedNumber(delta)
+        val deltaText = if (!settings.showDelta || delta == 0L) "" else TwidgetStore.signedNumber(delta, AppLocales.resolve(settings.language))
         val deltaPaint = textPaint(
             context,
             settings,
@@ -199,7 +199,7 @@ object WidgetArtworkRenderer {
             val deltaText = if (isAospTwoByTwo || !settings.showDelta || delta == 0L) {
                 ""
             } else {
-                TwidgetStore.signedNumber(delta)
+                TwidgetStore.signedNumber(delta, locale)
             }
             val deltaPaint = paintFor(700, if (delta < 0) Color.rgb(229, 57, 53) else Color.rgb(46, 125, 50), 13f)
             val lineGap = 7f * density
@@ -230,7 +230,7 @@ object WidgetArtworkRenderer {
             val labelPaint = paintFor(400, primary, 21f)
             val deltaPaint = paintFor(400, if (delta < 0) Color.rgb(229, 57, 53) else Color.rgb(46, 125, 50), 18f)
             val handlePaint = paintFor(700, primary, 12f)
-            val deltaText = if (!settings.showDelta || delta == 0L) "" else TwidgetStore.signedNumber(delta)
+            val deltaText = if (!settings.showDelta || delta == 0L) "" else TwidgetStore.signedNumber(delta, locale)
             val wordGap = 8f * density
 
             var lineWidth = valuePaint.measureText(value) + wordGap + labelPaint.measureText(label)

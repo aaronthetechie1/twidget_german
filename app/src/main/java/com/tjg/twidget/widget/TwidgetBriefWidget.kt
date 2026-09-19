@@ -107,8 +107,10 @@ class TwidgetBriefWidget : AppWidgetProvider() {
             snapshot: com.tjg.twidget.brief.BriefSnapshot?,
         ): RemoteViews {
             val oneRow = height <= 110
-            val summary = snapshot?.let { BriefEditorialSummary.from(it, BriefStrings.from(context)) }
             val settings = TwidgetStore.widgetSettings(context, id)
+            val localizedContext = com.tjg.twidget.core.AppLocales.wrap(context, settings.language)
+            val strings = BriefStrings.from(context, settings.language)
+            val summary = snapshot?.let { BriefEditorialSummary.from(it, strings) }
             val dark = isDark(context, settings.colorMode)
             val base = if (dark) 16 else 255
             val backgroundColor = Color.argb(settings.tintAlpha, base, base, base)
@@ -130,7 +132,8 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                 setImageViewBitmap(
                     R.id.brief_widget_artwork,
                     BriefWidgetArtworkRenderer.render(
-                        context = context,
+                        context = localizedContext,
+                        strings = strings,
                         widthPx = dp(context, width),
                         heightPx = dp(context, height),
                         account = account,
@@ -142,7 +145,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                 setContentDescription(
                     android.R.id.background,
                     listOfNotNull(summary?.title, summary?.body).joinToString(". ")
-                        .ifBlank { context.getString(R.string.brief_widget_empty_title) },
+                        .ifBlank { localizedContext.getString(R.string.brief_widget_empty_title) },
                 )
                 if (account.isNotBlank()) {
                     setOnClickPendingIntent(
