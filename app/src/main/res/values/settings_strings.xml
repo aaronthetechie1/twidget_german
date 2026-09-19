@@ -28,7 +28,7 @@
     <string name="settings_update_channel">Update channel</string>
     <string name="settings_app_font">App font</string>
     <string name="settings_app_font_default">Default (One UI Sans)</string>
-    <string name="settings_font_tip_title">Tip</string>
-    <string name="settings_font_tip_summary">For a custom font not listed here, use SamFonts to change your One UI system font, then select System default above.</string>
+    <string name="settings_font_tip_title">Custom font tip</string>
+    <string name="settings_font_tip_summary">Use SamFonts to change your One UI system font, then choose System default in App font.</string>
     <string name="settings_font_tip_link">Get SamFonts</string>
 </resources>

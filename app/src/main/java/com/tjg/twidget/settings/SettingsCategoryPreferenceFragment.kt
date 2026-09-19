@@ -54,25 +54,48 @@ import dev.oneuiproject.oneui.preference.HorizontalRadioPreference
 import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
 import com.tjg.twidget.ui.TwidgetFonts
-import dev.oneuiproject.oneui.preference.SuggestionCardPreference
+import dev.oneuiproject.oneui.widget.TipPopup
 import dev.oneuiproject.oneui.utils.DeviceLayoutUtil
 import dev.oneuiproject.oneui.design.R as OneUiR
 
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
-    private var fontTipDismissed = false
+    private var fontTip: TipPopup? = null
     private var appearancePreview = AppearanceThemePreview.PHONE
     private val page get() = SettingsCategoryActivity.page(arguments?.getString(SettingsCategoryActivity.EXTRA_PAGE))
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        fontTipDismissed = savedInstanceState?.getBoolean("font_tip_dismissed") ?: false
         preferenceManager.sharedPreferencesName = TwidgetStore.PREFS
         buildScreen()
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean("font_tip_dismissed", fontTipDismissed)
+    override fun onPause() {
+        dismissFontTip()
+        super.onPause()
+    }
+
+    override fun onDestroyView() {
+        dismissFontTip()
+        super.onDestroyView()
+    }
+
+    private fun dismissFontTip() {
+        fontTip?.dismiss(false)
+        fontTip = null
+    }
+
+    private fun showFontTip(anchor: View) {
+        dismissFontTip()
+        if (!anchor.isAttachedToWindow) return
+        fontTip = TipPopup(anchor).apply {
+            setMessage(getString(R.string.settings_font_tip_summary))
+            setAction(getString(R.string.settings_font_tip_link)) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fahadalijaved/SamFonts")))
+            }
+            setExpanded(true)
+            setOutsideTouchEnabled(true)
+            show()
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -126,6 +149,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     }
 
     private fun buildScreen() {
+        dismissFontTip()
         val context = requireContext()
         settings = TwidgetStore.settings(context)
         val screen = preferenceManager.createPreferenceScreen(context)
@@ -441,8 +465,16 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(picker)
         screen.addPreference(followSystem)
         screen.addPreference(InsetPreferenceCategory(context))
-        screen.addPreference(ListPreference(context).apply {
+        screen.addPreference(object : ListPreference(context) {
+            override fun onBindViewHolder(holder: PreferenceViewHolder) {
+                super.onBindViewHolder(holder)
+                holder.findViewById(R.id.settings_font_tip_button)?.setOnClickListener(::showFontTip)
+            }
+        }.apply {
             key = "settings_app_font"
+            if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans) {
+                widgetLayoutResource = R.layout.preference_font_tip
+            }
             isPersistent = false
             setTitle(R.string.settings_app_font)
             setDialogTitle(R.string.settings_app_font)
@@ -460,26 +492,6 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                 true
             }
         })
-        if (BuildConfig.FLAVOR == "github" && TwidgetFonts.hasSystemOneUiSans && !fontTipDismissed) {
-            val tipInset = InsetPreferenceCategory(context).apply {
-                key = "settings_app_font_inset"
-            }
-            screen.addPreference(tipInset)
-            screen.addDescribedPreference(SuggestionCardPreference(context).apply {
-                key = "settings_app_font_tip"
-                setTitle(R.string.settings_font_tip_title)
-                setSummary(R.string.settings_font_tip_summary)
-                setActionButtonText(getString(R.string.settings_font_tip_link))
-                setActionButtonOnClickListener {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fahadalijaved/SamFonts")))
-                }
-                setOnClosedClickedListener {
-                    fontTipDismissed = true
-                    screen.removePreference(tipInset)
-                    screen.findPreference<Preference>("settings_app_font_tip_description")?.let(screen::removePreference)
-                }
-            })
-        }
         screen.addPreference(category(R.string.settings_widget_defaults))
         var defaults = TwidgetStore.widgetSettings(context)
         fun update(next: TwidgetWidgetSettings) {

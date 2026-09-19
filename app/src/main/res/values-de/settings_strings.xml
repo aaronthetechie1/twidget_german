@@ -28,7 +28,7 @@
     <string name="settings_update_channel">Update-Kanal</string>
     <string name="settings_app_font">App-Schriftart</string>
     <string name="settings_app_font_default">Standard (One UI Sans)</string>
-    <string name="settings_font_tip_title">Tipp</string>
-    <string name="settings_font_tip_summary">Für eine hier nicht aufgeführte Schriftart ändere mit SamFonts die Systemschriftart von One UI und wähle oben Systemstandard aus.</string>
+    <string name="settings_font_tip_title">Tipp zu eigenen Schriftarten</string>
+    <string name="settings_font_tip_summary">Ändere mit SamFonts die Systemschriftart von One UI und wähle dann unter App-Schriftart die Option Systemstandard aus.</string>
     <string name="settings_font_tip_link">SamFonts herunterladen</string>
 </resources>
