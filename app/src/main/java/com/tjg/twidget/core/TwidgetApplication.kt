@@ -15,6 +15,7 @@ import com.tjg.twidget.widget.TwidgetWidget
 class TwidgetApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
+        AppLocales.initialize(this)
         com.tjg.twidget.ui.AppAppearance.apply(this)
         AppPaletteManager.reconcile(this)
         AppExecutors.execute {

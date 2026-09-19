@@ -83,6 +83,7 @@ internal object BriefWidgetArtworkRenderer {
         snapshot: BriefSnapshot?,
         dark: Boolean,
         fontFamily: String = TwidgetStore.FONT_ONE_UI_SANS,
+        strings: BriefStrings = BriefStrings.from(context),
     ): Bitmap {
         val width = widthPx.coerceAtLeast(dp(context, 100))
         val height = heightPx.coerceAtLeast(dp(context, 56))
@@ -96,7 +97,7 @@ internal object BriefWidgetArtworkRenderer {
             body = context.getString(R.string.brief_widget_empty_body),
             score = 0,
         )
-        val summary = snapshot?.let { BriefEditorialSummary.from(it, BriefStrings.from(context)) }
+        val summary = snapshot?.let { BriefEditorialSummary.from(it, strings) }
         val displayCard = card.copy(
             title = summary?.title ?: card.title,
             body = summary?.shortDescription ?: card.body,

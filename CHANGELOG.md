@@ -51,6 +51,21 @@ personalise Twidget. This release includes all changes since stable 1.2.1.
 - The Your Brief indicator remains until setup is complete and its Settings page
   has been viewed. Added the Buffer logo to Accounts and onboarding.
 
+### Review fixes
+
+- Fixed text-only Buffer creation and prevented trashed Buffer drafts from
+  returning to the queue during sync.
+- Removing an account now clears its imported analytics and cached follower
+  rankings, including downloaded follower lists.
+- Brief widgets respect their selected language and replace stale-language
+  summaries with localised facts. Unsupported device languages use English,
+  and background widgets restore saved app languages on older Android versions.
+- Widget deltas now use each widget's language for number formatting.
+- Brief onboarding scrolls in short windows, with accessible Back and Continue
+  controls and improved German copy from Aaron the Techie.
+- Documented shared Hall of Fame post storage and retention, and corrected the
+  translation helper's Settings resource coverage.
+
 ### Scheduling and follower rankings
 
 - Paste images from the clipboard directly into the composer.

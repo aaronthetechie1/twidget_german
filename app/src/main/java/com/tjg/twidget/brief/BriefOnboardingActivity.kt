@@ -32,7 +32,10 @@ class BriefOnboardingActivity : FoldablePopOverActivity() {
             return
         }
 
-        applyEdgeToEdgeInsets(findViewById(R.id.brief_onboarding_root))
+        applyEdgeToEdgeInsets(findViewById(R.id.brief_onboarding_root)) { bottomInset ->
+            findViewById<android.view.View>(R.id.brief_onboarding_scroll)
+                .updateBottomMarginForNavigationBar(0, bottomInset)
+        }
         bindChrome()
         generation = BriefLaunchGeneration.start(this, username, restartIfComplete = true)
         watchGenerationForApiKeyRequirement()

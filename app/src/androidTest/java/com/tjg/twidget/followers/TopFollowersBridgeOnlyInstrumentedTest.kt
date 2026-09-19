@@ -54,7 +54,7 @@ class TopFollowersBridgeOnlyInstrumentedTest {
                 top = listOf(ranked), complete = true, completedAt = 123L,
                 scanning = true, cursor = "old-cursor", activeRunId = "old-run"))
             context.getSharedPreferences("twidget_top_followers_migrations", Context.MODE_PRIVATE)
-                .edit().remove("bridge_only").commit()
+                .edit().remove("bridge_only_v2").commit()
             TopFollowersLocalScanCleanup.run(context)
             val result = TopFollowersStore.read(context, username)
             assertEquals(listOf(ranked), result.top)

@@ -440,6 +440,8 @@ object TwidgetStore {
         }
         edit.apply()
         clearCachedStats(context, cleanUsername)
+        com.tjg.twidget.analytics.ImportedAnalyticsStore.clear(context, cleanUsername)
+        com.tjg.twidget.followers.TopFollowersStore.clear(context, cleanUsername)
         BangerClient.clear(context, cleanUsername)
         BangerScanWorker.clear(context, cleanUsername)
         ScheduleAccountCleanup.removeAccountSchedules(context, cleanUsername)
@@ -766,8 +768,7 @@ object TwidgetStore {
     fun followersDelta(context: Context, username: String = settings(context).username): Long =
         todayDelta(context, username) { it.followers }
 
-    fun compactNumber(value: Long): String {
-        val locale = AppLocales.applicationLocale()
+    fun compactNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String {
         val absValue = abs(value)
         return when {
             absValue >= 1_000_000 -> "${String.format(locale, "%.1f", value / 1_000_000f)}M"
@@ -776,8 +777,8 @@ object TwidgetStore {
         }
     }
 
-    fun signedNumber(value: Long): String =
-        if (value > 0) "+${compactNumber(value)}" else compactNumber(value)
+    fun signedNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String =
+        if (value > 0) "+${compactNumber(value, locale)}" else compactNumber(value, locale)
 
     fun lastSyncedText(context: Context, stats: ProfileStats = currentStats(context)): String {
         if (stats.syncedAt <= 0L) return context.getString(R.string.not_synced_yet)
