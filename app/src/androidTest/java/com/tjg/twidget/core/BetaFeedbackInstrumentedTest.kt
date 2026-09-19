@@ -165,9 +165,6 @@ class BetaFeedbackInstrumentedTest {
             val background = screenshot.getPixel(8, sampleY)
             fun brightness(color: Int) = android.graphics.Color.red(color) +
                 android.graphics.Color.green(color) + android.graphics.Color.blue(color)
-            instrumentation.uiAutomation.executeShellCommand(
-                "screencap -p /sdcard/Download/twidget-onboarding-shadow.png",
-            ).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
             screenshot.recycle()
             assertTrue("The button's shadow must extend below its parent boundary: shadow=$shadow background=$background",
                 brightness(shadow) < brightness(background) - 3)
