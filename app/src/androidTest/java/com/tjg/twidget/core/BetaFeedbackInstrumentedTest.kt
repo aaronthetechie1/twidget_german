@@ -141,4 +141,34 @@ class BetaFeedbackInstrumentedTest {
             }
         }
     }
+    @Test fun onboardingContinueShadowExtendsBelowTheButton() {
+        androidx.test.core.app.ActivityScenario.launch(com.tjg.twidget.settings.SettingsActivity::class.java).use { scenario ->
+            lateinit var button: TextView
+            scenario.onActivity { activity ->
+                activity.setContentView(R.layout.activity_brief_onboarding)
+                activity.findViewById<TextView>(R.id.brief_onboarding_title).text =
+                    activity.getString(R.string.brief_onboarding_title, "That Josh Guy")
+                button = activity.findViewById(R.id.brief_onboarding_continue)
+            }
+            instrumentation.waitForIdleSync()
+            // Elevation shadows are produced by the hardware renderer, not View.draw(Canvas).
+            android.os.SystemClock.sleep(300)
+            val bounds = android.graphics.Rect()
+            instrumentation.runOnMainSync {
+                val location = IntArray(2)
+                button.getLocationOnScreen(location)
+                bounds.set(location[0], location[1], location[0] + button.width, location[1] + button.height)
+            }
+            val screenshot = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            val sampleY = bounds.bottom + (2 * context.resources.displayMetrics.density).toInt()
+            val shadow = screenshot.getPixel(bounds.centerX(), sampleY)
+            val background = screenshot.getPixel(8, sampleY)
+            fun brightness(color: Int) = android.graphics.Color.red(color) +
+                android.graphics.Color.green(color) + android.graphics.Color.blue(color)
+            screenshot.recycle()
+            assertTrue("The button's shadow must extend below its parent boundary: shadow=$shadow background=$background",
+                brightness(shadow) < brightness(background) - 3)
+        }
+    }
+
 }

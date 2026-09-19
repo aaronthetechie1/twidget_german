@@ -20,13 +20,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="vertical"
             android:paddingHorizontal="28dp"
             android:paddingBottom="24dp">
 
+            <!-- Continue's elevation extends past this content group's bottom edge. -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:clipChildren="false"
                 android:layout_gravity="center_horizontal">
 
                 <LinearLayout
