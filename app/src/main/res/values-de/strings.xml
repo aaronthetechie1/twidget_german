@@ -830,6 +830,7 @@
     <string name="brief_goal_heading">Dein %1$s-Ziel</string>
     <string name="brief_goal_close_heading">Du bist kurz vor deinem %1$s-Ziel</string>
     <string name="brief_goal_reached_heading">Du hast dein %1$s-Ziel erreicht</string>
+    <string name="brief_goal_noun_verified_follower">verif.-Follower</string>
     <string name="brief_streak_heading">Dein Posting-Streak</string>
     <string name="back">Zurück</string>
     <string name="info">Informationen</string>
