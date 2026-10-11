@@ -188,7 +188,13 @@ class AnimatedTitleView @JvmOverloads constructor(
                 offset = next
             }
         }
-        setGeometry(TitleGeometry(title, glyphs, layout.height))
+        setGeometry(
+            TitleGeometry(
+                title,
+                glyphs,
+                layout.height + dp(TITLE_BLUR_BOTTOM_INSET_DP).toInt(),
+            ),
+        )
     }
 
     private fun setGeometry(value: TitleGeometry) {
@@ -370,5 +376,6 @@ class AnimatedTitleView @JvmOverloads constructor(
         const val MOVEMENT_DURATION_MS = 1_000L
         const val GLYPH_BLUR_RADIUS_PX = 100f
         const val BLUR_UPDATE_THRESHOLD_PX = 1f
+        const val TITLE_BLUR_BOTTOM_INSET_DP = 24f
     }
 }
