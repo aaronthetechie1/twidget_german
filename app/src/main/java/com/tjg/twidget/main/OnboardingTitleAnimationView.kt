@@ -9,7 +9,10 @@ import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -19,6 +22,7 @@ import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
+import kotlin.math.abs
 
 class OnboardingTitleAnimationView @JvmOverloads constructor(
     context: Context,
@@ -30,11 +34,15 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
     private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
         typeface = Typeface.create("sec", Typeface.BOLD)
     }
-    private val lettersLayer = TitleLayer(context, titlePaint)
+    private val usesHardwareBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    private val softwareLettersLayer = SoftwareTitleLayer(context, titlePaint)
+    private val hardwareGlyphLayers = mutableListOf<HardwareGlyphLayer>()
 
     private var title = ""
     private var geometry = TitleGeometry.EMPTY
     private var letterAnimator: ValueAnimator? = null
+    private var elapsedMs = -LETTER_STAGGER_MS
+    var onAnimationFinished: (() -> Unit)? = null
 
     init {
         clipChildren = false
@@ -47,8 +55,12 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         titlePaint.textSize = styled.getDimension(1, sp(32f))
         titlePaint.color = if (isDarkMode()) Color.WHITE else styled.getColor(2, titlePaint.color)
         styled.recycle()
-        lettersLayer.updatePaint(titlePaint)
-        addView(lettersLayer, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        if (!usesHardwareBlur) {
+            addView(
+                softwareLettersLayer,
+                LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+            )
+        }
         setTitle(title)
     }
 
@@ -59,9 +71,8 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
 
     fun prepare() {
         cancel()
-        lettersLayer.elapsedMs = -LETTER_STAGGER_MS
-        lettersLayer.alpha = 1f
-        lettersLayer.invalidate()
+        elapsedMs = -LETTER_STAGGER_MS
+        updateAnimationFrame()
     }
 
     fun play() {
@@ -70,17 +81,17 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
             if (title.isNotBlank()) post { play() }
             return
         }
-        lettersLayer.elapsedMs = 0f
-        lettersLayer.alpha = 1f
-        val finalStart = (geometry.glyphs.last().sequence * LETTER_STAGGER_MS).toLong()
-        val duration = finalStart + MOVEMENT_DURATION_MS
+        elapsedMs = 0f
+        updateAnimationFrame()
+        val finalStart = geometry.glyphs.last().sequence * LETTER_STAGGER_MS
+        val duration = (finalStart + MOVEMENT_DURATION_MS).toLong()
         letterAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             var cancelled = false
             this.duration = duration
             interpolator = LinearInterpolator()
             addUpdateListener { animator ->
-                lettersLayer.elapsedMs = animator.currentPlayTime.toFloat()
-                lettersLayer.invalidate()
+                elapsedMs = animator.currentPlayTime.toFloat()
+                updateAnimationFrame()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationCancel(animation: Animator) {
@@ -89,8 +100,9 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
 
                 override fun onAnimationEnd(animation: Animator) {
                     if (cancelled) return
-                    lettersLayer.elapsedMs = duration.toFloat()
-                    lettersLayer.invalidate()
+                    elapsedMs = duration.toFloat()
+                    updateAnimationFrame()
+                    onAnimationFinished?.invoke()
                 }
             })
             start()
@@ -116,17 +128,20 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         setMeasuredDimension(measuredWidth, measuredHeight)
         val childWidthSpec = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
         val childHeightSpec = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
-        lettersLayer.measure(childWidthSpec, childHeightSpec)
+        for (index in 0 until childCount) {
+            getChildAt(index).measure(childWidthSpec, childHeightSpec)
+        }
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        lettersLayer.layout(0, 0, width, height)
+        for (index in 0 until childCount) {
+            getChildAt(index).layout(0, 0, width, height)
+        }
     }
 
     private fun rebuildGeometry(width: Int) {
         if (title.isBlank()) {
-            geometry = TitleGeometry.EMPTY
-            lettersLayer.geometry = geometry
+            setGeometry(TitleGeometry.EMPTY)
             return
         }
         val layout = StaticLayout.Builder.obtain(title, 0, title.length, titlePaint, width)
@@ -154,11 +169,56 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
                 offset = next
             }
         }
-        geometry = TitleGeometry(title, glyphs, layout.height)
-        lettersLayer.geometry = geometry
+        setGeometry(
+            TitleGeometry(
+                title,
+                glyphs,
+                layout.height + dp(TITLE_BLUR_BOTTOM_INSET_DP).toInt(),
+            ),
+        )
+    }
+
+    private fun setGeometry(value: TitleGeometry) {
+        if (geometry == value) return
+        geometry = value
+        if (usesHardwareBlur) {
+            rebuildHardwareGlyphLayers()
+        } else {
+            softwareLettersLayer.geometry = geometry
+        }
+        updateAnimationFrame()
+    }
+
+    private fun rebuildHardwareGlyphLayers() {
+        removeAllViews()
+        hardwareGlyphLayers.clear()
+        geometry.glyphs.forEach { glyph ->
+            HardwareGlyphLayer(context, titlePaint, glyph).also { layer ->
+                layer.setLayerType(LAYER_TYPE_HARDWARE, null)
+                hardwareGlyphLayers += layer
+                addView(
+                    layer,
+                    LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+                )
+            }
+        }
+    }
+
+    private fun updateAnimationFrame() {
+        if (usesHardwareBlur) {
+            val distance = (width * 0.16f).coerceAtMost(dp(80f))
+            hardwareGlyphLayers.forEach { layer ->
+                layer.updateAnimation(elapsedMs, distance)
+            }
+        } else {
+            softwareLettersLayer.elapsedMs = elapsedMs
+            softwareLettersLayer.invalidate()
+        }
     }
 
     private fun sp(value: Float): Float = value * resources.displayMetrics.scaledDensity
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
 
     private fun isDarkMode(): Boolean =
         resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
@@ -181,7 +241,57 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         }
     }
 
-    private inner class TitleLayer(
+    private inner class HardwareGlyphLayer(
+        context: Context,
+        paintSource: TextPaint,
+        private val glyph: Glyph,
+    ) : View(context) {
+        private val paint = TextPaint(paintSource)
+        private var lastBlurRadius = Float.NaN
+
+        fun updateAnimation(globalTime: Float, horizontalDistance: Float) {
+            val localTime = globalTime - glyph.sequence * LETTER_STAGGER_MS
+            if (localTime < 0f) {
+                alpha = 0f
+                translationX = horizontalDistance
+                updateBlur(GLYPH_BLUR_RADIUS_PX)
+                return
+            }
+            val fade = fadeInterpolator.getInterpolation(
+                (localTime / FADE_DURATION_MS).coerceIn(0f, 1f),
+            )
+            val movement = movementInterpolator.getInterpolation(
+                (localTime / MOVEMENT_DURATION_MS).coerceIn(0f, 1f),
+            )
+            alpha = fade
+            translationX = horizontalDistance * (1f - movement)
+            updateBlur(GLYPH_BLUR_RADIUS_PX * (1f - movement))
+        }
+
+        private fun updateBlur(radius: Float) {
+            val normalizedRadius = radius.coerceAtLeast(0f)
+            if (abs(normalizedRadius - lastBlurRadius) < BLUR_UPDATE_THRESHOLD_PX) return
+            lastBlurRadius = normalizedRadius
+            setRenderEffect(
+                if (normalizedRadius > 0.5f) {
+                    RenderEffect.createBlurEffect(
+                        normalizedRadius,
+                        normalizedRadius,
+                        Shader.TileMode.DECAL,
+                    )
+                } else {
+                    null
+                },
+            )
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            canvas.drawText(title, glyph.start, glyph.end, glyph.x, glyph.baseline, paint)
+        }
+    }
+
+    private inner class SoftwareTitleLayer(
         context: Context,
         paintSource: TextPaint,
     ) : View(context) {
@@ -193,12 +303,9 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
             }
         var elapsedMs = 0f
 
-        fun updatePaint(source: TextPaint) {
-            paint.set(source)
-            invalidate()
+        init {
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
-
-        init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
@@ -207,14 +314,14 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
             geometry.glyphs.forEach { glyph ->
                 val localTime = elapsedMs - glyph.sequence * LETTER_STAGGER_MS
                 if (localTime < 0f) return@forEach
-                val alpha = fadeInterpolator.getInterpolation(
+                val fade = fadeInterpolator.getInterpolation(
                     (localTime / FADE_DURATION_MS).coerceIn(0f, 1f),
                 )
                 val movement = movementInterpolator.getInterpolation(
                     (localTime / MOVEMENT_DURATION_MS).coerceIn(0f, 1f),
                 )
-                paint.alpha = (alpha * 255).toInt()
-                val blurRadius = (GLYPH_BLUR_RADIUS_PX * (1f - movement)).coerceAtLeast(0f)
+                paint.alpha = (fade * 255).toInt()
+                val blurRadius = GLYPH_BLUR_RADIUS_PX * (1f - movement)
                 paint.maskFilter = if (blurRadius > 0.5f) {
                     BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
                 } else {
@@ -231,8 +338,6 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
             }
             paint.maskFilter = null
         }
-
-        private fun dp(value: Float): Float = value * resources.displayMetrics.density
     }
 
     private companion object {
@@ -242,5 +347,7 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         const val FADE_DURATION_MS = 500f
         const val MOVEMENT_DURATION_MS = 1_000L
         const val GLYPH_BLUR_RADIUS_PX = 100f
+        const val BLUR_UPDATE_THRESHOLD_PX = 1f
+        const val TITLE_BLUR_BOTTOM_INSET_DP = 24f
     }
 }

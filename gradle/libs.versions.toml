@@ -5,6 +5,7 @@ agp = "9.4.1"
 androidxTestExtJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
 androidxWork = "2.11.2"
+androidxDynamicanimation = "1.1.0"
 junit = "4.13.2"
 kotlinxCoroutines = "1.10.2"
 lottie = "6.6.2"
@@ -16,6 +17,7 @@ orgJson = "20251224"
 [libraries]
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-dynamicanimation = { module = "androidx.dynamicanimation:dynamicanimation", version.ref = "androidxDynamicanimation" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "androidxWork" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }

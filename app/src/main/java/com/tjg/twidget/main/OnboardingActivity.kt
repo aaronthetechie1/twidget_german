@@ -21,12 +21,14 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -35,6 +37,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.app.NotificationManagerCompat
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import com.tjg.twidget.R
 import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.core.HttpTransport
@@ -63,6 +68,10 @@ class OnboardingActivity : EdgeToEdgeActivity() {
     private var startedOnWidgetStep = false
     private var previewFloatAnimator: ObjectAnimator? = null
     private val previewHandler = Handler(Looper.getMainLooper())
+    private val welcomeButtonHandler = Handler(Looper.getMainLooper())
+    private var welcomeButtonSpring: SpringAnimation? = null
+    private var welcomeButtonFade: ObjectAnimator? = null
+    private var primaryButtonBaseElevation = 0f
     private var asyncGeneration = 0L
     private var bufferConnectStarted = false
     private var notificationPermissionRequested = false
@@ -95,6 +104,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         if (addAccountMode) step = STEP_PROFILE
         if (startedOnWidgetStep) step = STEP_WIDGETS
         setContentView(R.layout.activity_onboarding)
+        primaryButtonBaseElevation = findViewById<AppCompatButton>(R.id.primary_button).elevation
         findViewById<AdaptiveCoordinatorLayout>(R.id.onboarding_root).configureAdaptiveMargin(
             AdaptiveCoordinatorLayout.MARGIN_PROVIDER_ADP_DEFAULT,
             setOf(findViewById<View>(R.id.onboarding_content)),
@@ -103,6 +113,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         setupWelcomeScreen()
         setupInput()
         setupButtons()
+        setupBackButton()
         setupPermissionRows()
         setupShareHistoryCheckbox()
         renderStep(animate = false)
@@ -139,6 +150,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         previewHandler.removeCallbacksAndMessages(null)
         previewFloatAnimator?.cancel()
         previewFloatAnimator = null
+        cancelWelcomeButtonAnimation()
         super.onDestroy()
     }
 
@@ -220,6 +232,12 @@ class OnboardingActivity : EdgeToEdgeActivity() {
                 }
                 STEP_WIDGETS -> goToStep(STEP_DONE)
             }
+        }
+    }
+
+    private fun setupBackButton() {
+        findViewById<ImageButton>(R.id.onboarding_back).setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
         }
     }
 
@@ -315,6 +333,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
     }
 
     private fun renderStep(animate: Boolean = false) {
+        cancelWelcomeButtonAnimation()
         val steps = mapOf(
             STEP_OVERVIEW to R.id.step_overview,
             STEP_PERMISSIONS to R.id.step_permissions,
@@ -326,6 +345,8 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         steps.forEach { (which, viewId) ->
             findViewById<View>(viewId).visibility = if (which == step) View.VISIBLE else View.GONE
         }
+        findViewById<View>(R.id.onboarding_back).visibility =
+            if (step == STEP_OVERVIEW) View.GONE else View.VISIBLE
         findViewById<View>(R.id.onboarding_root).setBackgroundResource(
             if (step == STEP_OVERVIEW) {
                 R.drawable.onboarding_welcome_gradient_bg
@@ -350,24 +371,52 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         if (step == STEP_PERMISSIONS) renderPermissionState()
         settleBackground(animate)
         if (step == STEP_OVERVIEW) startOverviewTitleAnimation()
+        if (step == STEP_DONE) startDoneTitleAnimation()
         if (animate) {
             if (step == STEP_OVERVIEW || step == STEP_DONE) {
                 TwidgetHaptics.quickRise(findViewById(R.id.onboarding_root))
             }
-            // The "all set" title rises further and slower, settling into the
-            // vertical centre; every other step gets the quiet lift.
-            val rise = if (step == STEP_DONE) 48f else 18f
-            val duration = if (step == STEP_DONE) 640L else 320L
-            steps[step]?.let { animateStepIn(findViewById(it), rise, duration) }
-            animateButtonsIn()
+            if (step == STEP_DONE) {
+                animateDoneContentIn()
+            } else {
+                steps[step]?.let { animateStepIn(findViewById(it), 18f, 320L) }
+                animateButtonsIn()
+            }
         }
     }
 
     private fun startOverviewTitleAnimation() {
         findViewById<OnboardingTitleAnimationView>(R.id.overview_title).apply {
             prepare()
+            this@OnboardingActivity.findViewById<AppCompatButton>(R.id.primary_button).apply {
+                alpha = 0f
+                translationY = 0f
+                visibility = View.INVISIBLE
+            }
+            onAnimationFinished = {
+                schedulePrimaryButtonAnimation(STEP_OVERVIEW)
+            }
             post {
                 if (step == STEP_OVERVIEW && !this@OnboardingActivity.isFinishing && !this@OnboardingActivity.isDestroyed) {
+                    play()
+                }
+            }
+        }
+    }
+
+    private fun startDoneTitleAnimation() {
+        findViewById<OnboardingTitleAnimationView>(R.id.done_title).apply {
+            prepare()
+            this@OnboardingActivity.findViewById<AppCompatButton>(R.id.primary_button).apply {
+                alpha = 0f
+                translationY = 0f
+                visibility = View.INVISIBLE
+            }
+            onAnimationFinished = {
+                schedulePrimaryButtonAnimation(STEP_DONE)
+            }
+            post {
+                if (step == STEP_DONE && !this@OnboardingActivity.isFinishing && !this@OnboardingActivity.isDestroyed) {
                     play()
                 }
             }
@@ -406,7 +455,29 @@ class OnboardingActivity : EdgeToEdgeActivity() {
             .start()
     }
 
+    private fun animateDoneContentIn() {
+        val doneStep = findViewById<View>(R.id.step_done)
+        doneStep.animate().cancel()
+        doneStep.alpha = 1f
+        doneStep.translationY = 0f
+        listOf(R.id.done_profile_avatar, R.id.done_summary).forEachIndexed { index, id ->
+            findViewById<View>(id).apply {
+                animate().cancel()
+                alpha = 0f
+                translationY = 12f * resources.displayMetrics.density
+                animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(index * 100L)
+                    .setDuration(320L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+    }
+
     private fun animateButtonsIn() {
+        if (step == STEP_OVERVIEW) return
         listOf(R.id.primary_button, R.id.secondary_button).forEach { id ->
             findViewById<AppCompatButton>(id).takeIf { it.visibility == View.VISIBLE }?.apply {
                 val target = if (isEnabled) 1f else 0.5f
@@ -441,6 +512,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
                 else -> getString(R.string.continue_button)
             }
             isEnabled = !isStarting && (step != STEP_PROFILE || cleanUsername().isValidUsername())
+            visibility = View.VISIBLE
             alpha = if (isEnabled) 1f else 0.5f
             layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
                 if (step == STEP_OVERVIEW) {
@@ -459,6 +531,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
                     }
                 }
             }
+            elevation = if (step == STEP_OVERVIEW) dp(1f) else primaryButtonBaseElevation
         }
         findViewById<AppCompatButton>(R.id.secondary_button).apply {
             text = getString(
@@ -469,6 +542,44 @@ class OnboardingActivity : EdgeToEdgeActivity() {
             alpha = if (isEnabled) 1f else 0.5f
         }
     }
+
+    private fun schedulePrimaryButtonAnimation(targetStep: Int) {
+        cancelWelcomeButtonAnimation()
+        val root = findViewById<View>(R.id.onboarding_root)
+        val button = findViewById<AppCompatButton>(R.id.primary_button)
+        button.alpha = 0f
+        button.translationY = 0f
+        welcomeButtonHandler.postDelayed({
+            if (step != targetStep || isFinishing || isDestroyed || root.height == 0) return@postDelayed
+            val offset = root.height * WELCOME_BUTTON_START_OFFSET
+            button.visibility = View.VISIBLE
+            button.translationY = offset
+            button.alpha = 0f
+            welcomeButtonSpring = SpringAnimation(button, DynamicAnimation.TRANSLATION_Y, 0f).apply {
+                spring = SpringForce(0f).apply {
+                    stiffness = WELCOME_BUTTON_SPRING_STIFFNESS
+                    dampingRatio = WELCOME_BUTTON_SPRING_DAMPING_RATIO
+                }
+                setStartValue(offset)
+                start()
+            }
+            welcomeButtonFade = ObjectAnimator.ofFloat(button, View.ALPHA, 0f, 1f).apply {
+                duration = WELCOME_BUTTON_FADE_DURATION_MS
+                interpolator = PathInterpolator(0.17f, 0.17f, 0.83f, 0.83f)
+                start()
+            }
+        }, WELCOME_BUTTON_START_DELAY_MS)
+    }
+
+    private fun cancelWelcomeButtonAnimation() {
+        welcomeButtonHandler.removeCallbacksAndMessages(null)
+        welcomeButtonSpring?.cancel()
+        welcomeButtonSpring = null
+        welcomeButtonFade?.cancel()
+        welcomeButtonFade = null
+    }
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
 
     // --- Add-widget step: cycle through widget sizes on a translucent card. ---
 
@@ -748,6 +859,11 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         private const val STEP_SCHEDULING = 3
         private const val STEP_WIDGETS = 4
         private const val STEP_DONE = 5
+        private const val WELCOME_BUTTON_START_DELAY_MS = 180L
+        private const val WELCOME_BUTTON_FADE_DURATION_MS = 667L
+        private const val WELCOME_BUTTON_START_OFFSET = 0.08f
+        private const val WELCOME_BUTTON_SPRING_STIFFNESS = 100f
+        private const val WELCOME_BUTTON_SPRING_DAMPING_RATIO = 0.65f
     }
 }
 

@@ -94,6 +94,7 @@ configurations.configureEach {
 dependencies {
     implementation(libs.oneui.design)
     implementation(libs.lottie)
+    implementation(libs.androidx.dynamicanimation)
     implementation(libs.androidx.work.runtime)
     implementation(libs.mlkit.genai.prompt)
     implementation(libs.kotlinx.coroutines.android)
