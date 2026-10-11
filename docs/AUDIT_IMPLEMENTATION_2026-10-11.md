@@ -1,6 +1,6 @@
 # Audit implementation — 11 October 2026
 
-Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitted feature work and concurrent dashboard changes are preserved. The implementation and separate debug packaging are published to staging; unrelated animation work remains separate.
+Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitted feature work and concurrent dashboard changes are preserved. The implementation, separate debug packaging and existing About/onboarding title animations are included in staging.
 
 | Finding | Status | Implementation / evidence |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitte
 
 ## Verification record
 
-- Android unit suite: 358 passing in the shared implementation checkout; 355 passing in the isolated staging checkout after excluding unrelated animation tests, with zero failures/errors/skips.
+- Android unit suite: 358 passing, including the animation haptic tests. The initial isolated staging build had 355 passing because those animation changes were excluded; they are restored together with the About/onboarding effect.
 - Bridge: 35 passing; one PostgreSQL integration test explicitly skipped locally (no local PostgreSQL server); CI is configured to run it against its test service.
 - Final `lintGithubDebug`, debug APK and instrumented-test compilation: passed with zero lint errors. Both release APK assemblies passed with shrinking and vital lint enabled. Local Kotlin FIR environment reuse caused internal analysis crashes; fresh serial processes with `LINT_DO_NOT_REUSE_UAST_ENV=true` completed successfully.
 - Device regressions passed on a read-only API 37 ARM64 emulator: account mutation/removal, schedule commits/failure/media retention, dashboard card identity, image sampling/cache/collision, light/dark card rendering and widget styles.

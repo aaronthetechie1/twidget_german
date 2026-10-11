@@ -59,6 +59,7 @@ import com.tjg.twidget.widget.LockScreenFollowerViews
 import com.tjg.twidget.widget.TwidgetWidget
 import com.tjg.twidget.widget.WidgetArtworkRenderer
 import com.tjg.twidget.ui.TwidgetHaptics
+import com.tjg.twidget.ui.AnimatedTitleView
 import dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout
 
 class OnboardingActivity : EdgeToEdgeActivity() {
@@ -117,11 +118,6 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         setupPermissionRows()
         setupShareHistoryCheckbox()
         renderStep(animate = false)
-        if (savedInstanceState == null && step == STEP_OVERVIEW) {
-            findViewById<View>(R.id.onboarding_root).post {
-                if (!isFinishing && !isDestroyed) TwidgetHaptics.quickRise(findViewById(R.id.onboarding_root))
-            }
-        }
     }
 
     private fun setupWelcomeScreen() {
@@ -152,6 +148,11 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         previewFloatAnimator = null
         cancelWelcomeButtonAnimation()
         super.onDestroy()
+    }
+
+    override fun onStop() {
+        findViewById<AnimatedTitleView>(R.id.overview_title).cancel()
+        super.onStop()
     }
 
     override fun onResume() {
@@ -371,9 +372,10 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         if (step == STEP_PERMISSIONS) renderPermissionState()
         settleBackground(animate)
         if (step == STEP_OVERVIEW) startOverviewTitleAnimation()
+        else findViewById<AnimatedTitleView>(R.id.overview_title).cancel()
         if (step == STEP_DONE) startDoneTitleAnimation()
         if (animate) {
-            if (step == STEP_OVERVIEW || step == STEP_DONE) {
+            if (step == STEP_DONE) {
                 TwidgetHaptics.quickRise(findViewById(R.id.onboarding_root))
             }
             if (step == STEP_DONE) {
@@ -386,7 +388,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
     }
 
     private fun startOverviewTitleAnimation() {
-        findViewById<OnboardingTitleAnimationView>(R.id.overview_title).apply {
+        findViewById<AnimatedTitleView>(R.id.overview_title).apply {
             prepare()
             this@OnboardingActivity.findViewById<AppCompatButton>(R.id.primary_button).apply {
                 alpha = 0f
@@ -397,7 +399,8 @@ class OnboardingActivity : EdgeToEdgeActivity() {
                 schedulePrimaryButtonAnimation(STEP_OVERVIEW)
             }
             post {
-                if (step == STEP_OVERVIEW && !this@OnboardingActivity.isFinishing && !this@OnboardingActivity.isDestroyed) {
+                if (step == STEP_OVERVIEW && !this@OnboardingActivity.isFinishing && !this@OnboardingActivity.isDestroyed &&
+                    lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
                     play()
                 }
             }

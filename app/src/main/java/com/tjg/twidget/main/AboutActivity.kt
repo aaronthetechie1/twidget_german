@@ -34,6 +34,7 @@ import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.env.BuildVars
 import com.tjg.twidget.ui.FoldablePopOverActivity
+import com.tjg.twidget.ui.AnimatedTitleView
 import com.tjg.twidget.ui.ProfileImageLoader
 import com.tjg.twidget.update.AppRelease
 import com.tjg.twidget.update.AppUpdateManager
@@ -79,6 +80,16 @@ class AboutActivity : FoldablePopOverActivity() {
         setupCreditAvatars()
         setupRefresh()
         setupUpdates()
+        findViewById<AnimatedTitleView>(R.id.about_header_title).apply {
+            prepare()
+            post {
+                if (!isFinishing && !isDestroyed &&
+                    lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) &&
+                    this@AboutActivity.findViewById<View>(R.id.about_header_content).alpha > 0f) {
+                    play()
+                } else finish()
+            }
+        }
 
         findViewById<View>(R.id.about_tjg_credit).setOnClickListener {
             openUrl(getString(R.string.link_tjg))
@@ -107,6 +118,11 @@ class AboutActivity : FoldablePopOverActivity() {
         findViewById<View>(R.id.about_legal_disclaimer).setOnClickListener {
             showLegalNotice()
         }
+    }
+
+    override fun onStop() {
+        findViewById<AnimatedTitleView>(R.id.about_header_title).finish()
+        super.onStop()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -646,6 +662,7 @@ class AboutActivity : FoldablePopOverActivity() {
                 // Clear the fixed hero before it passes behind the pinned,
                 // transparent toolbar during collapse.
                 header.alpha = (1f - progress * 2f).coerceIn(0f, 1f)
+                if (header.alpha == 0f) findViewById<AnimatedTitleView>(R.id.about_header_title).finish()
                 // The gradient belongs to the expanded hero; scrolling settles
                 // the page onto the plain One UI background.
                 // Let the hero recede early in the scroll, leaving the settled

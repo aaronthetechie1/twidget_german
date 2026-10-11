@@ -62,7 +62,7 @@
                         android:contentDescription="@null"
                         android:src="@drawable/onboarding_twidget_mark" />
 
-                    <com.tjg.twidget.main.OnboardingTitleAnimationView
+                    <com.tjg.twidget.ui.AnimatedTitleView
                         android:id="@+id/overview_title"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
