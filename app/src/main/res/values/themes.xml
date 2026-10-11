@@ -68,7 +68,6 @@
         <item name="colorPrimary">@color/oneui_accent</item>
     </style>
     <style name="Theme.Twidget.WidgetConfig" parent="Theme.Twidget">
-        <item name="android:windowShowWallpaper">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowBackground">?roundedCornerColor</item>
     </style>
 </resources>

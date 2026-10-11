@@ -40,7 +40,7 @@ class BriefDebugActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preference_screen)
-        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        applyPreferenceScreenInsets(findViewById(R.id.preference_toolbar_layout))
         findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
             setTitle(getString(R.string.brief_debug_title))
             setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
@@ -57,7 +57,7 @@ class BriefDebugLogActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preference_screen)
-        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        applyPreferenceScreenInsets(findViewById(R.id.preference_toolbar_layout))
         findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
             setTitle(getString(R.string.brief_debug_log_title))
             setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }

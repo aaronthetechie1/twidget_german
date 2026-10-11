@@ -245,8 +245,8 @@
     <string name="notices_title">Notices</string>
     <string name="notices_load_failed">Couldn’t refresh release notes.</string>
     <string name="notices_showing_cache">Showing the last successfully downloaded notices.</string>
-    <string name="notices_beta">BETA</string>
-    <string name="notices_upcoming">UPCOMING</string>
+    <string name="notices_beta">Beta</string>
+    <string name="notices_upcoming">Upcoming</string>
     <string name="notices_upcoming_summary">Preview of the next release. Details may change.</string>
     <string name="notices_no_details">No additional release details were published.</string>
     <string name="notices_view_on_github">View full release on GitHub</string>
@@ -1144,4 +1144,9 @@
     <string name="about_evowizz_title" translatable="false">Dy (evowizz)</string>
     <string name="about_evowizz_summary">Knows his shit; localised to French</string>
     <string name="link_evowizz" translatable="false">https://evowizz.dev/</string>
+    <string name="settings_widgets">Widgets</string>
+    <string name="widget_lock_screen">Lock screen widget</string>
+    <string name="widget_one_ui_only">Only supported on Samsung devices</string>
+    <string name="notices_latest_version">Latest version</string>
+    <string name="notices_older_releases">Older releases</string>
 </resources>

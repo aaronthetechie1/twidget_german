@@ -9,7 +9,7 @@ class SettingsAdvancedActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preference_screen)
-        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        applyPreferenceScreenInsets(findViewById(R.id.preference_toolbar_layout))
         findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
             setTitle(getString(when (intent.getStringExtra(EXTRA_SOURCE)) {
                 com.tjg.twidget.data.TwidgetStore.DATA_SOURCE_TWITTERAPIS -> R.string.source_twitterapis

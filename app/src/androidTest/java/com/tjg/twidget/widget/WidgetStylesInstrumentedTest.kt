@@ -110,11 +110,7 @@ class WidgetStylesInstrumentedTest {
                     assertEquals(2f, preview.layoutParams.width.toFloat() / preview.layoutParams.height, .02f)
                 }
                 instrumentation.runOnMainSync {
-                    val row = activity.findViewById<android.view.View>(com.tjg.twidget.R.id.widget_style_row)
-                    val scroll = activity.findViewById<androidx.core.widget.NestedScrollView>(com.tjg.twidget.R.id.widget_settings_scroll)
-                    val rect = android.graphics.Rect(0, 0, row.width, row.height)
-                    scroll.offsetDescendantRectToMyCoords(row, rect)
-                    scroll.scrollTo(0, rect.top - (40 * context.resources.displayMetrics.density).toInt())
+                    activity.findViewById<androidx.core.widget.NestedScrollView>(com.tjg.twidget.R.id.widget_settings_scroll).scrollTo(0, 0)
                 }
                 instrumentation.waitForIdleSync()
                 instrumentation.uiAutomation.takeScreenshot().let { screenshot ->
@@ -124,19 +120,7 @@ class WidgetStylesInstrumentedTest {
                     screenshot.recycle()
                 }
                 instrumentation.runOnMainSync {
-                    val row = activity.findViewById<android.view.View>(com.tjg.twidget.R.id.widget_style_row)
-                    assertTrue(row.findViewById<android.view.View>(dev.oneuiproject.oneui.design.R.id.cardview_container).performClick())
-                }
-                instrumentation.waitForIdleSync()
-                instrumentation.runOnMainSync {
-                    fun findList(view: android.view.View): android.widget.AdapterView<*>? {
-                        if (view is android.widget.AdapterView<*>) return view
-                        if (view is android.view.ViewGroup) for (i in 0 until view.childCount) findList(view.getChildAt(i))?.let { return it }
-                        return null
-                    }
-                    val list = android.view.inspector.WindowInspector.getGlobalWindowViews().firstNotNullOfOrNull { findList(it) }
-                    assertNotNull("Style popup is visible", list)
-                    list!!.performItemClick(list.getChildAt(0), 0, list.adapter.getItemId(0))
+                    activity.findViewById<androidx.viewpager.widget.ViewPager>(com.tjg.twidget.R.id.widget_style_pager).setCurrentItem(0, false)
                     assertEquals(android.view.View.VISIBLE, activity.findViewById<android.view.View>(com.tjg.twidget.R.id.opacity_block).visibility)
                 }
                 instrumentation.waitForIdleSync()

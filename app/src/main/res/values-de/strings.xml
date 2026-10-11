@@ -235,8 +235,8 @@
     <string name="notices_title">Hinweise</string>
     <string name="notices_load_failed">Versionshinweise konnten nicht aktualisiert werden.</string>
     <string name="notices_showing_cache">Zuletzt geladene Hinweise werden angezeigt.</string>
-    <string name="notices_beta">BETA</string>
-    <string name="notices_upcoming">DEMNÄCHST</string>
+    <string name="notices_beta">Beta</string>
+    <string name="notices_upcoming">Demnächst</string>
     <string name="notices_upcoming_summary">Vorschau auf die nächste Version. Änderungen vorbehalten.</string>
     <string name="notices_no_details">Es wurden keine zusätzlichen Release-Details veröffentlicht.</string>
     <string name="notices_view_on_github">Vollständige Version auf GitHub ansehen</string>
@@ -1103,4 +1103,9 @@
     <string name="debug_haptics_force_waveforms">Wellenformen erzwingen</string>
     <string name="debug_haptics_force_waveforms_summary">Wellenform-Annäherungen für primitive Effekte in der gesamten App verwenden. System-Aktionsfeedback bleibt unverändert.</string>
     <string name="about_evowizz_summary">Kennt sich verdammt gut aus; ins Französische lokalisiert</string>
+    <string name="settings_widgets">Widgets</string>
+    <string name="widget_lock_screen">Sperrbildschirm-Widget</string>
+    <string name="widget_one_ui_only">Nur auf Samsung-Geräten unterstützt</string>
+    <string name="notices_latest_version">Neueste Version</string>
+    <string name="notices_older_releases">Ältere Versionen</string>
 </resources>

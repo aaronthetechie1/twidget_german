@@ -10,6 +10,7 @@ import dev.oneuiproject.oneui.layout.ToolbarLayout
 internal enum class SettingsPage(val titleRes: Int) {
     ACCOUNTS(R.string.accounts),
     APPEARANCE(R.string.widget_appearance_section),
+    WIDGETS(R.string.settings_widgets),
     DATA(R.string.settings_data_sources),
     SCHEDULING(R.string.scheduling),
 }
@@ -19,7 +20,7 @@ class SettingsCategoryActivity : FoldablePopOverActivity() {
         super.onCreate(savedInstanceState)
         val page = page(intent.getStringExtra(EXTRA_PAGE))
         setContentView(R.layout.activity_preference_screen)
-        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        applyPreferenceScreenInsets(findViewById(R.id.preference_toolbar_layout))
         findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
             setTitle(getString(page.titleRes))
             setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }

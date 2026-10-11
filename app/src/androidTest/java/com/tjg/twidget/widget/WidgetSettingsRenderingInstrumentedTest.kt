@@ -102,7 +102,7 @@ class WidgetSettingsRenderingInstrumentedTest {
     @Test fun settingsCardsUseNativeMeasurements() {
         ActivityScenario.launch(WidgetConfigActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                for (id in listOf(R.id.widget_style_row, R.id.font_row, R.id.language_row, R.id.tint_row, R.id.logo_row)) {
+                for (id in listOf(R.id.font_row, R.id.language_row, R.id.tint_row, R.id.logo_row)) {
                     val actual = activity.findViewById<CardItemView>(id)
                     val native = CardItemView(activity).apply {
                         title = actual.title

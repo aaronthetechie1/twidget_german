@@ -79,13 +79,80 @@ class SettingsNavigationInstrumentedTest {
                     .setVisible(androidx.core.view.WindowInsetsCompat.Type.ime(), keyboard > 0)
                     .build()
                 androidx.core.view.ViewCompat.dispatchApplyWindowInsets(root, insets)
-                assertEquals(maxOf(bottom, keyboard), root.paddingBottom)
+                assertEquals(keyboard, root.paddingBottom)
+                val list = fragment(activity).listView
+                assertEquals((bottom - keyboard).coerceAtLeast(0), list.paddingBottom)
+                assertFalse(list.clipToPadding)
             }
             dispatch(24, 0)
+            dispatch(0, 0)
             dispatch(72, 0)
             dispatch(24, 300)
             dispatch(24, 0)
         }
+    }
+
+    @Test fun settingsBottomFadeDoesNotPaintOutsideLastCard() {
+        TwidgetStore.setDebugMenuUnlocked(context, true)
+        val scenario = ActivityScenario.launch<SettingsActivity>(Intent(context, SettingsActivity::class.java))
+        lateinit var activity: SettingsActivity
+        scenario.onActivity { activity = it }
+        activities.add(activity)
+        val list = fragment(activity).listView
+        // Scroll the list directly so floating navigation controls cannot
+        // consume a synthetic swipe and detach the screen under test.
+        repeat(3) {
+            onMain { list.smoothScrollBy(0, list.height) }
+            android.os.SystemClock.sleep(650)
+            instrumentation.waitForIdleSync()
+        }
+        // Sample the exposed trailing inset while the last card approaches the
+        // viewport edge, where Samsung's transparent fading layer leaked colour.
+        onMain { list.scrollToPosition(list.adapter!!.itemCount - 1) }
+        instrumentation.waitForIdleSync()
+        onMain { list.scrollBy(0, Int.MAX_VALUE) }
+        instrumentation.waitForIdleSync()
+        repeat(4) {
+            onMain { list.scrollBy(0, -(4 * context.resources.displayMetrics.density).toInt()) }
+            instrumentation.waitForIdleSync()
+            android.os.SystemClock.sleep(300)
+            var gap: android.graphics.Rect? = null
+            var expected = 0
+            var navigationBottom = 0
+            onMain {
+                val inset = list.findViewHolderForAdapterPosition(list.adapter!!.itemCount - 1)!!.itemView
+                val position = IntArray(2).also { inset.getLocationOnScreen(it) }
+                val listPosition = IntArray(2).also { list.getLocationOnScreen(it) }
+                gap = android.graphics.Rect(position[0] + inset.width / 2, position[1] + 2,
+                    position[0] + inset.width / 2 + 1,
+                    minOf(position[1] + inset.height, listPosition[1] + list.height) - 2)
+                val color = android.util.TypedValue()
+                activity.theme.resolveAttribute(androidx.appcompat.R.attr.roundedCornerColor, color, true)
+                expected = color.data
+                navigationBottom = androidx.core.view.ViewCompat.getRootWindowInsets(list)
+                    ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+            }
+            val bounds = gap!!
+            assertTrue("Trailing inset must remain visible", bounds.height() > 0)
+            val screenshot = instrumentation.uiAutomation.takeScreenshot()!!
+            try {
+                assertTrue("Trailing inset must be on screen", bounds.top < screenshot.height)
+                for (y in bounds.top until minOf(bounds.bottom, screenshot.height - navigationBottom)) {
+                    val actual = screenshot.getPixel(bounds.left, y)
+                    assertEquals("Fade overflow at y=$y", expected, actual)
+                }
+                // Sample away from the gesture handle, including the navigation
+                // padding that previously escaped this test's trailing-inset bounds.
+                val sampleX = (screenshot.width * .1f).toInt()
+                for (y in screenshot.height - navigationBottom until screenshot.height - 2) {
+                    assertEquals("Navigation background strip at y=$y", expected,
+                        screenshot.getPixel(sampleX, y))
+                }
+            } finally {
+                screenshot.recycle()
+            }
+        }
+        capture("SettingsBottomFade")
     }
 
     @Test fun briefBadgeClearsOnlyAfterSetupAndViewingSettings() {
@@ -186,7 +253,7 @@ class SettingsNavigationInstrumentedTest {
             val keys = (0 until main.preferenceScreen.preferenceCount).mapNotNull {
                 main.preferenceScreen.getPreference(it).key
             }
-            assertEquals(listOf("main_account", "accounts", "appearance", "data_sources", "brief_settings_pref",
+            assertEquals(listOf("main_account", "accounts", "appearance", "widgets", "data_sources", "brief_settings_pref",
                 "notifications", SettingsActivity.PREFERENCE_SCHEDULING, "app_language_pref", "about_twidget"),
                 keys.filter { it != "bottom_inset" && it != "debug_menu" && it != "update_suggestion" })
             assertNull(main.findPreference<Preference>("refresh_interval_pref"))
@@ -251,12 +318,7 @@ class SettingsNavigationInstrumentedTest {
         assertEquals(TwidgetStore.LOGO_X, TwidgetStore.widgetSettings(context, 987651).logo)
     }
 
-    @Test fun appearanceDefaultsPersistWithoutOverwritingWidgetOverrides() {
-        val widgetId = 987654
-        val original = TwidgetStore.widgetSettings(context)
-        TwidgetStore.saveWidgetSettings(context, 0, original.copy(style = WidgetStyle.ONE_UI, fontFamily = TwidgetStore.FONT_ONE_UI_SANS))
-        val specific = original.copy(fontFamily = TwidgetStore.FONT_ONE_UI_SANS, colorMode = TwidgetStore.COLOR_MODE_LIGHT, tintAlpha = 180)
-        TwidgetStore.saveWidgetSettings(context, widgetId, specific)
+    @Test fun appearanceKeepsAppOptionsAndWidgetsHaveTheirOwnPage() {
         val activity = launch(SettingsCategoryActivity.intent(context, SettingsPage.APPEARANCE))
         onMain {
             val screen = fragment(activity)
@@ -268,56 +330,19 @@ class SettingsNavigationInstrumentedTest {
             assertTrue(ordered[2] is dev.oneuiproject.oneui.preference.InsetPreferenceCategory)
             assertEquals("settings_app_font", ordered[3].key)
             assertEquals("settings_app_logo", ordered[4].key)
-            val defaultsIndex = ordered.indexOfFirst { it.title == context.getString(R.string.settings_widget_defaults) }
-            assertTrue(defaultsIndex > 3)
-            assertEquals("settings_widget_style", ordered[defaultsIndex + 1].key)
-            assertTrue(ordered[defaultsIndex + 2] is dev.oneuiproject.oneui.preference.InsetPreferenceCategory)
-            assertEquals(listOf("settings_widget_opacity", "settings_widget_font", "settings_widget_colours",
-                "settings_widget_contained_footer", "settings_widget_contained_footer_description"),
-                ordered.drop(defaultsIndex + 3).take(5).map { it.key })
+            assertNull(screen.findPreference<Preference>("settings_widget_style"))
+            assertNull(screen.findPreference<Preference>("settings_widget_opacity"))
             val showsFontTip = BuildVars.DISTRIBUTION.isGithub() && TwidgetFonts.hasSystemOneUiSans
             assertEquals(showsFontTip, ordered[3].widgetLayoutResource == R.layout.preference_font_tip)
             assertNull(screen.findPreference<Preference>("settings_app_font_tip"))
-            assertNull(screen.findPreference<Preference>("settings_app_font_inset"))
-            val style = screen.findPreference<ListPreference>("settings_widget_style")!!
-            val opacity = screen.findPreference<LayoutPreference>("settings_widget_opacity")!!
-            val font = screen.findPreference<ListPreference>("settings_widget_font")!!
-            val footer = screen.findPreference<Preference>("settings_widget_contained_footer")!!
-            val footerDescription = screen.findPreference<Preference>("settings_widget_contained_footer_description")!!
-            assertTrue(opacity.isVisible)
-            assertFalse(footer.isVisible)
-            assertFalse(footerDescription.isVisible)
-            style.callChangeListener(WidgetStyle.MATERIAL.storedValue)
-            assertFalse(opacity.isVisible)
-            assertTrue(footer.isVisible)
-            assertTrue(footerDescription.isVisible)
-            assertEquals(TwidgetStore.FONT_GOOGLE_SANS_FLEX, font.value)
-            assertEquals(WidgetStyle.MATERIAL, TwidgetStore.widgetSettings(context, widgetId + 1).style)
-            assertEquals(specific, TwidgetStore.widgetSettings(context, widgetId))
-            font.callChangeListener(TwidgetStore.FONT_SYSTEM)
-            style.callChangeListener(WidgetStyle.ONE_UI.storedValue)
-            assertEquals(TwidgetStore.FONT_SYSTEM, TwidgetStore.widgetSettings(context).fontFamily)
-            assertTrue(opacity.isVisible)
-            assertFalse(footer.isVisible)
-            assertFalse(footerDescription.isVisible)
-            screen.findPreference<Preference>("settings_widget_font")!!.callChangeListener(TwidgetStore.FONT_GOOGLE_SANS_FLEX)
-            screen.findPreference<Preference>("settings_widget_colours")!!.callChangeListener(TwidgetStore.COLOR_MODE_DARK)
-            opacity.findViewById<androidx.appcompat.widget.SeslSeekBar>(R.id.opacity_slider).progress = 1
-            assertEquals(TwidgetStore.FONT_GOOGLE_SANS_FLEX, TwidgetStore.widgetSettings(context).fontFamily)
-            assertEquals(TwidgetStore.COLOR_MODE_DARK, TwidgetStore.widgetSettings(context).colorMode)
-            assertEquals(102, TwidgetStore.widgetSettings(context).tintAlpha)
-            screen.findPreference<Preference>("settings_app_logo")!!.callChangeListener(TwidgetStore.LOGO_TWITTER)
-            assertEquals(TwidgetStore.LOGO_TWITTER, TwidgetStore.widgetSettings(context).logo)
-            assertEquals(specific, TwidgetStore.widgetSettings(context, widgetId))
-            assertEquals(TwidgetStore.FONT_GOOGLE_SANS_FLEX, TwidgetStore.widgetSettings(context, widgetId + 1).fontFamily)
         }
-        instrumentation.waitForIdleSync()
-        val screenshot = android.graphics.Bitmap.createBitmap(activity.window.decorView.width, activity.window.decorView.height, android.graphics.Bitmap.Config.ARGB_8888)
-        onMain { activity.window.decorView.draw(android.graphics.Canvas(screenshot)) }
-        java.io.File(context.cacheDir, "appearance-logo.png").outputStream().use {
-            screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        val widgets = launch(SettingsCategoryActivity.intent(context, SettingsPage.WIDGETS))
+        onMain {
+            val screen = fragment(widgets)
+            for (kind in com.tjg.twidget.widget.WidgetKind.entries) {
+                assertNotNull(screen.findPreference<LayoutPreference>("widget_card_${kind.name.lowercase()}"))
+            }
         }
-        screenshot.recycle()
     }
 
     @Test fun googleTypographyMatchesReferenceAndRestoresOtherFonts() {
@@ -333,11 +358,9 @@ class SettingsNavigationInstrumentedTest {
             TwidgetFonts.applyTo(activity.window.decorView)
             val visible = labels(activity.window.decorView)
             val title = visible.first { it.text == context.getString(R.string.settings_app_font) }
-            val section = visible.first { it.text == context.getString(R.string.settings_widget_defaults) }
+            val section = activity.findViewById<android.widget.TextView>(com.google.android.material.R.id.collapsing_appbar_extended_title)
             assertEquals(500, title.typeface.weight)
             assertEquals(700, section.typeface.weight)
-            val normalWidth = android.graphics.Paint(section.paint).apply { typeface = TwidgetFonts.forApp(context, 700) }
-            assertTrue(section.paint.measureText(section.text.toString()) < normalWidth.measureText(section.text.toString()))
             val first = title.typeface
             repeat(3) { TwidgetFonts.applyTo(activity.window.decorView) }
             assertSame(first, title.typeface)

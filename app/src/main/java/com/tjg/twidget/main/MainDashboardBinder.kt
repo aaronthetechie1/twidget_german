@@ -220,19 +220,15 @@ internal class MainDashboardBinder(
         })
     }
 
-    fun bindContent() {
+    fun bindContent(refreshRemote: Boolean = true) {
         val host = activity.findViewById<FrameLayout>(R.id.main_content_host)
-        val skeleton = host.findViewById<View>(R.id.main_launch_skeleton)
         val page = host.findViewById<View>(R.id.main_account_page)
             ?: LayoutInflater.from(activity).inflate(R.layout.main_account_page, host, false)
                 .also { host.addView(it, 0) }
-        bindPage(page, activity.selectedAccount)
-        // Keep the static skeleton above the dashboard until every cached card
-        // has bound, then reveal the completed page in one frame.
-        skeleton?.let(host::removeView)
+        bindPage(page, activity.selectedAccount, refreshRemote)
     }
 
-    private fun bindPage(page: View, account: String) {
+    private fun bindPage(page: View, account: String, refreshRemote: Boolean) {
         val stats = TwidgetStore.currentStats(activity, account)
         // Post analytics load from cache instantly; a background refresh below
         // repaints when fresh data arrives.
@@ -291,7 +287,7 @@ internal class MainDashboardBinder(
             elevation = activity.dp(10).toFloat()
             setOnClickListener { editModeController.setEditMode(true) }
         }
-        // Rebuild synchronously behind the launch skeleton. LayoutTransition's
+        // Bind synchronously before drawing. LayoutTransition's
         // default APPEARING animation otherwise exposes a frame where every
         // newly added card is still transparent.
         container.layoutTransition = null
@@ -319,8 +315,10 @@ internal class MainDashboardBinder(
         // or animate through the intermediate layout from removing the placeholder.
         container.layoutTransition = null
 
-        activity.syncController.maybeRefreshAnalytics(account)
-        activity.syncController.maybeRefreshStreak(account)
+        if (refreshRemote) {
+            activity.syncController.maybeRefreshAnalytics(account)
+            activity.syncController.maybeRefreshStreak(account)
+        }
     }
 
     private fun bindHistoryNotice(page: View, chartHistory: List<HistorySample>) {

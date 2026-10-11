@@ -62,7 +62,8 @@ object TwidgetFonts {
     internal fun cardValueTypeface(context: Context, width: Int): Typeface =
         googleAppTypeface(context, 400, false, width, 100)
 
-    enum class Role { LABEL, SUMMARY, DASHBOARD_VALUE, STREAK_VALUE, CHART_DELTA }
+    enum class Role { LABEL, SUMMARY, DASHBOARD_VALUE, STREAK_VALUE, CHART_DELTA, CODE }
+    private var codeTypeface: Typeface? = null
 
     fun setRole(view: TextView, role: Role) {
         view.setTag(R.id.app_font_role, role)
@@ -192,7 +193,10 @@ object TwidgetFonts {
                 summary -> 400
                 else -> baseline.weight
             }
-            val desired = if (view.getTag(R.id.app_font_role) == Role.CHART_DELTA)
+            val desired = if (view.getTag(R.id.app_font_role) == Role.CODE)
+                codeTypeface ?: (ResourcesCompat.getFont(view.context, R.font.google_sans_code)
+                    ?: Typeface.MONOSPACE).also { codeTypeface = it }
+                else if (view.getTag(R.id.app_font_role) == Role.CHART_DELTA)
                 forApp(view.context, font, 400, baseline.italic)
                 else if (view.getTag(R.id.app_font_role) in setOf(Role.DASHBOARD_VALUE, Role.STREAK_VALUE))
                 googleAppTypeface(view.context, 400, false, if (view.getTag(R.id.app_font_role) == Role.STREAK_VALUE) 130 else 124, 100)

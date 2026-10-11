@@ -43,7 +43,7 @@ internal class MainSyncController(
         sync()
     }
 
-    fun sync() {
+    fun sync(showProgress: Boolean = true) {
         if (isSyncing) {
             activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
             return
@@ -52,14 +52,13 @@ internal class MainSyncController(
         isSyncing = true
         val generation = ++syncGeneration
         val lifecycleToken = lifecycleGeneration
-        // Launch-time syncs show the same spinner as a pull refresh.
-        activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = true
+        activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = showProgress
         AppExecutors.execute(onRejected = {
             postUiIfCurrent(lifecycleToken) {
                 if (generation != syncGeneration) return@postUiIfCurrent
                 isSyncing = false
                 activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
-                Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                if (showProgress) Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
             }
         }) {
             val appContext = activity.applicationContext
@@ -73,8 +72,8 @@ internal class MainSyncController(
                 if (generation != syncGeneration) return@postUiIfCurrent
                 isSyncing = false
                 activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
-                activity.render()
-                if (result.isFailure) {
+                if (result.isSuccess) activity.render()
+                if (result.isFailure && showProgress) {
                     Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
                 }
             }

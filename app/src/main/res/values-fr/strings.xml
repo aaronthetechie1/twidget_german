@@ -236,8 +236,8 @@
     <string name="notices_title">Annonces</string>
     <string name="notices_load_failed">Impossible d\'actualiser les notes de version.</string>
     <string name="notices_showing_cache">Affichage des dernières annonces téléchargées avec succès.</string>
-    <string name="notices_beta">BÊTA</string>
-    <string name="notices_upcoming">À VENIR</string>
+    <string name="notices_beta">Bêta</string>
+    <string name="notices_upcoming">À venir</string>
     <string name="notices_upcoming_summary">Aperçu de la prochaine version. Les détails peuvent changer.</string>
     <string name="notices_no_details">Aucun détail supplémentaire n\'a été publié pour cette version.</string>
     <string name="notices_view_on_github">Voir la version complète sur GitHub</string>
@@ -1122,4 +1122,9 @@
     <string name="debug_haptics_force_waveforms">Forcer les formes d\'onde</string>
     <string name="debug_haptics_force_waveforms_summary">Utiliser des approximations par forme d\'onde pour les effets primitifs dans toute l\'application. Les retours des actions de la plateforme restent inchangés.</string>
     <string name="about_evowizz_summary">Il s’y connaît, putain ; localisé en français</string>
+    <string name="settings_widgets">Widgets</string>
+    <string name="widget_lock_screen">Widget d’écran de verrouillage</string>
+    <string name="widget_one_ui_only">Disponible uniquement sur les appareils Samsung</string>
+    <string name="notices_latest_version">Dernière version</string>
+    <string name="notices_older_releases">Versions précédentes</string>
 </resources>

@@ -194,7 +194,7 @@ object TwidgetStore {
             xApiSecret = SecureCredentialStore.read(context, SecureCredentialStore.X_API_SECRET),
             refreshOnLaunch = prefs.getBoolean(KEY_REFRESH_ON_LAUNCH, true),
             refreshIntervalMinutes = prefs.getInt(KEY_REFRESH_INTERVAL, 15).coerceIn(15, 240),
-            widgetTapAction = prefs.getString(KEY_TAP_ACTION, TAP_REFRESH) ?: TAP_REFRESH,
+            widgetTapAction = prefs.getString(KEY_TAP_ACTION, TAP_APP) ?: TAP_APP,
             dataSource = prefs.getString(KEY_DATA_SOURCE, DATA_SOURCE_FXTWITTER) ?: DATA_SOURCE_FXTWITTER,
             shareHistory = prefs.getBoolean(KEY_SHARE_HISTORY, false),
         )
@@ -411,29 +411,48 @@ object TwidgetStore {
         addAccount(context, cleanUsername)
     }
 
-    fun widgetSettings(context: Context, appWidgetId: Int = 0): TwidgetWidgetSettings {
+    fun widgetSettings(
+        context: Context, appWidgetId: Int = 0,
+        kind: com.tjg.twidget.widget.WidgetKind = com.tjg.twidget.widget.WidgetKind.forWidget(context, appWidgetId),
+    ): TwidgetWidgetSettings {
         val prefs = prefs(context)
-        val suffix = if (appWidgetId > 0) "_$appWidgetId" else ""
-        val style = com.tjg.twidget.widget.WidgetStyle.resolve(prefs.getString("widget_style$suffix", prefs.getString("widget_style", null)))
+        val defaults = kind.defaultsSuffix
+        val suffix = if (appWidgetId > 0) "_$appWidgetId" else defaults
+        fun string(key: String, fallback: String): String =
+            prefs.getString("$key$suffix", prefs.getString("$key$defaults", prefs.getString(key, fallback))) ?: fallback
+        fun integer(key: String, fallback: Int): Int =
+            prefs.getInt("$key$suffix", prefs.getInt("$key$defaults", prefs.getInt(key, fallback)))
+        fun boolean(key: String, fallback: Boolean): Boolean =
+            prefs.getBoolean("$key$suffix", prefs.getBoolean("$key$defaults", prefs.getBoolean(key, fallback)))
+        val style = com.tjg.twidget.widget.WidgetStyle.resolve(string("widget_style", ""))
         return TwidgetWidgetSettings(
-            tintAlpha = prefs.getInt("widget_tint_alpha$suffix", prefs.getInt("widget_tint_alpha", 205)).coerceIn(30, 245),
-            tintColor = prefs.getInt("widget_tint_color$suffix", prefs.getInt("widget_tint_color", 0x00FFFFFF)),
-            logo = prefs.getString("widget_logo$suffix", prefs.getString("widget_logo", if (appWidgetId == 0) com.tjg.twidget.ui.AppAppearance.logo(context) else LOGO_X)) ?: LOGO_X,
-            tapAction = prefs.getString("widget_tap_action$suffix", prefs.getString(KEY_TAP_ACTION, TAP_REFRESH)) ?: TAP_REFRESH,
-            accountUsername = prefs.getString("widget_account$suffix", "") ?: "",
-            colorMode = prefs.getString("widget_color_mode$suffix", prefs.getString("widget_color_mode", COLOR_MODE_SYSTEM)) ?: COLOR_MODE_SYSTEM,
-            fontFamily = normalizeWidgetFont(
-                prefs.getString("widget_font_family$suffix", prefs.getString("widget_font_family", style.defaultFont)),
-            ),
-            showDelta = prefs.getBoolean("widget_show_delta$suffix", prefs.getBoolean("widget_show_delta", true)),
-            language = prefs.getString("widget_language$suffix", prefs.getString("widget_language", "DEFAULT")) ?: "DEFAULT",
+            tintAlpha = integer("widget_tint_alpha", 205).coerceIn(30, 245),
+            tintColor = integer("widget_tint_color", 0x00FFFFFF),
+            logo = string("widget_logo", com.tjg.twidget.ui.AppAppearance.logo(context)),
+            tapAction = string("widget_tap_action", prefs.getString(KEY_TAP_ACTION, TAP_APP) ?: TAP_APP),
+            accountUsername = string("widget_account", ""),
+            colorMode = string("widget_color_mode", COLOR_MODE_SYSTEM),
+            fontFamily = normalizeWidgetFont(string("widget_font_family", style.defaultFont)),
+            showDelta = boolean("widget_show_delta", true),
+            language = string("widget_language", "DEFAULT"),
             style = style,
-            containedFooter = prefs.getBoolean("widget_contained_footer$suffix", prefs.getBoolean("widget_contained_footer", false)),
+            containedFooter = boolean("widget_contained_footer", false),
         )
     }
 
-    fun saveWidgetSettings(context: Context, appWidgetId: Int, settings: TwidgetWidgetSettings) {
-        val suffix = if (appWidgetId > 0) "_$appWidgetId" else ""
+    fun saveWidgetSettings(
+        context: Context, appWidgetId: Int, settings: TwidgetWidgetSettings,
+        kind: com.tjg.twidget.widget.WidgetKind = com.tjg.twidget.widget.WidgetKind.forWidget(context, appWidgetId),
+    ) {
+        // Preserve the previous shared defaults for other types before changing Followers.
+        // This also migrates old installations lazily without changing existing widget overrides.
+        if (appWidgetId <= 0 && kind == com.tjg.twidget.widget.WidgetKind.FOLLOWERS) {
+            com.tjg.twidget.widget.WidgetKind.entries.filter { it != kind }.forEach { other ->
+                if (!prefs(context).contains("widget_style${other.defaultsSuffix}"))
+                    saveWidgetSettings(context, 0, widgetSettings(context, kind = other), other)
+            }
+        }
+        val suffix = if (appWidgetId > 0) "_$appWidgetId" else kind.defaultsSuffix
         prefs(context).edit()
             .putInt("widget_tint_alpha$suffix", settings.tintAlpha.coerceIn(30, 245))
             .putInt("widget_tint_color$suffix", settings.tintColor)

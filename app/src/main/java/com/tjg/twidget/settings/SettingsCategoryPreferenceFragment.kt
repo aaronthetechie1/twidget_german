@@ -40,9 +40,7 @@ import com.tjg.twidget.ui.startSettingsSubActivity
 import com.tjg.twidget.widget.RefreshWorker
 import com.tjg.twidget.widget.TwidgetBriefWidget
 import com.tjg.twidget.widget.TwidgetWidget
-import com.tjg.twidget.widget.WidgetStyle
 import com.tjg.twidget.widget.WidgetPreviews
-import com.tjg.twidget.widget.WidgetOpacityControl
 import dev.oneuiproject.oneui.preference.LayoutPreference
 
 import dev.oneuiproject.oneui.widget.CardItemView
@@ -53,7 +51,6 @@ import com.tjg.twidget.schedule.BufferOAuth
 import dev.oneuiproject.oneui.widget.RadioItemView
 import dev.oneuiproject.oneui.widget.RadioItemViewGroup
 import dev.oneuiproject.oneui.preference.HorizontalRadioPreference
-import com.tjg.twidget.data.TwidgetWidgetSettings
 import com.tjg.twidget.ui.AppAppearance
 import com.tjg.twidget.ui.TwidgetFonts
 import dev.oneuiproject.oneui.widget.TipPopup
@@ -63,6 +60,7 @@ import dev.oneuiproject.oneui.design.R as OneUiR
 class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private lateinit var settings: TwidgetSettings
     private var fontTip: TipPopup? = null
+    private var accountRemovalBusy = false
     private var appearancePreview = AppearanceThemePreview.PHONE
     private val page get() = SettingsCategoryActivity.page(arguments?.getString(SettingsCategoryActivity.EXTRA_PAGE))
 
@@ -159,6 +157,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
             SettingsPage.ACCOUNTS -> accounts(screen)
             SettingsPage.DATA -> data(screen)
             SettingsPage.APPEARANCE -> appearance(screen)
+            SettingsPage.WIDGETS -> WidgetSettingsCards.populate(this, screen)
             SettingsPage.SCHEDULING -> scheduling(screen)
         }
         screen.addBottomInset()
@@ -356,10 +355,28 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                         if (TwidgetStore.accounts(requireContext()).size <= 1) {
                             Toast.makeText(requireContext(), R.string.cannot_delete_last_account, Toast.LENGTH_SHORT).show()
                         } else {
-                            TwidgetStore.removeAccount(requireContext(), username)
-                            TwidgetWidget.updateAll(requireContext())
-                            TwidgetBriefWidget.updateAll(requireContext())
-                            buildScreen()
+                            if (!accountRemovalBusy) {
+                                accountRemovalBusy = true
+                                val appContext = requireContext().applicationContext
+                                val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                                com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+                                    accountRemovalBusy = false
+                                    Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                                }) {
+                                    val result = runCatching {
+                                        TwidgetStore.removeAccount(appContext, username)
+                                        TwidgetWidget.updateAll(appContext)
+                                        TwidgetBriefWidget.updateAll(appContext)
+                                    }
+                                    handler.post {
+                                        accountRemovalBusy = false
+                                        if (isAdded) {
+                                            if (result.isFailure) Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                                            buildScreen()
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -530,89 +547,6 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         logoRow.setOnClickListener { openLogoPicker() }
         logoPreference.setOnPreferenceClickListener { openLogoPicker(); true }
         screen.addPreference(logoPreference)
-        screen.addPreference(category(R.string.settings_widget_defaults))
-        var defaults = TwidgetStore.widgetSettings(context)
-        fun update(next: TwidgetWidgetSettings) {
-            defaults = next.copy(logo = TwidgetStore.widgetSettings(context).logo)
-            TwidgetStore.saveWidgetSettings(context, 0, defaults)
-            WidgetPreviews.publish(context)
-            TwidgetWidget.updateAll(context)
-            TwidgetBriefWidget.updateAll(context)
-        }
-        fun choice(keyName: String, titleRes: Int, values: Array<String>, labels: Array<String>, selected: String, changed: (String) -> Unit) {
-            screen.addPreference(ListPreference(context).apply {
-                key = keyName
-                isPersistent = false
-                setTitle(titleRes)
-                dialogTitle = getString(titleRes)
-                entryValues = values
-                entries = labels
-                value = selected
-                summary = labels[values.indexOf(selected).coerceAtLeast(0)]
-                setOnPreferenceChangeListener { pref, newValue ->
-                    val value = newValue as String
-                    changed(value)
-                    pref.summary = labels[values.indexOf(value).coerceAtLeast(0)]
-                    true
-                }
-            })
-        }
-        choice("settings_widget_style", R.string.widget_style,
-            WidgetStyle.entries.map { it.storedValue }.toTypedArray(),
-            arrayOf(getString(R.string.widget_style_one_ui), getString(R.string.widget_style_material)),
-            defaults.style.storedValue) { value ->
-            val style = WidgetStyle.resolve(value)
-            val font = if (defaults.fontFamily == defaults.style.defaultFont) style.defaultFont else defaults.fontFamily
-            update(defaults.copy(style = style, fontFamily = font))
-            findPreference<Preference>("settings_widget_opacity")?.isVisible = style == WidgetStyle.ONE_UI
-            findPreference<Preference>("settings_widget_contained_footer")?.isVisible = style == WidgetStyle.MATERIAL
-            findPreference<Preference>("settings_widget_contained_footer_description")?.isVisible = style == WidgetStyle.MATERIAL
-            findPreference<ListPreference>("settings_widget_font")?.let { preference ->
-                preference.value = font
-                preference.summary = preference.entry
-            }
-        }
-        screen.addPreference(InsetPreferenceCategory(context))
-        val opacity = layoutInflater.inflate(R.layout.widget_opacity_control, null)
-        WidgetOpacityControl.bind(opacity, defaults.tintAlpha) { alpha ->
-            update(defaults.copy(tintAlpha = alpha))
-        }
-        screen.addPreference(LayoutPreference(context, opacity).apply {
-            key = "settings_widget_opacity"
-            isSelectable = false
-            isVisible = defaults.style == WidgetStyle.ONE_UI
-            setAllowDividerAbove(true)
-            setAllowDividerBelow(true)
-        })
-        choice("settings_widget_font", R.string.widget_font,
-            arrayOf(TwidgetStore.FONT_SYSTEM, TwidgetStore.FONT_ONE_UI_SANS, TwidgetStore.FONT_GOOGLE_SANS_FLEX),
-            arrayOf(
-                getString(R.string.widget_font_system),
-                getString(R.string.widget_font_one_ui),
-                getString(R.string.widget_font_google),
-            ), defaults.fontFamily) {
-            update(defaults.copy(fontFamily = it))
-        }
-        choice("settings_widget_colours", R.string.widget_tint,
-            arrayOf(TwidgetStore.COLOR_MODE_SYSTEM, TwidgetStore.COLOR_MODE_LIGHT, TwidgetStore.COLOR_MODE_DARK),
-            arrayOf(getString(R.string.widget_tint_system), getString(R.string.widget_tint_light), getString(R.string.widget_tint_dark)), defaults.colorMode) {
-            update(defaults.copy(colorMode = it, tintColor = if (it == TwidgetStore.COLOR_MODE_DARK) 0x00000000 else 0x00FFFFFF))
-        }
-
-        screen.addDescribedPreference(SwitchPreferenceCompat(context).apply {
-            key = "settings_widget_contained_footer"
-            isPersistent = false
-            setTitle(R.string.widget_contained_footer)
-            setSummary(R.string.widget_contained_footer_summary)
-            isChecked = defaults.containedFooter
-            isVisible = defaults.style == WidgetStyle.MATERIAL
-            setOnPreferenceChangeListener { _, value ->
-                update(defaults.copy(containedFooter = value as Boolean))
-                true
-            }
-        })
-        screen.findPreference<Preference>("settings_widget_contained_footer_description")?.isVisible =
-            defaults.style == WidgetStyle.MATERIAL
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

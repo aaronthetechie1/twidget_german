@@ -42,7 +42,7 @@ internal object WidgetPreviews {
     // widget overrides or the app's own theme/font. Existing widgets keep their settings.
     internal fun settings(style: WidgetStyle = WidgetStyle.resolve(null)) = TwidgetWidgetSettings(
         tintAlpha = 205, tintColor = 0, logo = TwidgetStore.LOGO_X,
-        tapAction = TwidgetStore.TAP_REFRESH, accountUsername = "twidget",
+        tapAction = TwidgetStore.TAP_APP, accountUsername = "twidget",
         colorMode = TwidgetStore.COLOR_MODE_SYSTEM, fontFamily = style.defaultFont,
         showDelta = false, style = style,
     )

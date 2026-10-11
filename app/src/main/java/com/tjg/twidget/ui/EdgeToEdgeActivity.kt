@@ -86,6 +86,11 @@ abstract class EdgeToEdgeActivity : AppCompatActivity() {
         ViewCompat.requestApplyInsets(root)
     }
 
+    /** Preference lists own navigation padding so their viewport reaches the window edge. */
+    protected fun applyPreferenceScreenInsets(root: View) {
+        applyEdgeToEdgeInsets(root, onNavigationBarInset = {})
+    }
+
     /** Keeps bottom-floating chrome above gesture and button navigation bars. */
     protected fun View.updateBottomMarginForNavigationBar(
         baseMargin: Int,

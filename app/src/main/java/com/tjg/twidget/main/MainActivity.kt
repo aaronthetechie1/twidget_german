@@ -113,6 +113,17 @@ class MainActivity : ScheduleQueueHostActivity() {
         destination = savedInstanceState?.getString(STATE_DESTINATION)
             ?.let(MainDestination::valueOf)
             ?: MainDestination.DASHBOARD
+        accounts = TwidgetStore.accounts(this)
+        selectedAccount = savedInstanceState?.getString(STATE_ACCOUNT)
+            ?.takeIf { saved -> accounts.any { it.equals(saved, ignoreCase = true) } }
+            ?: accounts.firstOrNull().orEmpty()
+        if (destination == MainDestination.DASHBOARD && selectedAccount.isNotBlank()) {
+            drawerController.renderHeader()
+        } else if (destination == MainDestination.SCHEDULING) {
+            findViewById<ToolbarLayout>(R.id.main_toolbar_layout).setTitle(getString(R.string.schedule_title))
+        }
+        setupLaunchChrome()
+        updateScheduleFabVisibility()
         val scheduleFab = findViewById<View>(R.id.schedule_fab)
         applyEdgeToEdgeInsets(findViewById(R.id.main_toolbar_layout)) { inset ->
             navigationBarInset = inset
@@ -130,9 +141,9 @@ class MainActivity : ScheduleQueueHostActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this, scheduleBackCallback)
-        // Return from onCreate with only the toolbar and static dashboard
-        // skeleton inflated. The hidden scheduling UI, drawer contents,
-        // migrations and dashboard cards must not hold up the first frame.
+        // Bind the saved dashboard before its first frame. Remote refresh and
+        // maintenance begin afterwards without replacing the cached cards.
+        render(refreshRemote = false)
         skipNextResumeRender = true
         val decor = window.decorView
         decor.viewTreeObserver.addOnDrawListener(object : ViewTreeObserver.OnDrawListener {
@@ -152,10 +163,13 @@ class MainActivity : ScheduleQueueHostActivity() {
                         RefreshWorker.schedule(applicationContext)
                         UpdateCheckWorker.schedule(applicationContext)
                     }
-                    render()
+                    if (destination == MainDestination.DASHBOARD) {
+                        syncController.maybeRefreshAnalytics(selectedAccount)
+                        syncController.maybeRefreshStreak(selectedAccount)
+                    }
                     if (savedInstanceState == null) checkReleasesOnLaunch()
-                    if (TwidgetStore.settings(this@MainActivity).refreshOnLaunch) {
-                        syncController.sync()
+                    if (savedInstanceState == null && TwidgetStore.settings(this@MainActivity).refreshOnLaunch) {
+                        syncController.sync(showProgress = false)
                     }
                 }
             }
@@ -272,6 +286,7 @@ class MainActivity : ScheduleQueueHostActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_DESTINATION, destination.name)
+        outState.putString(STATE_ACCOUNT, selectedAccount)
         super.onSaveInstanceState(outState)
     }
 
@@ -329,7 +344,7 @@ class MainActivity : ScheduleQueueHostActivity() {
     private var preparedNoticesItem: MenuItem? = null
     private var preparedNoticesUnseen: Boolean? = null
 
-    internal fun render(bindDashboard: Boolean = true) {
+    internal fun render(bindDashboard: Boolean = true, refreshRemote: Boolean = true) {
         accounts = TwidgetStore.accounts(this)
             .ifEmpty { listOf(TwidgetStore.settings(this).username) }
             .filter { it.isNotBlank() }
@@ -350,7 +365,7 @@ class MainActivity : ScheduleQueueHostActivity() {
             schedule.visibility = View.GONE
             dashboard.visibility = View.VISIBLE
             dashboard.isEnabled = true
-            if (bindDashboard) dashboardBinder.bindContent()
+            if (bindDashboard) dashboardBinder.bindContent(refreshRemote)
         }
         if (::scheduleBackCallback.isInitialized) {
             scheduleBackCallback.isEnabled = destination == MainDestination.SCHEDULING
@@ -470,5 +485,6 @@ class MainActivity : ScheduleQueueHostActivity() {
 
     private companion object {
         const val STATE_DESTINATION = "main_destination"
+        private const val STATE_ACCOUNT = "main_account"
     }
 }
