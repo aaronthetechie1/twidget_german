@@ -27,6 +27,31 @@ object AppExecutors {
         allowCoreThreadTimeOut(true)
     }
 
+    private val imageExecutor = ThreadPoolExecutor(
+        2, 2, 30L, TimeUnit.SECONDS, ArrayBlockingQueue(64),
+        ThreadFactory { task -> Thread(task, "twidget-image-${threadNumber.incrementAndGet()}").apply {
+            priority = Thread.NORM_PRIORITY - 1
+        } }, ThreadPoolExecutor.AbortPolicy(),
+    ).apply { allowCoreThreadTimeOut(true) }
+
+    fun executeImage(onRejected: () -> Unit = {}, task: () -> Unit): Boolean = try {
+        imageExecutor.execute(Runnable(task))
+        true
+    } catch (_: RejectedExecutionException) {
+        onRejected()
+        false
+    }
+
+    /** Owner can cancel a queued/running task; transports cooperate with interruption. */
+    fun submit(task: () -> Unit): java.util.concurrent.Future<*>? = try {
+        ioExecutor.submit(Runnable(task))
+    } catch (_: RejectedExecutionException) { null }
+
+    fun cancel(task: java.util.concurrent.Future<*>?) {
+        task?.cancel(true)
+        if (task is Runnable) ioExecutor.remove(task)
+    }
+
     /** Returns false instead of growing threads or queues when fully saturated. */
     fun execute(onRejected: () -> Unit = {}, task: () -> Unit): Boolean = try {
         ioExecutor.execute(Runnable(task))

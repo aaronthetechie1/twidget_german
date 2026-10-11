@@ -1,8 +1,8 @@
 package com.tjg.twidget.core
 
-import com.tjg.twidget.schedule.json
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.ByteArrayOutputStream
+import java.io.InterruptedIOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -47,25 +47,55 @@ internal object HttpTransport {
         readTimeoutMs: Int,
         userAgent: String?,
     ): Response {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = connectTimeoutMs
-        connection.readTimeout = readTimeoutMs
-        connection.requestMethod = method
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("Connection", "keep-alive")
-        userAgent?.let { connection.setRequestProperty("User-Agent", it) }
-        headers.forEach { (key, value) -> connection.setRequestProperty(key, value) }
-        if (body != null) {
-            connection.doOutput = true
-            connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
+        val connection = openConnection(url, method, headers, connectTimeoutMs, readTimeoutMs, userAgent)
+        var consumed = false
+        val deadline = System.nanoTime() + (connectTimeoutMs.toLong() + readTimeoutMs) * 1_000_000L
+        try {
+            checkActive(deadline)
+            connection.setRequestProperty("Accept", "application/json")
+            if (body != null) {
+                connection.doOutput = true
+                val bytes = body.toByteArray(StandardCharsets.UTF_8)
+                connection.setFixedLengthStreamingMode(bytes.size)
+                connection.outputStream.use { it.write(bytes) }
+            }
+            val code = connection.responseCode
+            checkActive(deadline)
+            val responseHeaders = connection.headerFields.filterKeys { it != null }.mapKeys { requireNotNull(it.key) }
+            val limit = if (code in 200..299) MAX_RESPONSE_BYTES else MAX_ERROR_BYTES
+            require(connection.contentLengthLong <= limit) { "HTTP response is too large" }
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val text = stream?.use { readUtf8(it, limit, deadline) }.orEmpty()
+            consumed = true
+            return Response(code, text, responseHeaders)
+        } finally {
+            // Closing a fully consumed stream releases its connection to the keep-alive pool.
+            // Abort incomplete/error paths explicitly instead of pooling unread data.
+            if (!consumed) connection.disconnect()
         }
-        val code = connection.responseCode
-        val responseHeaders = connection.headerFields
-            .filterKeys { it != null }
-            .mapKeys { requireNotNull(it.key) }
-        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val text = stream?.let { BufferedReader(InputStreamReader(it)).use { reader -> reader.readText() } }.orEmpty()
-        return Response(code, text, responseHeaders)
+    }
+
+    private const val MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+    private const val MAX_ERROR_BYTES = 64 * 1024
+
+    internal fun readUtf8(input: InputStream, limit: Int, deadline: Long = Long.MAX_VALUE): String {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            checkActive(deadline)
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size().toLong() + count <= limit) { "HTTP response is too large" }
+            output.write(buffer, 0, count)
+        }
+        checkActive(deadline)
+        return output.toString(StandardCharsets.UTF_8.name())
+    }
+
+    private fun checkActive(deadline: Long) {
+        if (Thread.currentThread().isInterrupted || System.nanoTime() >= deadline) {
+            throw InterruptedIOException("HTTP request cancelled or timed out")
+        }
     }
 
     fun requireSuccess(response: Response, errorPrefix: String): String {

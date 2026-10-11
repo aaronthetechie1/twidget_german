@@ -173,7 +173,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
                 TwidgetStore.currentStats(context, account).profileImage,
                 TopFollowersStore.read(context, account).top.firstOrNull()?.avatarUrl.orEmpty(),
             ).filter(String::isNotBlank).distinct()
-            val missing = urls.filter { ProfileImageLoader.cachedBitmap(context, it) == null }
+            val missing = urls.filter { !ProfileImageLoader.hasCachedImage(context, it) }
             if (missing.isEmpty()) return
             AppExecutors.execute {
                 var changed = false

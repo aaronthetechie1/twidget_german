@@ -217,3 +217,38 @@ function sample(ts, followers) {
     ts,
   };
 }
+
+
+test("overlapping local writes preserve samples and independent metadata patches durably", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-overlap-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const filePath = path.join(temp, "history.json");
+  const now = Date.UTC(2026, 9, 11);
+  const repository = new LocalHistoryRepository({ filePath, maxHistoryDays: 400, now: () => now });
+  await repository.initialize();
+  await repository.registerAccount("example", [sample(now - 2 * DAY, 100)], 2);
+  await Promise.all([
+    repository.storeSamples("example", [sample(now - DAY, 101)]),
+    repository.storeSamples("example", [sample(now, 102)]),
+    repository.patchMeta("example", { waybackAt: 123 }),
+    repository.patchMeta("example", { banger: { score: 456 } }),
+  ]);
+  const stored = JSON.parse(await readFile(filePath, "utf8"));
+  assert.deepEqual(stored.accounts.example.map(value => value.followers), [100, 101, 102]);
+  assert.deepEqual(stored.meta.example, { waybackAt: 123, banger: { score: 456 } });
+  await repository.deleteAccount("example");
+  assert.equal(await repository.patchMeta("example", { waybackAt: 999 }), false);
+  assert.deepEqual(await repository.storeSamples("example", [sample(now, 999)], { requireExisting: true }), []);
+  assert.equal(await repository.hasAccount("example"), false);
+});
+
+test("PostgreSQL metadata patches update existing JSONB without enrolling deleted accounts", async () => {
+  const calls = [];
+  const repository = new PostgresHistoryRepository({
+    pool: { async query(sql, params) { calls.push({ sql, params }); return { rowCount: 0 }; } },
+    maxHistoryDays: 400,
+  });
+  assert.equal(await repository.patchMeta("removed", { banger: { score: 1 } }), false);
+  assert.match(calls[0].sql, /metadata = metadata \|\| \$2::jsonb/);
+  assert.doesNotMatch(calls[0].sql, /INSERT/);
+});

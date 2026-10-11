@@ -16,7 +16,7 @@ import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.providers.FxTwitterClient
 import com.tjg.twidget.providers.TwitterApisClient
 import com.tjg.twidget.providers.TwitterApisTimelinePage
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -42,8 +42,6 @@ object AnalyticsClient {
     private const val CACHE_VERSION = 6
     private const val STALE_MS = 60 * 60 * 1000L // 1 hour
     private const val TWITTERAPIS_STALE_MS = 6 * 60 * 60 * 1000L
-    private const val ANALYTICS_PAGE_SIZE = 100
-    private const val MAX_ANALYTICS_PAGES = 10
     private const val MAX_ANALYTICS_STATUSES = 200
     private const val MAX_TWITTERAPIS_PAGES = 5
     private const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
@@ -68,6 +66,9 @@ object AnalyticsClient {
         return analytics == null || System.currentTimeMillis() - analytics.cachedAt > staleAfter
     }
 
+    fun mayAttempt(context: Context, username: String): Boolean =
+        System.currentTimeMillis() - prefs(context).getLong("attempt:${key(context, username)}", 0L) >= 60_000L
+
     fun cacheBanger(context: Context, username: String, result: BangerResult) {
         val existing = cached(context, username) ?: return
         val updated = existing.copy(
@@ -80,6 +81,7 @@ object AnalyticsClient {
 
     fun refresh(context: Context, username: String): PostAnalytics {
         val clean = username.trim().trimStart('@')
+        prefs(context).edit().putLong("attempt:${key(context, clean)}", System.currentTimeMillis()).apply()
         val previous = cached(context, clean)
         val settings = TwidgetStore.settings(context)
         val endpoint = TwidgetStore.bridgeEndpoint(settings)
@@ -124,10 +126,8 @@ object AnalyticsClient {
     private fun fetchTwitterApis(context: Context, username: String): PostAnalytics {
         val now = System.currentTimeMillis()
         val weekAgo = now - WEEK_MS
-        val timeline = collectTwitterApisTimeline(weekAgo) { cursor ->
-            TwitterApisClient.fetchTimelinePage(context, username, cursor)
-        }
-        val statuses = timeline.tweets
+        val timeline = WeeklyTimelineRepository.twitterApis(context, username)
+        val statuses = timeline.statuses
 
         val posts = statuses
             .mapNotNull { parseTwitterApisPost(it, username, weekAgo, now) }
@@ -192,56 +192,8 @@ object AnalyticsClient {
         val profile = FxTwitterClient.fetchProfile(username)
         val now = System.currentTimeMillis()
         val weekAgo = now - WEEK_MS
-        val encoded = URLEncoder.encode(username, StandardCharsets.UTF_8.name())
-        val statuses = mutableListOf<JSONObject>()
-        val seenIds = mutableSetOf<String>()
-        val seenCursors = mutableSetOf<String>()
-        var cursor = ""
-        var pages = 0
-        var reachedWindowBoundary = false
-        while (pages < MAX_ANALYTICS_PAGES && statuses.size < MAX_ANALYTICS_STATUSES) {
-            val query = buildString {
-                append("?count=$ANALYTICS_PAGE_SIZE")
-                if (cursor.isBlank()) append("&since=$weekAgo")
-                else append("&cursor=${URLEncoder.encode(cursor, StandardCharsets.UTF_8.name())}")
-            }
-            val body = read("https://api.fxtwitter.com/2/profile/$encoded/statuses$query", "")
-            if (body.isBlank()) {
-                reachedWindowBoundary = true
-                break
-            }
-            val root = JSONObject(body)
-            if (root.optInt("code", 200) >= 400) {
-                throw IllegalStateException(root.optString("message", "FxTwitter analytics failed"))
-            }
-            pages++
-            val results = root.optJSONArray("results") ?: JSONArray()
-            val page = List(results.length()) { index -> results.optJSONObject(index) }.filterNotNull()
-            page.forEach { status ->
-                val id = status.optString("id")
-                if (statuses.size < MAX_ANALYTICS_STATUSES && (id.isBlank() || seenIds.add(id))) {
-                    statuses += status
-                }
-            }
-            // The first row may be an old pinned post, so use the final dated
-            // row as the page boundary instead of stopping on any old item.
-            reachedWindowBoundary = AnalyticsPaging.reachedWindowBoundary(
-                page.map(::fxTimestamp),
-                weekAgo,
-            )
-            val nextCursor = root.optJSONObject("cursor")?.optString("bottom").orEmpty()
-            if (reachedWindowBoundary || nextCursor.isBlank()) {
-                cursor = ""
-                break
-            }
-            if (!seenCursors.add(nextCursor)) {
-                // A repeated cursor is an incomplete/cyclic upstream walk,
-                // so leave it non-empty and surface the result as sampled.
-                cursor = nextCursor
-                break
-            }
-            cursor = nextCursor
-        }
+        val timeline = WeeklyTimelineRepository.fxTwitter(username)
+        val statuses = timeline.statuses
         val requested = username.lowercase(Locale.US)
         val posts = statuses
             .mapNotNull { status -> status.takeIf { isOwnWeeklyPost(it, requested, weekAgo, now) }?.let(::parseFxPost) }
@@ -250,7 +202,7 @@ object AnalyticsClient {
             username = username,
             followers = profile.followersCount,
             statusesInspected = statuses.size,
-            sampled = cursor.isNotBlank() && !reachedWindowBoundary,
+            sampled = timeline.incomplete,
             posts = posts,
             cachedAt = System.currentTimeMillis(),
         )

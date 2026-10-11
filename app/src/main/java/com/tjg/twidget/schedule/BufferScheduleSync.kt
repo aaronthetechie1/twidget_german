@@ -19,6 +19,7 @@ class BufferScheduleSync(
     private val appContext = context.applicationContext
 
     fun sync(userInitiated: Boolean = false, username: String? = null): BufferSyncResult {
+        store.maintain()
         if (!BufferOAuth.isConnected(appContext)) {
             return BufferSyncResult()
         }
@@ -77,58 +78,68 @@ class BufferScheduleSync(
         remotePosts: List<BufferPost>,
         now: Long,
     ): BufferSyncResult {
-        val existing = storedPosts(channelId)
-        var imported = 0
-        var updated = 0
-        val seen = mutableSetOf<String>()
-        remotePosts.forEach { bufferPost ->
-            seen += bufferPost.id
-            val current = existing.firstOrNull { it.remotePostId == bufferPost.id }
-                ?: existing.firstOrNull { it.deletedAt == null && it.matches(bufferPost, channelId) }
-            // A remote draft can outlive its local trash entry. Do not resurrect it.
-            if (current?.deletedAt != null) return@forEach
-            val status = resolvedStatus(bufferPost.status, bufferPost.dueAt, now) ?: return@forEach
-            val local = ScheduledPost(
-                id = current?.id ?: remoteLocalId(bufferPost.id),
-                provider = ScheduleProvider.BUFFER,
-                status = status,
-                accountId = trackedUsername,
-                accountUsername = channelId,
-                scheduledAt = bufferPost.dueAt,
-                thread = mergeBufferThread(current, bufferPost),
-                remotePostId = bufferPost.id,
-                remoteSubmissionId = null,
-                errorMessage = if (status == ScheduleStatus.NEEDS_ACTION) "Buffer could not publish this post" else null,
-                createdAt = current?.createdAt ?: bufferPost.createdAt ?: now,
-                updatedAt = now,
-                publishedAt = when (status) {
-                    ScheduleStatus.PUBLISHED -> bufferPost.dueAt ?: current?.publishedAt ?: now
-                    else -> null
-                },
-                pinned = current?.pinned ?: false,
-                deletedAt = current?.deletedAt,
-            )
-            store.upsert(local)
-            if (
-                bufferPost.status.equals("sent", ignoreCase = true) &&
-                ScheduleNotificationPolicy.shouldNotifyBufferPublished(current, status)
-            ) {
-                ScheduleNotificationHelper.showBufferPublished(appContext, local)
+        val published = mutableListOf<ScheduledPost>()
+        val failed = mutableListOf<ScheduledPost>()
+        val checks = mutableListOf<ScheduledPost>()
+        val result = store.transaction { posts ->
+            val existing = posts.filter { it.provider == ScheduleProvider.BUFFER && it.accountUsername == channelId }
+            var imported = 0
+            var updated = 0
+            val seen = mutableSetOf<String>()
+            remotePosts.forEach { bufferPost ->
+                seen += bufferPost.id
+                val current = existing.firstOrNull { it.remotePostId == bufferPost.id }
+                    ?: existing.firstOrNull { it.deletedAt == null && it.matches(bufferPost, channelId) }
+                // A remote draft can outlive its local trash entry. Do not resurrect it.
+                if (current?.deletedAt != null) return@forEach
+                val status = resolvedStatus(bufferPost.status, bufferPost.dueAt, now) ?: return@forEach
+                val local = ScheduledPost(
+                    id = current?.id ?: remoteLocalId(bufferPost.id),
+                    provider = ScheduleProvider.BUFFER,
+                    status = status,
+                    accountId = trackedUsername,
+                    accountUsername = channelId,
+                    scheduledAt = bufferPost.dueAt,
+                    thread = mergeBufferThread(current, bufferPost),
+                    remotePostId = bufferPost.id,
+                    remoteSubmissionId = null,
+                    errorMessage = if (status == ScheduleStatus.NEEDS_ACTION) "Buffer could not publish this post" else null,
+                    createdAt = current?.createdAt ?: bufferPost.createdAt ?: now,
+                    updatedAt = now,
+                    publishedAt = when (status) {
+                        ScheduleStatus.PUBLISHED -> bufferPost.dueAt ?: current?.publishedAt ?: now
+                        else -> null
+                    },
+                    pinned = current?.pinned ?: false,
+                    deletedAt = current?.deletedAt,
+                )
+                val index = posts.indexOfFirst { it.id == local.id }
+                if (index < 0) posts += local else posts[index] = local
+                if (
+                    bufferPost.status.equals("sent", ignoreCase = true) &&
+                    ScheduleNotificationPolicy.shouldNotifyBufferPublished(current, status)
+                ) {
+                    published += local
+                }
+                if (ScheduleNotificationPolicy.shouldNotifyBufferFailed(current, status)) {
+                    failed += local
+                }
+                checks += local
+                if (current == null) imported++ else updated++
             }
-            if (ScheduleNotificationPolicy.shouldNotifyBufferFailed(current, status)) {
-                ScheduleNotificationHelper.showBufferFailed(appContext, local)
-            }
-            BufferPublishCheckWorker.enqueue(appContext, local)
-            if (current == null) imported++ else updated++
-        }
 
-        var removed = 0
-        existing.filter {
-            it.deletedAt == null && shouldRemoveMissing(it, seen, now)
-        }.forEach {
-            if (store.remove(it.id)) removed++
+            var removed = 0
+            existing.filter {
+                it.deletedAt == null && shouldRemoveMissing(it, seen, now)
+            }.forEach {
+                if (posts.removeAll { post -> post.id == it.id }) removed++
+            }
+            BufferSyncResult(imported, updated, removed)
         }
-        return BufferSyncResult(imported, updated, removed)
+        published.forEach { ScheduleNotificationHelper.showBufferPublished(appContext, it) }
+        failed.forEach { ScheduleNotificationHelper.showBufferFailed(appContext, it) }
+        checks.forEach { BufferPublishCheckWorker.enqueue(appContext, it) }
+        return result
     }
 
     private fun ScheduledPost.matches(remote: BufferPost, channelId: String): Boolean {

@@ -23,8 +23,24 @@ internal class MainSyncController(
     private val analyticsInFlight = mutableSetOf<String>()
     private val streakInFlight = mutableSetOf<String>()
 
+    private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var rebindScheduled = false
+    private fun scheduleDashboardBind() {
+        if (rebindScheduled) return
+        rebindScheduled = true
+        val token = lifecycleGeneration
+        uiHandler.postDelayed({
+            rebindScheduled = false
+            if (token == lifecycleGeneration && !activity.isDestroyed && !activity.isFinishing && !activity.editModeController.editMode) {
+                activity.dashboardBinder.bindContent()
+            }
+        }, 80L)
+    }
+
     fun invalidateLifecycle() {
         lifecycleGeneration++
+        uiHandler.removeCallbacksAndMessages(null)
+        rebindScheduled = false
     }
 
     fun setupRefresh() {
@@ -83,7 +99,8 @@ internal class MainSyncController(
     // Fetches fresh post analytics off the main thread when the cache is stale,
     // then repaints the current account's dashboard.
     fun maybeRefreshAnalytics(account: String) {
-        if (activity.editModeController.editMode || !AnalyticsClient.isStale(activity, activity.analytics)) return
+        if (activity.editModeController.editMode || !AnalyticsClient.isStale(activity, activity.analytics) ||
+            !AnalyticsClient.mayAttempt(activity, account)) return
         val key = account.lowercase(Locale.US)
         synchronized(analyticsInFlight) {
             if (!analyticsInFlight.add(key)) return
@@ -98,7 +115,7 @@ internal class MainSyncController(
             postUiIfCurrent(lifecycleToken) {
                 if (activity.selectedAccount.equals(account, ignoreCase = true) && !activity.editModeController.editMode) {
                     activity.analytics = fresh
-                    activity.dashboardBinder.bindContent()
+                    scheduleDashboardBind()
                 }
             }
         }
@@ -118,7 +135,7 @@ internal class MainSyncController(
             synchronized(streakInFlight) { streakInFlight.remove(key) }
             postUiIfCurrent(lifecycleToken) {
                 if (activity.selectedAccount.equals(account, ignoreCase = true) && !activity.editModeController.editMode) {
-                    activity.dashboardBinder.bindContent()
+                    scheduleDashboardBind()
                 }
             }
         }

@@ -7,7 +7,7 @@ import com.tjg.twidget.analytics.PostMedia
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.BridgeEndpoint
 import com.tjg.twidget.data.TwidgetSettings
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale

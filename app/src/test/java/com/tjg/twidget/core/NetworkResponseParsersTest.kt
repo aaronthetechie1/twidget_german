@@ -2,7 +2,7 @@ package com.tjg.twidget.core
 
 import com.tjg.twidget.analytics.PostLink
 import com.tjg.twidget.analytics.PostMedia
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals

@@ -99,7 +99,23 @@ $env:JAVA_HOME = "C:\path\to\jdk25"
 ./gradlew :app:assembleGithubDebug
 ```
 
-The app id is `com.tjg.twidget`.
+Stable and beta use `com.tjg.twidget`. Local debug builds install separately as
+**Twidget Debug** (`com.tjg.twidget.debug`), with an inverted-palette launcher icon (blue bars on a white-to-pale-blue gradient)
+and the development signing key only. Debug builds do not use the APK updater.
+
+Install or update the debug app while keeping its data:
+
+```bash
+./gradlew :app:installGithubDebug
+```
+
+Or sideload a built APK explicitly:
+
+```bash
+adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
+```
+
+Stable and debug have independent app data and widget instances.
 
 Buffer scheduling uses a public OAuth client with PKCE. Register the redirect
 URI `https://thatjoshguy67.github.io/twidget/oauth/buffer/` in Buffer, or build
@@ -122,13 +138,16 @@ GitHub Packages credentials belong in
 file outside the checkout. Production signing material is never required for a
 contributor build.
 
-The stable version is set in `version.properties`. Debug APKs are labeled
-`v<version>-debug.N`, where `N` is one plus the number of commits since the
-base version was set. Beta APKs are labeled `v<version>-beta.N`; the
-Pre-release workflow derives `N` from existing beta tags. Changing the stable
-version resets both channels to `.1`, and rebuilding the same tagged commit
-keeps the same version. Use `-PprereleaseNumber=N` or `-PbetaNumber=N` only
-when a non-Git build needs an explicit sequence number.
+The stable version is set in `version.properties`. Debug APKs use
+`<version>-dev.YYYYMMDD.HHmm`, recording the build's start time in Europe/London,
+including local uncommitted changes. For example: `1.3.0-dev.20261010.2130`.
+The debug package uses fixed version code `100300198`, so `adb install -r`
+updates the existing debug app and preserves its data. Rebuilds started in the
+same minute share a label.
+
+Beta APKs keep `<version>-beta.N`; the Pre-release workflow derives `N` from
+existing beta tags. Changing the stable version resets beta numbering to `.1`.
+Use `-PbetaNumber=N` when a non-Git build needs an explicit beta number.
 
 ## Project policies
 

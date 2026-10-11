@@ -2,7 +2,7 @@ package com.tjg.twidget.update
 
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.env.BuildVars
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL

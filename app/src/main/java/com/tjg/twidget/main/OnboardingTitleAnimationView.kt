@@ -34,6 +34,7 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
     private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
         typeface = Typeface.create("sec", Typeface.BOLD)
     }
+    @get:androidx.annotation.ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
     private val usesHardwareBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     private val softwareLettersLayer = SoftwareTitleLayer(context, titlePaint)
     private val hardwareGlyphLayers = mutableListOf<HardwareGlyphLayer>()
@@ -49,11 +50,11 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         clipToPadding = false
         val styled = context.obtainStyledAttributes(
             attrs,
-            intArrayOf(android.R.attr.text, android.R.attr.textSize, android.R.attr.textColor),
+            com.tjg.twidget.R.styleable.AnimatedTitleView,
         )
-        title = styled.getText(0)?.toString().orEmpty()
-        titlePaint.textSize = styled.getDimension(1, sp(32f))
-        titlePaint.color = if (isDarkMode()) Color.WHITE else styled.getColor(2, titlePaint.color)
+        title = styled.getText(com.tjg.twidget.R.styleable.AnimatedTitleView_android_text)?.toString().orEmpty()
+        titlePaint.textSize = styled.getDimension(com.tjg.twidget.R.styleable.AnimatedTitleView_android_textSize, sp(32f))
+        titlePaint.color = if (isDarkMode()) Color.WHITE else styled.getColor(com.tjg.twidget.R.styleable.AnimatedTitleView_android_textColor, titlePaint.color)
         styled.recycle()
         if (!usesHardwareBlur) {
             addView(

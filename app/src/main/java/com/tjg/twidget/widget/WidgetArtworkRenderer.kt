@@ -289,7 +289,7 @@ object WidgetArtworkRenderer {
                         fontFeatureSettings = "'dlig' 1, 'lnum' 1, 'pnum' 1"
                         typeface = gsfTypeface(context)
                         setFontVariationSettings(
-                            "'wght' $weight, 'wdth' ${key.width}, 'ROND' ${key.roundness}, 'slnt' ${key.slant}, 'GRAD' 0, 'opsz' 18",
+                            "'wght' $weight, 'wdth' ${key.width}, 'ROND' ${key.roundness}, 'slnt' ${key.slant}",
                         )
                     }
                     else -> {

@@ -32,14 +32,6 @@ fun Project.loadReleaseKey(): ReleaseKey? {
     )
 }
 
-fun Project.shouldSignDebugWithRelease(releaseKey: ReleaseKey?): Boolean {
-    val signDebugWithRelease = providers.gradleProperty("signDebugWithRelease").orNull?.toBooleanStrictOrNull() ?: false
-    require(!signDebugWithRelease || releaseKey != null) {
-        "-PsignDebugWithRelease=true requires the release signing credentials"
-    }
-    return signDebugWithRelease
-}
-
 private fun Project.signingPropertiesFile(): File =
     providers.gradleProperty("twidgetSigningProperties").orNull?.let { rootProject.file(it) }
         ?: File(System.getProperty("user.home"), ".config/twidget/keystore.properties")

@@ -87,6 +87,9 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private var selectedQueueView = ScheduleQueueView.LIST
     private var calendarMonth = YearMonth.now()
     private var selectedCalendarDate: LocalDate? = null
+    private var queueSnapshot: List<ScheduledPost> = emptyList()
+    private var queueReloading = false
+    private var queueReloadRequested = false
     private var busy = false
     private var syncing = false
     private var navigationBarInset = 0
@@ -326,14 +329,16 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         val provider = activeQueueProvider()
         val defaultUsername = requestedUsername()
         val bufferChannelId = ScheduleSettingsStore.bufferChannelFor(this, defaultUsername)
-        val allPosts = if (viewingTrash) store.listTrash() else store.list()
+        val allPosts = if (viewingTrash) queueSnapshot.filter { it.deletedAt != null }.sortedByDescending { it.deletedAt }
+            else ScheduleQueuePolicy.order(queueSnapshot.filter { it.deletedAt == null })
         return allPosts.filter { post ->
             ScheduleQueuePolicy.includes(post, provider, defaultUsername, bufferChannelId) &&
                 (viewingTrash || post.deletedAt == null)
         }
     }
 
-    private fun renderQueue() {
+    private fun renderQueue(refreshSnapshot: Boolean = true) {
+        if (refreshSnapshot) reloadQueueSnapshot()
         showQueueMode()
         updateQueueHeader()
         content.removeAllViews()
@@ -471,6 +476,50 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             isEnabled = !busy
             contentDescription = getString(R.string.schedule_new)
             setOnClickListener { openEditor(null) }
+        }
+    }
+
+    private fun reloadQueueSnapshot() {
+        if (queueReloading) {
+            queueReloadRequested = true
+            return
+        }
+        queueReloading = true
+        AppExecutors.execute(onRejected = { queueReloading = false; toast(R.string.schedule_busy) }) {
+            val result = runCatching { store.maintain(); store.snapshot() }
+            runOnUiThread {
+                queueReloading = false
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { posts ->
+                    if (queueSnapshot != posts) {
+                        queueSnapshot = posts
+                        if (queueRoot.visibility == View.VISIBLE) renderQueue(refreshSnapshot = false)
+                    }
+                }
+                if (queueReloadRequested) {
+                    queueReloadRequested = false
+                    reloadQueueSnapshot()
+                }
+            }
+        }
+    }
+
+    private fun runQueueMutation(work: () -> Unit, onSuccess: () -> Unit = {
+        exitQueueSelection()
+        renderQueue()
+        invalidateOptionsMenu()
+    }) {
+        if (busy) return
+        setBusy(true)
+        AppExecutors.execute(onRejected = { setBusy(false); toast(R.string.schedule_busy) }) {
+            val result = runCatching { work() }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                setBusy(false)
+                result.fold(onSuccess = { onSuccess() }, onFailure = {
+                    showErrors(listOf(it.message ?: getString(R.string.schedule_unknown_error)))
+                })
+            }
         }
     }
 
@@ -1147,10 +1196,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private fun restoreSelectedTrash() {
         val posts = selectedQueuePosts()
         if (posts.isEmpty()) return
-        posts.forEach { store.restoreFromTrash(it.id) }
-        exitQueueSelection()
-        renderQueue()
-        invalidateOptionsMenu()
+        runQueueMutation({ store.restore(posts.mapTo(hashSetOf()) { it.id }) })
     }
 
     private fun permanentlyDeleteSelectedTrash() {
@@ -1161,10 +1207,10 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             .setMessage(R.string.schedule_permanently_delete_message)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ ->
-                posts.forEach(::removePostLocally)
-                exitQueueSelection()
-                renderQueue()
-                invalidateOptionsMenu()
+                runQueueMutation({
+                    posts.forEach(::cancelLocalPostWork)
+                    store.removeAll(posts.mapTo(hashSetOf()) { it.id })
+                })
             }
             .show()
     }
@@ -1182,18 +1228,14 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 LocalReminderScheduler(this).cancel(post.id)
                 ScheduleNotificationHelper.cancel(this, post.id)
             }
-            store.moveToTrash(post.id)
         }
+        store.trash(posts.mapTo(hashSetOf()) { it.id })
     }
 
     private fun bulkSetPinned(selected: Boolean) {
         val posts = selectedPinnablePosts()
         if (posts.isEmpty()) return
-        val now = System.currentTimeMillis()
-        posts.forEach { post ->
-            store.upsert(post.copy(pinned = selected, updatedAt = now))
-        }
-        exitQueueSelection()
+        runQueueMutation({ store.setPinned(posts.mapTo(hashSetOf()) { it.id }, selected) })
     }
 
     private fun bulkDeleteSelected() {
@@ -1203,9 +1245,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     }
 
     private fun togglePin(post: ScheduledPost) {
-        val now = System.currentTimeMillis()
-        store.upsert(post.copy(pinned = !post.pinned, updatedAt = now))
-        renderQueue()
+        runQueueMutation({ store.setPinned(setOf(post.id), !post.pinned) }, onSuccess = { renderQueue() })
     }
 
     private fun queueDateTitle(value: Long?): String = value?.let {
@@ -1232,14 +1272,14 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
 
     private fun duplicate(post: ScheduledPost) {
         val duplicate = createDuplicate(post)
-        openEditor(duplicate)
+        runQueueMutation({ store.create(duplicate) }, onSuccess = { openEditor(duplicate) })
     }
 
     private fun duplicateSelectedPosts() {
         val posts = selectedQueuePosts()
         if (posts.isEmpty()) return
-        posts.forEach(::createDuplicate)
-        exitQueueSelection()
+        val duplicates = posts.map(::createDuplicate)
+        runQueueMutation({ store.transaction { it.addAll(duplicates) } })
     }
 
     private fun createDuplicate(post: ScheduledPost): ScheduledPost {
@@ -1257,7 +1297,6 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             publishedAt = null,
             thread = post.thread.map { it.copy(id = UUID.randomUUID().toString()) },
         )
-        store.create(duplicate)
         return duplicate
     }
 
@@ -1272,7 +1311,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                         coordinator.cancel(post.id)
                     }
                 } else {
-                    showCoordinatorResult(coordinator.cancel(post.id))
+                    runRemote { coordinator.cancel(post.id) }
                 }
             }
             .show()
@@ -1302,10 +1341,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             .setPositiveButton(R.string.delete) { _, _ ->
                 deletePostsPermanently(permanent) {
                     if (trashable.isNotEmpty()) {
-                        movePostsToTrash(trashable)
-                        exitQueueSelection()
-                        renderQueue()
-                        invalidateOptionsMenu()
+                        runQueueMutation({ movePostsToTrash(trashable) })
                     }
                 }
             }
@@ -1324,10 +1360,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             .setMessage(message)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ ->
-                movePostsToTrash(posts)
-                exitQueueSelection()
-                renderQueue()
-                invalidateOptionsMenu()
+                runQueueMutation({ movePostsToTrash(posts) })
             }
             .show()
     }
@@ -1346,8 +1379,10 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         val remotePosts = posts.filter(BufferScheduleFallbackPolicy::requiresRemoteCancellation)
         val localPosts = posts.filterNot { remotePosts.contains(it) }
         if (remotePosts.isEmpty()) {
-            localPosts.forEach(::removePostLocally)
-            onComplete()
+            runQueueMutation({
+                localPosts.forEach(::cancelLocalPostWork)
+                store.removeAll(localPosts.mapTo(hashSetOf()) { it.id })
+            }, onSuccess = onComplete)
         } else {
             setBusy(true)
             AppExecutors.execute(
@@ -1359,15 +1394,19 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 },
             ) {
                 var hadError = false
+                val removed = mutableSetOf<String>()
                 remotePosts.forEach { post ->
-                    val result = coordinator.cancel(post.id)
-                    when {
-                        result?.isSuccess == true -> store.remove(post.id)
-                        result != null -> hadError = true
-                    }
+                    runCatching { coordinator.cancel(post.id) }.fold(onSuccess = { result ->
+                        if (result?.isSuccess == true) removed += post.id else if (result != null) hadError = true
+                    }, onFailure = { hadError = true })
                 }
+                runCatching {
+                    localPosts.forEach(::cancelLocalPostWork)
+                    removed += localPosts.map { it.id }
+                    store.removeAll(removed)
+                }.onFailure { hadError = true }
                 runOnUiThread {
-                    localPosts.forEach(::removePostLocally)
+                    if (isFinishing || isDestroyed) return@runOnUiThread
                     setBusy(false)
                     if (hadError) toast(R.string.schedule_unknown_error)
                     onComplete()
@@ -1376,13 +1415,12 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         }
     }
 
-    private fun removePostLocally(post: ScheduledPost) {
+    private fun cancelLocalPostWork(post: ScheduledPost) {
         BufferPublishCheckWorker.cancel(this, post.id)
         if (post.provider == ScheduleProvider.LOCAL_REMINDER) {
             LocalReminderScheduler(this).cancel(post.id)
             ScheduleNotificationHelper.cancel(this, post.id)
         }
-        store.remove(post.id)
     }
 
     private fun openEditor(post: ScheduledPost?, date: LocalDate? = null) {
@@ -1516,10 +1554,10 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 updatedAt = System.currentTimeMillis(),
                 errorMessage = null,
             )
-            store.upsert(published)
-            ScheduleNotificationHelper.cancel(this, post.id)
-            toast(R.string.schedule_all_published)
-            renderQueue()
+            runQueueMutation({
+                store.upsert(published)
+                ScheduleNotificationHelper.cancel(this, post.id)
+            }, onSuccess = { toast(R.string.schedule_all_published); renderQueue() })
         } else {
             renderChecklist(post)
         }

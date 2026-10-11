@@ -421,7 +421,7 @@ class SettingsNavigationInstrumentedTest {
                 val reference = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     typeface = TwidgetFonts.googleSansFlex(context)
                     textSize = 48f
-                    fontVariationSettings = "'wght' $weight, 'wdth' 100, 'ROND' ${if (weight == 700) 100 else 0}, 'GRAD' 0, 'slnt' 0, 'opsz' 18"
+                    fontVariationSettings = "'wght' $weight, 'wdth' 100, 'ROND' ${if (weight == 700) 100 else 0}, 'slnt' 0"
                 }
                 val actual = android.graphics.Paint(reference).apply { typeface = TwidgetFonts.forApp(context, weight) }
                 fun render(paint: android.graphics.Paint) = android.graphics.Bitmap.createBitmap(600, 90, android.graphics.Bitmap.Config.ARGB_8888).apply {

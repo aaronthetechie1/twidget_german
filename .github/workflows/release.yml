@@ -13,6 +13,18 @@ permissions:
 jobs:
   bridge:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: twidget-test
+          POSTGRES_DB: twidget-test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      TWIDGET_TEST_POSTGRES_URL: postgres://postgres:twidget-test@localhost:5432/twidget-test
     defaults:
       run:
         working-directory: bridge
@@ -98,6 +110,7 @@ jobs:
 
       - name: Build signed release APK and AAB
         env:
+          LINT_DO_NOT_REUSE_UAST_ENV: "true"
           GH_PACKAGES_USER: ${{ secrets.GH_PACKAGES_USER }}
           GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           RELEASE_STORE_FILE: ${{ runner.temp }}/release.keystore
@@ -107,7 +120,12 @@ jobs:
           BUFFER_OAUTH_CLIENT_ID: ${{ vars.BUFFER_OAUTH_CLIENT_ID }}
           CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
-        run: ./gradlew testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease --no-daemon --stacktrace
+        run: |
+          ./gradlew testGithubReleaseUnitTest assembleGithubRelease bundleGithubRelease lintVitalGithubRelease --no-daemon --stacktrace --max-workers=1
+          ./gradlew testPlayReleaseUnitTest assemblePlayRelease bundlePlayRelease lintPlayRelease --no-daemon --stacktrace --max-workers=1
+
+      - name: Check universal release APK size budgets
+        run: python3 scripts/check-apk-size.py app/build/outputs/apk/github/release/app-github-release.apk app/build/outputs/apk/play/release/app-play-release.apk
 
       - name: Verify signed release APK and AAB
         run: |

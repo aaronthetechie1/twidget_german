@@ -3,7 +3,7 @@ package com.tjg.twidget.providers
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.core.NetworkResponseParsers
 import com.tjg.twidget.data.ProfileStats
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import org.json.JSONObject

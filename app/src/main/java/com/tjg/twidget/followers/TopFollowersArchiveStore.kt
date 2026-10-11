@@ -101,10 +101,9 @@ object TopFollowersArchiveStore {
     fun readAll(context: Context, username: String): List<TopFollower> {
         val file = archiveFile(context, username)
         if (!file.isFile) return emptyList()
-        return file.readLines()
-            .mapNotNull { line ->
-                runCatching { followerFromJson(JSONObject(line)) }.getOrNull()
-            }
+        return file.useLines { lines -> lines.mapNotNull { line ->
+            runCatching { followerFromJson(JSONObject(line)) }.getOrNull()
+        }.toList() }
     }
 
     @Synchronized
@@ -187,9 +186,11 @@ data class RankedTopFollower(
 )
 
 object TopFollowersBrowserPolicy {
-    fun apply(followers: List<TopFollower>, query: String = ""): List<RankedTopFollower> {
-        val normalizedQuery = query.trim().lowercase(Locale.US).trimStart('@')
-        return followers
+    fun apply(followers: List<TopFollower>, query: String = ""): List<RankedTopFollower> =
+        filter(rank(followers), query)
+
+    fun rank(followers: List<TopFollower>): List<RankedTopFollower> =
+        followers
             .distinctBy(::identityKey)
             .sortedWith(
                 compareByDescending<TopFollower> { it.followers }
@@ -199,11 +200,14 @@ object TopFollowersBrowserPolicy {
                     .thenBy { it.scanIndex },
             )
             .mapIndexed { index, follower -> RankedTopFollower(index + 1, follower) }
-            .filter { ranked ->
-                normalizedQuery.isEmpty() ||
-                    ranked.follower.name.lowercase(Locale.US).contains(normalizedQuery) ||
-                    ranked.follower.username.lowercase(Locale.US).contains(normalizedQuery)
-            }
+
+    fun filter(ranked: List<RankedTopFollower>, query: String): List<RankedTopFollower> {
+        val normalizedQuery = query.trim().lowercase(Locale.US).trimStart('@')
+        if (normalizedQuery.isEmpty()) return ranked
+        return ranked.filter {
+            it.follower.name.lowercase(Locale.US).contains(normalizedQuery) ||
+                it.follower.username.lowercase(Locale.US).contains(normalizedQuery)
+        }
     }
 
     private fun identityKey(follower: TopFollower): String =

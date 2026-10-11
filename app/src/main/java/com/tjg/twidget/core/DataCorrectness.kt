@@ -15,12 +15,14 @@ internal object ProviderFallback {
         val directError = try {
             return direct()
         } catch (error: Exception) {
+            if (error is java.util.concurrent.CancellationException || Thread.currentThread().isInterrupted) throw error
             error
         }
         if (fallback == null) throw directError
         return try {
             fallback()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            if (error is java.util.concurrent.CancellationException || Thread.currentThread().isInterrupted) throw error
             // The direct provider is the selected source, so preserve its
             // actionable error when an optional fallback also fails.
             throw directError

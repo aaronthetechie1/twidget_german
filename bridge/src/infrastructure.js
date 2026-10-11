@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { setImmediate as nextTurn } from "node:timers/promises";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -106,6 +107,11 @@ export class LocalHistoryRepository {
     this.inactiveAccountDays = inactiveAccountDays;
     this.now = now;
     this.store = { version: 4, accounts: {}, meta: {}, access: {}, topFollowers: {} };
+    this.revision = 0;
+    this.persistedRevision = 0;
+    this.flushPromise = null;
+    this.rankedSnapshots = new WeakMap();
+    this.scanIdentities = new WeakMap();
   }
 
   async initialize() {
@@ -147,8 +153,17 @@ export class LocalHistoryRepository {
     this.store.meta[key] = { ...meta };
     await this.persist();
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true } = {}) {
-    const existing = await this.getHistory(key);
+  async patchMeta(key, patch) {
+    // Patches never enroll an account or recreate one deleted during a fetch.
+    if (!Object.hasOwn(this.store.accounts, key)) return false;
+    this.store.meta[key] = { ...this.store.meta[key], ...patch };
+    await this.persist();
+    return true;
+  }
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
+    if (requireExisting && !Object.hasOwn(this.store.accounts, key)) return [];
+    // No await between reading and replacing the account: the complete merge is atomic.
+    const existing = normalizeStoredSamples(this.store.accounts[key], this.maxHistoryDays, this.sampleRetentionDays, this.now());
     const previousAccess = Number(this.store.access[key] || 0);
     const next = mergeSamples(existing, samples, {
       preferExisting,
@@ -174,12 +189,16 @@ export class LocalHistoryRepository {
     }
   }
   async deleteAccount(key) {
+    const existed = this.removeAccountState(key);
+    if (existed) await this.persist();
+    return existed;
+  }
+  removeAccountState(key) {
     const existed = Object.hasOwn(this.store.accounts, key);
     delete this.store.accounts[key];
     delete this.store.meta[key];
     delete this.store.access[key];
     delete this.store.topFollowers[key];
-    if (existed) await this.persist();
     return existed;
   }
   async getTopFollowersScan(key) {
@@ -210,7 +229,11 @@ export class LocalHistoryRepository {
   async appendTopFollowersPage(key, scanId, followers, cursor, now = this.now()) {
     const scan = this.store.topFollowers[key];
     if (!scan || scan.scanId !== scanId || scan.status !== "running") return null;
-    const seen = new Set(scan.followers.map((value) => topFollowerIdentity(value)));
+    let seen = this.scanIdentities.get(scan);
+    if (!seen) {
+      seen = new Set(scan.followers.map((value) => topFollowerIdentity(value)));
+      this.scanIdentities.set(scan, seen);
+    }
     for (const value of followers) {
       const identity = topFollowerIdentity(value);
       if (!identity || seen.has(identity)) continue;
@@ -248,7 +271,11 @@ export class LocalHistoryRepository {
     const current = this.store.topFollowers[key];
     const scan = current?.status === "complete" ? current : current?.previous;
     if (!scan || scan.status !== "complete" || !scan.followers.length) return null;
-    const ordered = [...scan.followers].sort(topFollowersRankOrder);
+    let ordered = this.rankedSnapshots.get(scan);
+    if (!ordered) {
+      ordered = [...scan.followers].sort(topFollowersRankOrder);
+      this.rankedSnapshots.set(scan, ordered);
+    }
     return {
       ...topFollowersScanSummary(scan),
       total: ordered.length,
@@ -280,7 +307,8 @@ export class LocalHistoryRepository {
         const lastAccess = Number(this.store.access[key] || lastSample);
         if (lastAccess < cutoff) {
           deletedSamples += samples.length;
-          await this.deleteAccount(key);
+          // Retention is one atomic mutation and one snapshot publication.
+          this.removeAccountState(key);
           deletedAccounts += 1;
         }
       }
@@ -325,11 +353,27 @@ export class LocalHistoryRepository {
     this.store.version = 3;
     return true;
   }
-  async persist() {
-    fs.mkdirSync(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
+  persist() {
+    const requestedRevision = ++this.revision;
+    const previous = this.flushPromise || Promise.resolve();
+    const write = previous.catch(() => {}).then(async () => {
+      if (this.persistedRevision < requestedRevision) await this.flush();
+    });
+    this.flushPromise = write;
+    return write;
+  }
+  async flush() {
+    // Coalesce mutations from the same turn, but acknowledge only after atomic publication.
+    await nextTurn();
+    await fs.promises.mkdir(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
     const tempPath = `${this.filePath}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(this.store, null, 2), { mode: 0o600 });
-    fs.renameSync(tempPath, this.filePath);
+    while (this.persistedRevision < this.revision) {
+      const revision = this.revision;
+      const snapshot = JSON.stringify(this.store);
+      await fs.promises.writeFile(tempPath, snapshot, { mode: 0o600 });
+      await fs.promises.rename(tempPath, this.filePath);
+      this.persistedRevision = revision;
+    }
   }
 }
 
@@ -492,6 +536,13 @@ export class PostgresHistoryRepository {
       VALUES ($1, $2::jsonb)
       ON CONFLICT (username) DO UPDATE SET metadata = EXCLUDED.metadata
     `, [key, JSON.stringify(meta)]);
+  }
+  async patchMeta(key, patch) {
+    const result = await this.pool.query(`
+      UPDATE twidget_history_accounts SET metadata = metadata || $2::jsonb
+      WHERE username = $1
+    `, [key, JSON.stringify(patch)]);
+    return result.rowCount > 0;
   }
   async getTopFollowersScan(key) {
     const result = await this.pool.query(`
@@ -677,10 +728,17 @@ export class PostgresHistoryRepository {
     `, [retentionDays]);
     return result.rowCount;
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true } = {}) {
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      if (requireExisting) {
+        const account = await client.query("SELECT 1 FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
+        if (!account.rowCount) {
+          await client.query("COMMIT");
+          return [];
+        }
+      }
       await client.query(touchAccess ? `
         INSERT INTO twidget_history_accounts (username) VALUES ($1)
         ON CONFLICT (username) DO UPDATE SET last_accessed_at = now()

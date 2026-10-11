@@ -418,7 +418,7 @@ internal object BriefWidgetArtworkRenderer {
                 TwidgetStore.FONT_SYSTEM -> typeface = TwidgetFonts.system(weight)
                 TwidgetStore.FONT_GOOGLE_SANS_FLEX -> {
                     typeface = TwidgetFonts.googleSansFlex(context)
-                    setFontVariationSettings("'wght' $weight, 'wdth' 100, 'ROND' 100, 'GRAD' 0, 'slnt' 0, 'opsz' 18")
+                    setFontVariationSettings("'wght' $weight, 'wdth' 100, 'ROND' 100, 'slnt' 0")
                 }
                 else -> {
                     typeface = TwidgetFonts.oneUiSansVariable(context)

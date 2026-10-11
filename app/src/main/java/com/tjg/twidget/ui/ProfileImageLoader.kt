@@ -19,12 +19,44 @@ import com.tjg.twidget.core.AppExecutors
 import com.tjg.twidget.core.HttpTransport
 import dev.oneuiproject.oneui.R as OneUiIconR
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import android.util.LruCache
+import java.security.MessageDigest
+import java.util.concurrent.FutureTask
 
 object ProfileImageLoader {
     private const val MAX_IMAGE_BYTES = 12 * 1024 * 1024L
     private const val MAX_IMAGE_CACHE_BYTES = 32 * 1024 * 1024L
+    private val bitmaps = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
+    }
+    private val requests = mutableMapOf<String, FutureTask<Bitmap?>>()
+
+    private fun sharedBitmap(context: Context, url: String, media: Boolean, download: Boolean): Bitmap? {
+        if (url.isBlank()) return null
+        val key = "${if (media) "media" else "avatar"}:$url"
+        bitmaps.get(key)?.let { return it }
+        val request = synchronized(requests) {
+            requests[key] ?: FutureTask<Bitmap?> {
+                runCatching {
+                    val file = if (media) mediaCacheFile(context, url) else cacheFile(context, url)
+                    if (!file.exists() && download) downloadFile(url, file)
+                    val bitmap = file.takeIf { it.exists() }?.let { decodeSampledBitmap(it, if (media) 1600 else 400) }
+                    bitmap?.also { bitmaps.put(key, it) }
+                }.getOrNull()
+            }.also { requests[key] = it }
+        }
+        return try {
+            request.run() // FutureTask runs exactly once, on the winning caller, without nested executor waits.
+            request.get()
+        } finally {
+            synchronized(requests) { if (requests[key] === request && request.isDone) requests.remove(key) }
+        }
+    }
+
+    fun hasCachedImage(context: Context, url: String): Boolean = highResolutionUrl(url).let {
+        it.isNotBlank() && (bitmaps.get("avatar:$it") != null || cacheFile(context, it).exists())
+    }
+
     fun applyCircleClip(imageView: ImageView) {
         imageView.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
@@ -46,7 +78,7 @@ object ProfileImageLoader {
         }
 
         showFallback(imageView)
-        AppExecutors.execute {
+        AppExecutors.executeImage {
             val bitmap = cachedBitmap(context, imageUrl) ?: downloadToCache(context, imageUrl)
             imageView.post {
                 // Dashboard rows are often populated before attachment. The old
@@ -72,7 +104,7 @@ object ProfileImageLoader {
         }
         imageView.visibility = View.VISIBLE
         imageView.setImageDrawable(null)
-        AppExecutors.execute {
+        AppExecutors.executeImage {
             val bitmap = cachedBitmap(context, imageUrl) ?: downloadToCache(context, imageUrl)
             imageView.post {
                 if (imageView.getTag(R.id.profile_image_request) == requestToken && bitmap != null) {
@@ -94,7 +126,7 @@ object ProfileImageLoader {
         }
         imageView.visibility = View.VISIBLE
         imageView.setImageDrawable(null)
-        AppExecutors.execute {
+        AppExecutors.executeImage {
             val bitmap = cachedMediaBitmap(context, imageUrl) ?: downloadMediaToCache(context, imageUrl)
             imageView.post {
                 if (imageView.getTag(R.id.profile_image_request) != requestToken) return@post
@@ -107,30 +139,32 @@ object ProfileImageLoader {
         }
     }
 
-    fun cachedBitmap(context: Context, url: String): Bitmap? {
+    fun cachedBitmap(context: Context, url: String): Bitmap? =
+        sharedBitmap(context, highResolutionUrl(url), media = false, download = false)
+
+    /** UI callers may use a decoded memory hit; disk warming belongs on the image executor. */
+    fun memoryCircularBitmap(url: String, sizePx: Int): Bitmap? {
         val imageUrl = highResolutionUrl(url)
-        if (imageUrl.isBlank()) return null
-        return cacheFile(context, imageUrl).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+        val key = "circle:$sizePx:$imageUrl"
+        return bitmaps.get(key) ?: bitmaps.get("avatar:$imageUrl")?.let {
+            circularCrop(it, sizePx).also { crop -> bitmaps.put(key, crop) }
+        }
     }
 
     fun cachedCircularBitmap(context: Context, url: String, sizePx: Int): Bitmap? =
-        cachedBitmap(context, url)?.let { circularCrop(it, sizePx) }
+        cachedBitmap(context, url)?.let { source ->
+            val key = "circle:$sizePx:${highResolutionUrl(url)}"
+            bitmaps.get(key) ?: circularCrop(source, sizePx).also { bitmaps.put(key, it) }
+        }
 
-    fun downloadToCache(context: Context, url: String): Bitmap? = runCatching {
-        val imageUrl = highResolutionUrl(url)
-        val file = cacheFile(context, imageUrl)
-        downloadFile(imageUrl, file)
-        BitmapFactory.decodeFile(file.absolutePath)
-    }.getOrNull()
+    fun downloadToCache(context: Context, url: String): Bitmap? =
+        sharedBitmap(context, highResolutionUrl(url), media = false, download = true)
 
     private fun cachedMediaBitmap(context: Context, url: String): Bitmap? =
-        mediaCacheFile(context, url).takeIf { it.exists() }?.let { decodeSampledBitmap(it, 1_600) }
+        sharedBitmap(context, url, media = true, download = false)
 
-    private fun downloadMediaToCache(context: Context, url: String): Bitmap? = runCatching {
-        val file = mediaCacheFile(context, url)
-        downloadFile(url, file)
-        decodeSampledBitmap(file, 1_600)
-    }.getOrNull()
+    private fun downloadMediaToCache(context: Context, url: String): Bitmap? =
+        sharedBitmap(context, url, media = true, download = true)
 
     private fun downloadFile(url: String, file: File) {
         val connection = HttpTransport.openConnection(
@@ -142,22 +176,20 @@ object ProfileImageLoader {
             connectTimeoutMs = 8_000,
             readTimeoutMs = 12_000,
         ).apply { instanceFollowRedirects = true }
-        val code = connection.responseCode
-        if (code !in 200..299) {
-            connection.disconnect()
-            error("Image HTTP $code")
-        }
-        if (connection.contentLengthLong > MAX_IMAGE_BYTES) {
-            connection.disconnect()
-            error("Image is too large")
-        }
-        val temporary = File.createTempFile(file.name, ".tmp", file.parentFile)
+        var temporary: File? = null
+        val deadline = System.nanoTime() + 20_000_000_000L
         try {
+            val code = connection.responseCode
+            check(code in 200..299) { "Image HTTP $code" }
+            check(connection.contentLengthLong <= MAX_IMAGE_BYTES) { "Image is too large" }
+            val pending = File.createTempFile(file.name, ".tmp", file.parentFile)
+            temporary = pending
             connection.inputStream.use { input ->
-                temporary.outputStream().use { output ->
+                pending.outputStream().use { output ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var total = 0L
                     while (true) {
+                        if (Thread.currentThread().isInterrupted || System.nanoTime() >= deadline) throw java.io.InterruptedIOException("Image request cancelled or timed out")
                         val read = input.read(buffer)
                         if (read < 0) break
                         total += read
@@ -166,11 +198,11 @@ object ProfileImageLoader {
                     }
                 }
             }
-            if (file.exists() && !file.delete()) error("Unable to replace image cache file")
-            if (!temporary.renameTo(file)) error("Unable to commit image cache file")
+            java.nio.file.Files.move(pending.toPath(), file.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
             file.parentFile?.let { trimImageCache(it, file) }
         } finally {
-            temporary.delete()
+            temporary?.delete()
             connection.disconnect()
         }
     }
@@ -227,10 +259,22 @@ object ProfileImageLoader {
     }
 
     private fun cacheFile(context: Context, url: String): File =
-        File(context.cacheDir, "profile_avatar_${url.hashCode()}.png")
+        keyedFile(context, "profile_avatar_", url, ".png")
 
     private fun mediaCacheFile(context: Context, url: String): File =
-        File(context.cacheDir, "tweet_media_${url.hashCode()}.img")
+        keyedFile(context, "tweet_media_", url, ".img")
+
+    private fun keyedFile(context: Context, prefix: String, url: String, suffix: String): File {
+        val digest = MessageDigest.getInstance("SHA-256").digest(url.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val file = File(context.cacheDir, "$prefix$digest$suffix")
+        // Preserve already-downloaded offline avatars during upgrades.
+        if (!file.exists()) {
+            val legacy = File(context.cacheDir, "$prefix${url.hashCode()}$suffix")
+            if (legacy.exists()) legacy.renameTo(file)
+        }
+        return file
+    }
 
     private fun decodeSampledBitmap(file: File, maxDimension: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

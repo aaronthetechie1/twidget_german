@@ -15,6 +15,11 @@ import java.nio.charset.StandardCharsets
 
 object RettiwtClient {
     fun refresh(context: Context, accountUsername: String = TwidgetStore.settings(context).username): ProfileStats {
+        val generation = TwidgetStore.accountGeneration(context, accountUsername)
+        return refreshProfile(context, accountUsername).copy(accountGeneration = generation)
+    }
+
+    private fun refreshProfile(context: Context, accountUsername: String): ProfileStats {
         val settings = TwidgetStore.settings(context)
         val username = accountUsername.trim().trimStart('@')
         if (username.isBlank()) {

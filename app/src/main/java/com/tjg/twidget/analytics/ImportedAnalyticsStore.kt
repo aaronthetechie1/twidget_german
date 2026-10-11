@@ -1,7 +1,7 @@
 package com.tjg.twidget.analytics
 
 import android.content.Context
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.time.LocalDate
 import java.util.Locale
 import org.json.JSONArray

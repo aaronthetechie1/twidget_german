@@ -4,20 +4,11 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 
-# Manifest components
--keep public class * extends android.app.Activity
--keep public class * extends android.app.Application
--keep public class * extends android.app.Service
--keep public class * extends android.content.BroadcastReceiver
--keep public class * extends android.content.ContentProvider
--keep public class * extends android.appwidget.AppWidgetProvider
--keep public class * extends androidx.work.Worker {
-    public <init>(android.content.Context, androidx.work.WorkerParameters);
-}
-
-# WorkManager
--keep class * extends androidx.work.ListenableWorker
--keepclassmembers class * extends androidx.work.ListenableWorker {
+# AGP generates keep rules for manifest components, including legacy widget names and launcher aliases.
+# WorkManager's consumer rules retain instantiated worker names/constructors.
+# App workers can still be named in a persisted pre-upgrade WorkManager database,
+# even when a distribution currently disables the feature that enqueues one.
+-keep class com.tjg.twidget.** extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 

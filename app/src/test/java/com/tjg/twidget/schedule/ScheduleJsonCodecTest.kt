@@ -1,5 +1,7 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.json
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

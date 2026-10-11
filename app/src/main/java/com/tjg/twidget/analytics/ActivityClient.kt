@@ -2,7 +2,6 @@ package com.tjg.twidget.analytics
 
 import android.content.Context
 import com.tjg.twidget.core.ActivityPostPolicy
-import com.tjg.twidget.core.AnalyticsPaging
 import com.tjg.twidget.core.FxStatusCandidate
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.core.ProviderFallback
@@ -14,7 +13,6 @@ import com.tjg.twidget.providers.TwitterApisClient
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
-import org.json.JSONArray
 import org.json.JSONObject
 
 /** Detects original-tweet activity days for streak tracking. */
@@ -22,9 +20,6 @@ object ActivityClient {
     private const val PREFS = "twidget_activity_refresh"
     private const val STALE_MS = 60 * 60 * 1000L
     private const val TWITTERAPIS_STALE_MS = 6 * 60 * 60 * 1000L
-    private const val ANALYTICS_PAGE_SIZE = 100
-    private const val MAX_ANALYTICS_PAGES = 10
-    private const val MAX_ANALYTICS_STATUSES = 200
     private const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
 
     fun refresh(context: Context, username: String): StreakSnapshot {
@@ -41,7 +36,10 @@ object ActivityClient {
             checkedAt = activity.checkedAt,
             complete = activity.complete,
         )
-        prefs(context).edit().putLong(refreshKey(clean), now).apply()
+        val key = refreshKey(context, clean)
+        prefs(context).edit().putLong("attempt_$key", now).apply {
+            if (activity.complete) putLong(key, now)
+        }.apply()
         return DailyStreakStore.snapshot(context, clean)
     }
 
@@ -52,8 +50,12 @@ object ActivityClient {
         } else {
             STALE_MS
         }
-        val last = prefs(context).getLong(refreshKey(clean), 0L)
-        return last == 0L || System.currentTimeMillis() - last > staleAfter
+        val key = refreshKey(context, clean)
+        val store = prefs(context)
+        val now = System.currentTimeMillis()
+        if (now - store.getLong("attempt_$key", 0L) < 60_000L) return false
+        val last = store.getLong(key, 0L)
+        return last == 0L || now - last > staleAfter
     }
 
     fun snapshot(context: Context, username: String): StreakSnapshot =
@@ -112,70 +114,20 @@ object ActivityClient {
     }
 
     private fun fetchTwitterApisActivity(context: Context, username: String, now: Long): OriginalActivity {
-        val weekAgo = now - WEEK_MS
-        val timeline = AnalyticsClient.collectTwitterApisTimeline(weekAgo) { cursor ->
-            TwitterApisClient.fetchTimelinePage(context, username, cursor)
-        }
-        val timestamps = timeline.tweets.mapNotNull { tweet ->
-            AnalyticsClient.parseTwitterApisPost(tweet, username, weekAgo, now)?.timestamp
+        val timeline = WeeklyTimelineRepository.twitterApis(context, username)
+        val timestamps = timeline.statuses.mapNotNull { tweet ->
+            AnalyticsClient.parseTwitterApisPost(tweet, username, timeline.windowStartAt, timeline.checkedAt)?.timestamp
         }.toSet()
-        return OriginalActivity(timestamps, weekAgo, now, complete = !timeline.incomplete)
+        return OriginalActivity(timestamps, timeline.windowStartAt, timeline.checkedAt, complete = !timeline.incomplete)
     }
 
     private fun fetchFxTwitterActivity(username: String, now: Long): OriginalActivity {
-        val weekAgo = now - WEEK_MS
-        val encoded = URLEncoder.encode(username, StandardCharsets.UTF_8.name())
-        val statuses = mutableListOf<JSONObject>()
-        val seenIds = mutableSetOf<String>()
-        val seenCursors = mutableSetOf<String>()
-        var cursor = ""
-        var pages = 0
-        while (pages < MAX_ANALYTICS_PAGES && statuses.size < MAX_ANALYTICS_STATUSES) {
-            val query = buildString {
-                append("?count=$ANALYTICS_PAGE_SIZE")
-                if (cursor.isBlank()) append("&since=$weekAgo")
-                else append("&cursor=${URLEncoder.encode(cursor, StandardCharsets.UTF_8.name())}")
-            }
-            val body = read("https://api.fxtwitter.com/2/profile/$encoded/statuses$query", "")
-            if (body.isBlank()) break
-            val root = JSONObject(body)
-            if (root.optInt("code", 200) >= 400) {
-                throw IllegalStateException(root.optString("message", "FxTwitter activity failed"))
-            }
-            pages++
-            val results = root.optJSONArray("results") ?: JSONArray()
-            val page = List(results.length()) { index -> results.optJSONObject(index) }.filterNotNull()
-            page.forEach { status ->
-                val id = status.optString("id")
-                if (statuses.size < MAX_ANALYTICS_STATUSES && (id.isBlank() || seenIds.add(id))) {
-                    statuses += status
-                }
-            }
-            val reachedWindowBoundary = AnalyticsPaging.reachedWindowBoundary(
-                page.map(AnalyticsClient::fxTimestamp),
-                weekAgo,
-            )
-            val nextCursor = root.optJSONObject("cursor")?.optString("bottom").orEmpty()
-            if (reachedWindowBoundary || nextCursor.isBlank()) {
-                cursor = ""
-                break
-            }
-            if (!seenCursors.add(nextCursor)) break
-            cursor = nextCursor
-        }
+        val timeline = WeeklyTimelineRepository.fxTwitter(username)
         val requested = username.lowercase(Locale.US)
-        val timestamps = statuses.mapNotNull { status ->
-            fxActivityTimestamp(status, requested, weekAgo, now)
+        val timestamps = timeline.statuses.mapNotNull {
+            fxActivityTimestamp(it, requested, timeline.windowStartAt, timeline.checkedAt)
         }.toSet()
-        return OriginalActivity(
-            timestamps,
-            weekAgo,
-            now,
-            complete = cursor.isBlank() || AnalyticsPaging.reachedWindowBoundary(
-                statuses.map(AnalyticsClient::fxTimestamp),
-                weekAgo,
-            ),
-        )
+        return OriginalActivity(timestamps, timeline.windowStartAt, timeline.checkedAt, complete = !timeline.incomplete)
     }
 
     internal fun fxActivityTimestamp(
@@ -215,7 +167,8 @@ object ActivityClient {
         return HttpTransport.get(url, headers).body
     }
 
-    private fun refreshKey(username: String) = "refresh_${username.lowercase(Locale.US)}"
+    private fun refreshKey(context: Context, username: String) =
+        "refresh_${TwidgetStore.settings(context).dataSource}_${username.lowercase(Locale.US)}"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

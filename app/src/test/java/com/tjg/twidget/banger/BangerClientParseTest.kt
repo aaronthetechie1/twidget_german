@@ -1,6 +1,6 @@
 package com.tjg.twidget.banger
 
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

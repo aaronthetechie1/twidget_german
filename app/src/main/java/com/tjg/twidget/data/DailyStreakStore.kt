@@ -23,6 +23,7 @@ object DailyStreakStore {
     private const val PREFS = "twidget_daily_streak"
     private const val DATA_VERSION = 2
 
+    @Synchronized
     fun mergeOriginalActivity(
         context: Context,
         username: String,

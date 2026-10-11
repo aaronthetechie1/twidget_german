@@ -1,3 +1,4 @@
+import { rateLimit, requestToken, tokenMatches, ServiceBusyError, upstreamGate } from "./http-policy.js";
 import express from "express";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -92,7 +93,7 @@ const bangerInFlight = new Map();
 const topFollowersJobs = new Map();
 const topFollowersQueue = new Map();
 let topFollowersActive = 0;
-let upstreamActive = 0;
+const withUpstreamSlot = upstreamGate(maxConcurrentUpstream);
 
 // The follower-graph reconstruction feature is gone (removed 2026-07-08:
 // Rettiwt enumeration only ever returned ~1 page and the weekly-only app UI
@@ -502,7 +503,7 @@ app.post("/history/:username/top-followers/scan", async (req, res) => {
   }
   const enrollmentMeta = await historyRepository.getMeta(key);
   if (!enrollmentMeta.topFollowersEnrolledAt) {
-    await historyRepository.setMeta(key, { ...enrollmentMeta, topFollowersEnrolledAt: Date.now() });
+    await historyRepository.patchMeta(key, { topFollowersEnrolledAt: Date.now() });
   }
   const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
   if (snapshot && Date.now() - snapshot.completedAt < topFollowersFreshMs) {
@@ -554,8 +555,7 @@ app.post("/history/:username/top-followers", requireTopFollowersPublisher, histo
     return;
   }
   const meta = await historyRepository.getMeta(key);
-  await historyRepository.setMeta(key, {
-    ...meta,
+  await historyRepository.patchMeta(key, {
     topFollowers: cached,
     topFollowersEnrolledAt: meta.topFollowersEnrolledAt || Date.now(),
   });
@@ -806,8 +806,7 @@ async function refreshBanger(username) {
   }
   state.version = bangerScoringVersion;
   state.updatedAt = Date.now();
-  meta.banger = state;
-  await historyRepository.setMeta(key, meta);
+  await historyRepository.patchMeta(key, { banger: state });
   return state;
 }
 
@@ -1562,7 +1561,7 @@ async function recordHistorySample(profile, { allowNew = false } = {}) {
 // samples win by default; preferExisting keeps recorded daily closes intact
 // when merging coarser data such as Wayback anchors.
 async function storeSamples(key, samples, { preferExisting = false, touchAccess = true } = {}) {
-  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess });
+  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess, requireExisting: true });
 }
 
 async function historyFor(username, { touch = false } = {}) {
@@ -1627,11 +1626,11 @@ async function backfillFromWayback(username) {
       await sleep(500);
     }
     if (samples.length) await storeSamples(key, samples, { preferExisting: true, touchAccess: false });
-    await historyRepository.setMeta(key, { ...existingMeta, waybackAt: Date.now(), waybackSamples: samples.length });
+    await historyRepository.patchMeta(key, { waybackAt: Date.now(), waybackSamples: samples.length });
     console.log(`Wayback backfill for ${key}: ${samples.length} of ${snapshots.length} snapshots usable`);
   } catch (error) {
     console.warn(`Wayback backfill failed for ${key}:`, error);
-    await historyRepository.setMeta(key, { ...existingMeta, waybackAt: Date.now(), waybackSamples: 0 });
+    await historyRepository.patchMeta(key, { waybackAt: Date.now(), waybackSamples: 0 });
   } finally {
     waybackInFlight.delete(key);
     await releaseLock();
@@ -1793,42 +1792,6 @@ function cleanupOAuthMaps() {
   }
 }
 
-function rateLimit(limiter, max) {
-  return async (req, res, next) => {
-    const key = req.ip || req.socket?.remoteAddress || "unknown";
-    try {
-      const result = await limiter.take(key);
-      if (result.capacityReached) {
-        res.setHeader("Retry-After", String(Math.ceil(result.retryMs / 1000)));
-        res.status(503).json({ error: "rate_limiter_capacity_reached" });
-        return;
-      }
-      const resetSeconds = Math.max(1, Math.ceil(result.retryMs / 1000));
-      res.setHeader("RateLimit-Limit", String(max));
-      res.setHeader("RateLimit-Remaining", String(Math.max(0, max - result.count)));
-      res.setHeader("RateLimit-Reset", String(resetSeconds));
-      if (result.count > max) {
-        res.setHeader("Retry-After", String(resetSeconds));
-        res.status(429).json({ error: "rate_limited" });
-        return;
-      }
-      next();
-    } catch (error) {
-      // A configured shared limiter must fail closed. Falling back locally
-      // during a Redis outage would multiply the request budget per replica.
-      console.warn("Rate limiter unavailable:", error?.message || error);
-      res.setHeader("Retry-After", "5");
-      res.status(503).json({ error: "rate_limiter_unavailable" });
-    }
-  };
-}
-
-function requestToken(req) {
-  const authorization = String(req.get("authorization") || "");
-  const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
-  return String(bearer || req.get("x-rettiwt-api-key") || "").trim();
-}
-
 function requireTopFollowersPublisher(req, res, next) {
   if (!topFollowersPublishToken) {
     res.status(404).json({ error: "not_found" });
@@ -1842,29 +1805,9 @@ function requireTopFollowersPublisher(req, res, next) {
   next();
 }
 
-function tokenMatches(received, expected) {
-  const left = Buffer.from(String(received));
-  const right = Buffer.from(String(expected));
-  return left.length === right.length && left.length > 0 && crypto.timingSafeEqual(left, right);
-}
-
 async function takeHistoryRegistrationSlot() {
   const result = await historyRegistrationLimiter.take("all");
   return !result.capacityReached && result.count <= historyRegistrationsPerHour;
-}
-
-class ServiceBusyError extends Error {}
-
-async function withUpstreamSlot(task) {
-  if (upstreamActive >= maxConcurrentUpstream) {
-    throw new ServiceBusyError("Upstream concurrency limit reached");
-  }
-  upstreamActive += 1;
-  try {
-    return await task();
-  } finally {
-    upstreamActive -= 1;
-  }
 }
 
 function sendUpstreamFailure(res, code, error) {

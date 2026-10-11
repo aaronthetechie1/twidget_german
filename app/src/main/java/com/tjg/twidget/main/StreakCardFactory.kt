@@ -39,6 +39,7 @@ internal object StreakCardFactory {
         snapshot: StreakSnapshot,
         titleOverride: String? = null,
         detailOverride: String? = null,
+        existing: LinearLayout? = null,
     ): LinearLayout {
         val state = StreakCardPolicy.state(snapshot)
         val night = context.resources.configuration.uiMode and
@@ -67,7 +68,7 @@ internal object StreakCardFactory {
         val title = titleOverride
             ?: context.resources.getQuantityString(R.plurals.streak_days, dayCount, dayCount)
 
-        return (android.view.LayoutInflater.from(context).inflate(
+        return (existing ?: android.view.LayoutInflater.from(context).inflate(
             R.layout.metric_card_small_stat, null, false,
         ) as LinearLayout).apply {
             minimumHeight = dp(context, DashboardCardSize.HALF.heightDp)
@@ -102,7 +103,7 @@ internal object StreakCardFactory {
                 text = context.resources.getQuantityString(R.plurals.dashboard_streak_days, dayCount)
                 setTextColor(Color.rgb(132, 132, 135))
             }
-            addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (existing == null) addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
                 if (right - left != oldRight - oldLeft) {
                     findViewById<TextView>(R.id.metric_label).apply {
                         val available = (right - left - paddingLeft - paddingRight - dp(context, 22)).coerceAtLeast(1)

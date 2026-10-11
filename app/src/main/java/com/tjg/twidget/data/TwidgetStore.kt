@@ -10,7 +10,7 @@ import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.core.HistoryMigrationPolicy
 import com.tjg.twidget.env.BuildVars
 import com.tjg.twidget.schedule.ScheduleAccountCleanup
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.MilestoneSettings
 import com.tjg.twidget.update.AppVersion
@@ -35,6 +35,8 @@ data class ProfileStats(
     val isPrivate: Boolean? = null,
     val syncedAt: Long = System.currentTimeMillis(),
     val history: List<HistorySample> = emptyList(),
+    // In-memory request ownership only; never serialized into a profile or shared history.
+    val accountGeneration: Long? = null,
     val followersKnown: Boolean = true,
     val followingKnown: Boolean = true,
     val postsKnown: Boolean = true,
@@ -200,6 +202,7 @@ object TwidgetStore {
         )
     }
 
+    @Synchronized
     fun saveSettings(context: Context, settings: TwidgetSettings) {
         val previous = this.settings(context)
         val username = normalizeUsername(settings.username)
@@ -380,6 +383,7 @@ object TwidgetStore {
             normalizeUsername(prefs.getString(KEY_USERNAME, "").orEmpty()).isNotBlank()
     }
 
+    @Synchronized
     fun completeOnboarding(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         val current = settings(context)
@@ -402,6 +406,7 @@ object TwidgetStore {
         if (cleanUsername.isNotBlank()) addAccount(context, cleanUsername)
     }
 
+    @Synchronized
     fun addOnboardingAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         if (cleanUsername.isBlank()) return
@@ -488,11 +493,15 @@ object TwidgetStore {
             .distinctBy { it.lowercase(Locale.US) }
     }
 
+    @Synchronized
     fun addAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         if (cleanUsername.isBlank()) return
         val existing = accounts(context)
         val isNew = existing.none { it.equals(cleanUsername, ignoreCase = true) }
+        val wasRemoved = prefs(context).getBoolean(removedAccountKey(cleanUsername), false)
+        if (wasRemoved) prefs(context).edit().remove(removedAccountKey(cleanUsername)).apply()
+        if (!isNew) return
         val next = (existing + cleanUsername).distinctBy { it.lowercase(Locale.US) }
         prefs(context).edit()
             .putString(KEY_ACCOUNTS, JSONArray(next).toString())
@@ -500,11 +509,14 @@ object TwidgetStore {
         if (isNew) BangerScanWorker.enqueue(context, cleanUsername)
     }
 
+    @Synchronized
     fun removeAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         if (cleanUsername.isBlank()) return
         val remaining = accounts(context).filterNot { it.equals(cleanUsername, ignoreCase = true) }
         val edit = prefs(context).edit()
+            .putBoolean(removedAccountKey(cleanUsername), true)
+            .putLong(accountGenerationKey(cleanUsername), accountGeneration(context, cleanUsername) + 1L)
             .putString(KEY_ACCOUNTS, JSONArray(remaining).toString())
         // Widgets pinned to the deleted account revert to the default account.
         prefs(context).all.forEach { (key, value) ->
@@ -580,6 +592,13 @@ object TwidgetStore {
         return saved ?: fallbackStats(context, cleanUsername)
     }
 
+    @Synchronized
+    fun accountGeneration(context: Context, username: String): Long =
+        prefs(context).getLong(accountGenerationKey(username), 0L)
+
+    private fun accountGenerationKey(username: String) = "account_generation_${normalizeUsername(username).lowercase(Locale.US)}"
+    private fun removedAccountKey(username: String) = "account_removed_${normalizeUsername(username).lowercase(Locale.US)}"
+
     // Recent real daily samples (last week), used by the widgets.
     fun history(context: Context, username: String = settings(context).username): List<HistorySample> =
         fullHistory(context, username).filterNot { it.estimated }.takeLast(7)
@@ -587,20 +606,36 @@ object TwidgetStore {
     // Every stored sample, oldest first: real daily closes and archive
     // anchors, plus bridge-estimated reconstruction samples (est flag). Demo
     // samples are merged in only before onboarding and never persisted.
-    fun fullHistory(context: Context, username: String = settings(context).username): List<HistorySample> {
-        val cleanUsername = normalizeUsername(username).ifBlank { settings(context).username }
-        val stats = currentStats(context, cleanUsername)
-        val saved = savedHistory(context, cleanUsername)
-        val onboarded = isOnboarded(context)
-        val samples = if (onboarded) saved else mergeByDay(demoHistory() + saved)
-        if (samples.isEmpty() && stats.syncedAt <= 0L) return emptyList()
-        val backfilled = flatBackfillProfileMetrics(samples, stats)
-            .ifEmpty { listOf(sampleFor(stats)) }
-        return backfilled
+    data class AccountSnapshot(val stats: ProfileStats, val history: List<HistorySample>, val deltaBaseline: HistorySample?) {
+        fun todayDelta(known: (HistorySample) -> Boolean, selector: (HistorySample) -> Long): Long {
+            val baseline = deltaBaseline ?: return 0
+            val current = sampleFor(stats)
+            return if (known(current) && known(baseline)) selector(current) - selector(baseline) else 0
+        }
     }
 
+    @Synchronized
+    fun accountSnapshot(context: Context, username: String): AccountSnapshot {
+        val clean = normalizeUsername(username).ifBlank { settings(context).username }
+        val stats = currentStats(context, clean)
+        val saved = savedHistory(context, clean)
+        val samples = if (isOnboarded(context)) saved else mergeByDay(demoHistory() + saved)
+        val history = if (samples.isEmpty() && stats.syncedAt <= 0L) emptyList()
+            else flatBackfillProfileMetrics(samples, stats).ifEmpty { listOf(sampleFor(stats)) }
+        val yesterday = startOfDay(System.currentTimeMillis()) - DAY_MILLIS
+        val baseline = history.lastOrNull { it.timestamp == yesterday && !it.estimated } ?: todayOpen(context, clean)
+        return AccountSnapshot(stats, history, baseline)
+    }
+
+    fun fullHistory(context: Context, username: String = settings(context).username): List<HistorySample> =
+        accountSnapshot(context, username).history
+
     fun rangedHistory(context: Context, username: String, range: HistoryRange): List<HistorySample> {
-        val all = fullHistory(context, username).filterNot { it.estimated }
+        return rangedHistory(fullHistory(context, username), range)
+    }
+
+    fun rangedHistory(history: List<HistorySample>, range: HistoryRange): List<HistorySample> {
+        val all = history.filterNot { it.estimated }
         if (range == HistoryRange.ALL_TIME) return all.ifEmpty { listOfNotNull(all.lastOrNull()) }
         return all.filter { it.timestamp >= rangeStart(all, range) }
             .ifEmpty { listOfNotNull(all.lastOrNull()) }
@@ -630,7 +665,10 @@ object TwidgetStore {
     // interpolation flagged `estimated` so the chart can draw them lighter.
     // Buckets before the first real data point are dropped, not invented.
     fun chartHistory(context: Context, username: String, range: HistoryRange): List<HistorySample> {
-        val all = fullHistory(context, username)
+        return chartHistory(fullHistory(context, username), range)
+    }
+
+    fun chartHistory(all: List<HistorySample>, range: HistoryRange): List<HistorySample> {
         if (all.isEmpty()) return all
         val monthly = when (range) {
             HistoryRange.YEAR -> true
@@ -729,8 +767,20 @@ object TwidgetStore {
         }
     }
 
+    @Synchronized
     fun saveStats(context: Context, stats: ProfileStats) {
         val username = normalizeUsername(stats.userName).ifBlank { settings(context).username }
+        if (prefs(context).getBoolean(removedAccountKey(username), false)) return
+        if (stats.accountGeneration != null && stats.accountGeneration != accountGeneration(context, username)) return
+        val existingStats = statsJson(context, username)?.let { runCatching { statsFromJson(JSONObject(it)) }.getOrNull() }
+        if (existingStats != null && stats.syncedAt < existingStats.syncedAt) {
+            // A late response may still add archive anchors. Already stored observations win on overlap.
+            val saved = savedHistory(context, username)
+            val merged = mergeByDay(stats.history + sampleFor(stats) + saved)
+            if (merged != saved) prefs(context).edit()
+                .putString(historyKey(username), JSONArray(merged.map { historyToJson(it) }).toString()).apply()
+            return
+        }
         addAccount(context, username)
         recordTodayOpen(context, username, stats)
         val saved = savedHistory(context, username)
@@ -744,6 +794,7 @@ object TwidgetStore {
             .apply()
     }
 
+    @Synchronized
     fun importFollowerHistory(context: Context, username: String, samples: List<HistorySample>): Int {
         val cleanUsername = normalizeUsername(username)
         require(cleanUsername.isNotBlank()) { "An account is required." }
@@ -811,6 +862,7 @@ object TwidgetStore {
 
     private fun todayOpenKey(username: String) = "today_open_${normalizeUsername(username)}"
 
+    @Synchronized
     fun migrateStoredHistories(context: Context) {
         val prefs = prefs(context)
         if (prefs.getInt(KEY_HISTORY_MIGRATION_VERSION, 0) >= HISTORY_MIGRATION_VERSION) return
@@ -838,6 +890,7 @@ object TwidgetStore {
         clearCachedStats(context)
     }
 
+    @Synchronized
     fun clearCachedStats(context: Context, username: String = settings(context).username) {
         val cleanUsername = normalizeUsername(username)
         prefs(context).edit()

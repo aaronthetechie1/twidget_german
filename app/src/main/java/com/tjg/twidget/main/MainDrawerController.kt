@@ -275,7 +275,7 @@ internal class MainDrawerController(
 
     private fun drawerAccountIcon(stats: ProfileStats): Pair<Drawable, Boolean> {
         val iconSize = activity.resources.getDimensionPixelSize(OneUiDesignR.dimen.oui_des_drawer_menu_item_icon_size)
-        ProfileImageLoader.cachedCircularBitmap(activity, stats.profileImage, iconSize)?.let { bitmap ->
+        ProfileImageLoader.memoryCircularBitmap(stats.profileImage, iconSize)?.let { bitmap ->
             return BitmapDrawable(activity.resources, bitmap).apply {
                 setTintList(null)
                 clearColorFilter()
@@ -292,7 +292,7 @@ internal class MainDrawerController(
         synchronized(downloadingDrawerAvatarUrls) {
             if (!downloadingDrawerAvatarUrls.add(url)) return
         }
-        AppExecutors.execute(onRejected = {
+        AppExecutors.executeImage(onRejected = {
             synchronized(downloadingDrawerAvatarUrls) {
                 downloadingDrawerAvatarUrls.remove(url)
             }

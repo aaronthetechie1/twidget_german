@@ -37,7 +37,11 @@ import dev.oneuiproject.oneui.R as OneUiIconR
 
 class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     private lateinit var username: String
-    private var allFollowers = emptyList<TopFollower>()
+    private var allFollowers = emptyList<RankedTopFollower>()
+    private val searchHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var searchGeneration = 0
+    private var archiveLoad: java.util.concurrent.Future<*>? = null
+    private var searchWork: java.util.concurrent.Future<*>? = null
     private var query = ""
     private lateinit var adapter: FollowerAdapter
     private lateinit var emptyView: TextView
@@ -124,6 +128,11 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             }
         }
         searchView.setOnQueryTextFocusChangeListener { _, _ -> updateSearchWidth() }
+        // Read the delivered insets, rather than the previous root snapshot while it is dispatching.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(searchView) { _, insets ->
+            updateSearchWidth(insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()))
+            insets
+        }
         query = savedInstanceState?.getString(STATE_QUERY).orEmpty()
         searchView.setQuery(query, false)
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -191,16 +200,21 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
             true
         }
 
-        allFollowers = TopFollowersArchiveStore.readAll(this, username)
         render()
-        val expectedCount = TopFollowersStore.read(this, username).scanned
-        if (TopFollowersBrowserRefreshPolicy.shouldAutoRefresh(
-                shareHistory = TwidgetStore.settings(this).shareHistory,
-                archivedCount = allFollowers.size,
-                expectedCount = expectedCount,
-            )
-        ) {
-            refreshArchive(showOutcome = false)
+        val generation = refreshGeneration
+        archiveLoad = AppExecutors.submit {
+            val ranked = runCatching { TopFollowersBrowserPolicy.rank(TopFollowersArchiveStore.readAll(applicationContext, username)) }.getOrDefault(emptyList())
+            val expectedCount = TopFollowersStore.read(applicationContext, username).scanned
+            runOnUiThread {
+                if (generation != refreshGeneration || isFinishing || isDestroyed) return@runOnUiThread
+                allFollowers = ranked
+                render()
+                if (TopFollowersBrowserRefreshPolicy.shouldAutoRefresh(
+                        shareHistory = TwidgetStore.settings(this).shareHistory,
+                        archivedCount = ranked.size,
+                        expectedCount = expectedCount,
+                    )) refreshArchive(showOutcome = false)
+            }
         }
     }
 
@@ -228,6 +242,10 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
     override fun onDestroy() {
         refreshGeneration += 1
+        searchGeneration += 1
+        AppExecutors.cancel(archiveLoad)
+        AppExecutors.cancel(searchWork)
+        searchHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
@@ -260,7 +278,7 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
                     forceArchiveRefresh = true,
                 )
                     ?: error("Top Followers archive is not available")
-                TopFollowersArchiveStore.readAll(this, username)
+                TopFollowersBrowserPolicy.rank(TopFollowersArchiveStore.readAll(this, username))
                     .takeIf { it.isNotEmpty() }
                     ?: error("Top Followers archive is empty")
             }.getOrNull()
@@ -277,7 +295,7 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
 
     private fun finishArchiveRefresh(
         generation: Int,
-        followers: List<TopFollower>?,
+        followers: List<RankedTopFollower>?,
         showOutcome: Boolean,
     ) {
         if (generation != refreshGeneration || isFinishing || isDestroyed) return
@@ -300,7 +318,22 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
     }
 
     private fun render() {
-        val visible = TopFollowersBrowserPolicy.apply(allFollowers, query)
+        val generation = ++searchGeneration
+        val ranked = allFollowers
+        val requested = query
+        AppExecutors.cancel(searchWork)
+        searchHandler.removeCallbacksAndMessages(null)
+        searchHandler.postDelayed({
+            searchWork = AppExecutors.submit {
+                val visible = TopFollowersBrowserPolicy.filter(ranked, requested)
+                runOnUiThread {
+                    if (generation == searchGeneration && !isFinishing && !isDestroyed) publishResults(visible)
+                }
+            }
+        }, if (query.isBlank()) 0L else 120L)
+    }
+
+    private fun publishResults(visible: List<RankedTopFollower>) {
         adapter.submitList(visible)
         val empty = visible.isEmpty()
         emptyView.setText(
@@ -314,9 +347,8 @@ class TopFollowersBrowseActivity : FoldablePopOverActivity() {
         listView.visibility = if (empty) View.GONE else View.VISIBLE
     }
 
-    private fun updateSearchWidth() {
-        val keyboardActive = androidx.core.view.ViewCompat.getRootWindowInsets(toolbarLayout)
-            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+    private fun updateSearchWidth(keyboardActive: Boolean = androidx.core.view.ViewCompat.getRootWindowInsets(toolbarLayout)
+        ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true) {
         searchView.findViewById<View>(androidx.appcompat.R.id.search_voice_btn).isSelected = keyboardActive
         val width = resources.getDimensionPixelSize(if (keyboardActive) {
             androidx.appcompat.R.dimen.sesl_search_view_preferred_width
