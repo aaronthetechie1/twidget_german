@@ -190,6 +190,7 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         updateAnimationFrame()
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
     private fun rebuildHardwareGlyphLayers() {
         removeAllViews()
         hardwareGlyphLayers.clear()
@@ -242,6 +243,7 @@ class OnboardingTitleAnimationView @JvmOverloads constructor(
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
     private inner class HardwareGlyphLayer(
         context: Context,
         paintSource: TextPaint,

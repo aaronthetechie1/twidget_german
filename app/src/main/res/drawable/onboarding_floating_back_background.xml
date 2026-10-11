@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.appcompat.graphics.drawable.SeslRecoilDrawable xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    app:seslRecoilColor="#33000000">
-
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33000000">
     <item>
         <shape android:shape="oval">
             <solid android:color="#99FCFCFC" />
         </shape>
     </item>
-</androidx.appcompat.graphics.drawable.SeslRecoilDrawable>
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+</ripple>

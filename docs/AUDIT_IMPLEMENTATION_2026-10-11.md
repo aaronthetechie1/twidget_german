@@ -1,10 +1,10 @@
 # Audit implementation — 11 October 2026
 
-Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitted feature work and concurrent dashboard changes are preserved. The implementation and debug packaging are prepared for staging; unrelated animation work remains separate.
+Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitted feature work and concurrent dashboard changes are preserved. The implementation and separate debug packaging are published to staging; unrelated animation work remains separate.
 
 | Finding | Status | Implementation / evidence |
 | --- | --- | --- |
-| A01 lint | Implemented | Named framework styleable indexes; standalone debug lint passed |
+| A01 lint | Implemented | Named framework styleable indexes; explicit API 31 hardware-blur contracts; versioned API 29 recoil with older-Android ripple fallback; standalone debug lint passed |
 | A02 bridge mutations | Implemented | Atomic local merges; PostgreSQL JSONB patches; existing-account guards; durable serialized/coalesced async snapshots; overlapping local mutation regressions pass |
 | A03 Android mutations | Implemented | Synchronized mutations; case-normalized removal generations; stale profile guard with history enrichment; account/removal device regression passes |
 | A04 scheduling | Implemented | One commit per batch, pure reads, cached decode, explicit background maintenance and queue UI mutations; failed persistence retains media (device regression passes) |
@@ -23,7 +23,7 @@ Implementation of [the audit](CODEBASE_AUDIT_2026-10-11.md). Existing uncommitte
 
 ## Verification record
 
-- Android unit suite: 358 passing, zero failures/errors/skips in the final run.
+- Android unit suite: 358 passing in the shared implementation checkout; 355 passing in the isolated staging checkout after excluding unrelated animation tests, with zero failures/errors/skips.
 - Bridge: 35 passing; one PostgreSQL integration test explicitly skipped locally (no local PostgreSQL server); CI is configured to run it against its test service.
 - Final `lintGithubDebug`, debug APK and instrumented-test compilation: passed with zero lint errors. Both release APK assemblies passed with shrinking and vital lint enabled. Local Kotlin FIR environment reuse caused internal analysis crashes; fresh serial processes with `LINT_DO_NOT_REUSE_UAST_ENV=true` completed successfully.
 - Device regressions passed on a read-only API 37 ARM64 emulator: account mutation/removal, schedule commits/failure/media retention, dashboard card identity, image sampling/cache/collision, light/dark card rendering and widget styles.
