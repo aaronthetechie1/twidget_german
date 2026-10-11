@@ -7,9 +7,6 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ReplacementSpan
 import android.util.AttributeSet
 import android.view.animation.PathInterpolator
 import androidx.appcompat.widget.AppCompatTextView
@@ -26,6 +23,7 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
     private var animator: ValueAnimator? = null
     private var preparedText = ""
     private var profile = SUBTITLE_PROFILE
+    private var renderMotion = false
 
     fun prepareNowBriefMotion() {
         prepareMotion(SUBTITLE_PROFILE)
@@ -45,7 +43,6 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
             return
         }
 
-        val motionText = SpannableString(source)
         spans.clear()
         val gradientStartX = paddingLeft.toFloat()
         val gradientEndX = (width - paddingRight).toFloat()
@@ -62,6 +59,8 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
             val end = index + Character.charCount(codePoint)
             if (!Character.isWhitespace(codePoint)) {
                 MotionCharacterSpan(
+                    start = index,
+                    end = end,
                     startDelayMs = sequence * profile.characterIntervalMs,
                     blurRadiusPx = dp(profile.maxBlurDp),
                     startScale = profile.startScale,
@@ -72,13 +71,12 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
                     gradientEndY = gradientEndY,
                 ).also { span ->
                     spans += span
-                    motionText.setSpan(span, index, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
             sequence++
             index = end
         }
-        setText(motionText, BufferType.SPANNABLE)
+        renderMotion = true
         alpha = 1f
         translationY = 0f
         invalidate()
@@ -141,6 +139,20 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
                 }
                 invalidate()
             }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                private var cancelled = false
+
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
+
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (!cancelled) {
+                        renderMotion = false
+                        invalidate()
+                    }
+                }
+            })
             start()
         }
     }
@@ -154,6 +166,7 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
     private fun clearMotion() {
         animator?.cancel()
         spans.forEach { it.finish() }
+        renderMotion = false
         if (text?.toString() != preparedText) {
             text = preparedText
         }
@@ -164,7 +177,34 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
 
     private fun dp(value: Float) = value * resources.displayMetrics.density
 
+    override fun onDraw(canvas: Canvas) {
+        if (!renderMotion) {
+            super.onDraw(canvas)
+            return
+        }
+        val currentLayout = layout ?: return
+        val currentText = text ?: return
+        val save = canvas.save()
+        canvas.translate(
+            (compoundPaddingLeft - scrollX).toFloat(),
+            (extendedPaddingTop - scrollY).toFloat(),
+        )
+        spans.forEach { span ->
+            val line = currentLayout.getLineForOffset(span.start)
+            span.drawGlyph(
+                canvas,
+                currentText,
+                currentLayout.getPrimaryHorizontal(span.start),
+                currentLayout.getLineBaseline(line),
+                paint,
+            )
+        }
+        canvas.restoreToCount(save)
+    }
+
     private class MotionCharacterSpan(
+        val start: Int,
+        val end: Int,
         val startDelayMs: Long,
         private val blurRadiusPx: Float,
         private val startScale: Float,
@@ -173,7 +213,7 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
         private val gradientEndX: Float,
         private val gradientStartY: Float,
         private val gradientEndY: Float,
-    ) : ReplacementSpan() {
+    ) {
         private var progress = 0f
         private var shaderProgress = 0f
         private var blackRevealProgress = 0f
@@ -195,23 +235,11 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
             progress = 1f
         }
 
-        override fun getSize(
-            paint: Paint,
-            text: CharSequence,
-            start: Int,
-            end: Int,
-            fm: Paint.FontMetricsInt?,
-        ): Int = paint.measureText(text, start, end).roundToInt()
-
-        override fun draw(
+        fun drawGlyph(
             canvas: Canvas,
             text: CharSequence,
-            start: Int,
-            end: Int,
             x: Float,
-            top: Int,
             y: Int,
-            bottom: Int,
             paint: Paint,
         ) {
             val savedAlpha = paint.alpha
