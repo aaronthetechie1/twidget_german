@@ -43,7 +43,7 @@
                     android:background="@drawable/metric_card_bg"
                     android:visibility="gone" />
 
-                <GridLayout
+                <com.tjg.twidget.ui.DashboardGridLayout
                     android:id="@+id/dashboard_content"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
