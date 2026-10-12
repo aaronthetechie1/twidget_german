@@ -76,7 +76,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var reloadOnResume = false
     private var checkContentOnResume = false
     private var entranceSections: List<View> = emptyList()
-    private var titleColorAnimator: ValueAnimator? = null
     private var backgroundAnimator: ValueAnimator? = null
     private var providerSetupRequired = false
     private var apiKeyPromptShown = false
@@ -298,8 +297,6 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     override fun onDestroy() {
         apiKeyDialog?.dismiss()
         apiKeyDialog = null
-        titleColorAnimator?.cancel()
-        titleColorAnimator = null
         backgroundAnimator?.cancel()
         backgroundAnimator = null
         super.onDestroy()
@@ -1151,12 +1148,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun prepareBriefEntrance() {
-        titleColorAnimator?.cancel()
-        val title = findViewById<TextView>(R.id.brief_summary_title)
-        val body = findViewById<TextView>(R.id.brief_summary_body)
-        prepareEntranceView(title, TITLE_LIFT_DP)
-        title.setTextColor(getColor(R.color.oneui_accent))
-        prepareEntranceView(body, COPY_LIFT_DP)
+        val title = findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+        val body = findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body)
+        title.prepareNowBriefTitleMotion()
+        body.prepareNowBriefMotion()
         entranceSections.forEach { prepareEntranceView(it, CARD_LIFT_DP) }
         prepareEntranceView(findViewById(R.id.brief_footer), COPY_LIFT_DP)
     }
@@ -1194,25 +1189,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         findViewById<View>(R.id.brief_scroll).post {
             if (isFinishing || isDestroyed) return@post
             val interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
-            val title = findViewById<TextView>(R.id.brief_summary_title)
-            startEntranceView(title, TITLE_DELAY_MS, TITLE_DURATION_MS, interpolator)
-            titleColorAnimator = ValueAnimator.ofArgb(
-                getColor(R.color.oneui_accent),
-                getColor(R.color.oneui_text_primary),
-            ).apply {
-                startDelay = TITLE_DELAY_MS
-                duration = TITLE_COLOR_DURATION_MS
-                addUpdateListener { animator ->
-                    title.setTextColor(animator.animatedValue as Int)
-                }
-                start()
-            }
-            startEntranceView(
-                findViewById(R.id.brief_summary_body),
-                COPY_DELAY_MS,
-                COPY_DURATION_MS,
-                interpolator,
-            )
+            findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+                .startNowBriefTitleMotion(TITLE_DELAY_MS)
+            findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body)
+                .startNowBriefMotion(COPY_DELAY_MS)
             entranceSections.forEachIndexed { index, section ->
                 startEntranceView(
                     section,
@@ -1285,16 +1265,13 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     companion object {
         private const val MASONRY_COLUMN_GAP_DP = 20
-        private const val TITLE_LIFT_DP = 10
         private const val COPY_LIFT_DP = 12
         private const val CARD_LIFT_DP = 18
-        private const val TITLE_DELAY_MS = 35L
-        private const val COPY_DELAY_MS = 115L
+        private const val TITLE_DELAY_MS = 0L
+        private const val COPY_DELAY_MS = 220L
         private const val CARD_DELAY_MS = 190L
         private const val CARD_STAGGER_MS = 58L
         private const val FOOTER_DELAY_MS = 420L
-        private const val TITLE_DURATION_MS = 460L
-        private const val TITLE_COLOR_DURATION_MS = 620L
         private const val COPY_DURATION_MS = 400L
         private const val CARD_DURATION_MS = 440L
         private const val MAX_STAGGERED_CARD_INDEX = 7

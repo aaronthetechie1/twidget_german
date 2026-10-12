@@ -427,7 +427,10 @@ open class TwidgetWidget : AppWidgetProvider() {
             else -> "Zero"
         }
 
-        private fun germanNumberWords(value: Long): String {
+        private fun germanNumberWords(
+            value: Long,
+            separatesThousands: Boolean = value >= 100_000L,
+        ): String {
             if (value == 0L) return "Null"
             if (value < 1_000L) return germanHundreds(value)
             val scales = listOf(
@@ -443,12 +446,12 @@ open class TwidgetWidget : AppWidgetProvider() {
             val remainder = value % scale
             val name = if (leading == 1L) names.first else names.second
             return buildString {
-                append(if (leading == 1L) germanIndefinite(scale) else germanNumberWords(leading))
+                append(if (leading == 1L) germanIndefinite(scale) else germanNumberWords(leading, separatesThousands))
                 append(' ')
                 append(name)
                 if (remainder > 0) {
-                    append(", ")
-                    append(germanNumberWords(remainder))
+                    append(if (scale == 1_000L && !separatesThousands) " " else ", ")
+                    append(germanNumberWords(remainder, separatesThousands))
                 }
             }
         }
@@ -472,7 +475,7 @@ open class TwidgetWidget : AppWidgetProvider() {
                 if (hundred > 0) {
                     append(if (hundred == 1) "Ein" else units[hundred])
                     append(" Hundert")
-                    if (remainder > 0) append(" und ")
+                    if (remainder > 0) append(' ')
                 }
                 if (remainder > 0) {
                     when {

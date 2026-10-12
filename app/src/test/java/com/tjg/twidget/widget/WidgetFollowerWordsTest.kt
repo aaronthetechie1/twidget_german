@@ -24,12 +24,15 @@ class WidgetFollowerWordsTest {
         val de = Locale.GERMAN
         assertEquals("Null", TwidgetWidget.followersInWords(0L, de))
         assertEquals("Eine Million", TwidgetWidget.followersInWords(1_000_000L, de))
+        assertEquals("Neun Tausend Fünf Hundert Fünf und Vierzig", TwidgetWidget.followersInWords(9_545L, de))
+        assertEquals("Zwölf Tausend Drei Hundert Fünf und Vierzig", TwidgetWidget.followersInWords(12_345L, de))
+        assertEquals("Ein Hundert Drei und Zwanzig Tausend, Vier Hundert Fünf und Sechzig", TwidgetWidget.followersInWords(123_465L, de))
         assertEquals(
-            "Fünf Millionen, Neun Tausend, Fünf Hundert und Fünf und Vierzig",
+            "Fünf Millionen, Neun Tausend, Fünf Hundert Fünf und Vierzig",
             TwidgetWidget.followersInWords(5_009_545L, de),
         )
         assertEquals(
-            "Eine Milliarde, Zwei Hundert und Vier und Dreißig Millionen, Fünf Hundert und Sieben und Sechzig Tausend, Acht Hundert und Neunzig",
+            "Eine Milliarde, Zwei Hundert Vier und Dreißig Millionen, Fünf Hundert Sieben und Sechzig Tausend, Acht Hundert Neunzig",
             TwidgetWidget.followersInWords(1_234_567_890L, de),
         )
     }

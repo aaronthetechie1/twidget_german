@@ -34,7 +34,7 @@
                 android:paddingStart="19dp"
                 android:paddingEnd="19dp">
 
-                <TextView
+                <com.tjg.twidget.brief.NowBriefSubtitleMotionView
                     android:id="@+id/brief_summary_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -44,7 +44,7 @@
                     android:textSize="36sp"
                     android:textStyle="bold" />
 
-                <TextView
+                <com.tjg.twidget.brief.NowBriefSubtitleMotionView
                     android:id="@+id/brief_summary_body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
