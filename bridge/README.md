@@ -104,11 +104,7 @@ time as the last full scan. `/health` exposes `history.topFollowers.fullScanDays
 alongside the existing settings.
 
 Postgres page writes increment the scan count by actual inserted rows, in the
-same transaction as the cursor. The single-instance JSON backend checkpoints
-rows and cursor together every 100 pages or five seconds, whichever comes
-first, and flushes on completion, failure, and graceful shutdown. Other history
-writes may also checkpoint pending pages. An abrupt process exit may replay up
-to one batch from the last atomic file replacement; expired provider cursors
+same transaction as the cursor. The single-instance JSON backend keeps its existing coalesced atomic writes. Expired provider cursors
 can fail the attempt, which will restart after the retry cooldown. Head scans
 stage a copy of the archive and publish atomically, so they still incur local
 archive-copy/storage costs even though provider calls are bounded.
