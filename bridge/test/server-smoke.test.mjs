@@ -566,3 +566,45 @@ test("handle migration verifies destination identity and makes history identity 
   assert.equal(profile.historyUserId, profile.userId);
   assert.equal((await fetch(`${base}/admin/history/example/handle`, { method: "POST" })).status, 401);
 });
+
+
+test("legacy clients receive existing history and fresh observations without an ownership backfill", async t => {
+  const day = Math.floor(Date.now() / DAY) * DAY;
+  const history = [3, 2, 1].map((age, i) => ({ ts: day - age * DAY, followers: 10 + i, following: 1, posts: 2, likes: 3, src: 'live' }));
+  let storePath;
+  const base = await startBridge(t, {}, { store: { version: 4, accounts: { example: history }, meta: { example: {} } }, onStorePath: value => { storePath = value; } });
+  const profile = await fetch(`${base}/user/example`).then(r => r.json());
+  assert.equal(profile.userId, '123456');
+  assert.equal(profile.historyUserId, '');
+  assert.deepEqual(profile.history.map(row => row.followers), [10, 11, 12, 1234]);
+  const pooled = await fetch(`${base}/history/example`).then(r => r.json());
+  assert.equal(pooled.userId, '');
+  assert.deepEqual(pooled.history, profile.history);
+  const cached = await fetch(`${base}/user/example`).then(r => r.json());
+  assert.deepEqual(cached.history, profile.history);
+  await waitFor(async () => JSON.parse(await readFile(storePath, 'utf8')).accounts.example.length === 4);
+  assert.equal(JSON.parse(await readFile(storePath, 'utf8')).meta.example.userId, undefined);
+  const migration = await fetch(`${base}/history/example/handle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'renamed', userId: '123456' }) });
+  assert.equal(migration.status, 409);
+});
+
+test("a recycled handle never receives or overwrites history bound to another ID", async t => {
+  const history = [{ ts: Date.now() - DAY, followers: 99, following: 1, posts: 2, likes: 3, src: 'live' }];
+  const base = await startBridge(t, {}, { store: { version: 4, accounts: { example: history }, meta: { example: { userId: '999' } } } });
+  const profile = await fetch(`${base}/user/example`).then(r => r.json());
+  assert.deepEqual(profile.history, []);
+  assert.equal(profile.historyUserId, '');
+  const pooled = await fetch(`${base}/history/example`).then(r => r.json());
+  assert.equal(pooled.userId, '999');
+  assert.deepEqual(pooled.history.map(row => row.followers), [99]);
+});
+
+
+test("an empty legacy enrollment can resume sampling without being silently bound", async t => {
+  const base = await startBridge(t, {}, { store: { version: 4, accounts: { example: [] }, meta: { example: {} } } });
+  const response = await fetch(`${base}/history/example`);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.userId, '');
+  assert.deepEqual(body.history.map(row => row.followers), [1234]);
+});

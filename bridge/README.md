@@ -233,7 +233,9 @@ controls include:
 
 ### Account handle changes
 
-Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. Clients must not merge history with a missing or different account ID. Existing legacy pool records are not automatically bound to whoever currently owns a handle.
+Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. ID-aware clients must not merge history with a missing or different account ID.
+
+Legacy accounts with no stored ID continue to serve their handle-keyed history and record daily observations, including through existing clients and repeat registration. Their metadata stays unbound and `historyUserId` stays empty; a current lookup does not establish who owned the historical observations. A known stored ID must match the live profile before its history is attached or updated. Normal profile writes recheck identity atomically, so a concurrent ownership verification cannot admit a stale mismatched write. New accounts are ID-bound on enrollment. Legacy records require independent operator verification before binding or migration.
 
 `POST /history/:oldHandle/handle` accepts `{ "username": "newHandle", "userId": "permanentXId" }`. The bridge verifies the live destination, then moves only ID-bound source records. A destination with a different or unknown ID is rejected. Transfers are atomic in PostgreSQL and atomically published by the JSON backend, preserve history, metadata and follower scans, and can be retried safely. No client history samples are uploaded by this operation.
 

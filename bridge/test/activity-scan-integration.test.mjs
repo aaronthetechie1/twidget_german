@@ -44,6 +44,27 @@ for (const backend of ['json', 'postgres']) {
     await repository.recordTopFollowersActivity('example', 1000);
     assert.equal((await repository.getMeta('example')).topFollowersLastSeenAt, 2000);
   });
+  test(`${backend}: legacy history keeps recording without claiming ownership`, options, async t => {
+    const r = await repositoryFor(t, backend);
+    const day = Date.now() - 3 * 86400000;
+    const sample = (ts, followers) => ({ ts, followers, following: 1, posts: 2, likes: 3 });
+    await r.registerAccount('legacy', [sample(day, 10), sample(day + 86400000, 11)], 1);
+    assert.equal(await r.registerAccount('legacy', [sample(day + 2 * 86400000, 12)], 1, '123456'), true);
+    assert.deepEqual((await r.getHistory('legacy')).map(row => row.followers), [10, 11, 12]);
+    assert.equal((await r.getMeta('legacy')).userId, undefined);
+    await r.storeSamples('legacy', [sample(Date.now(), 13)], { requireExisting: true, expectedUserId: '123456' });
+    assert.equal((await r.getHistory('legacy')).length, 4);
+    await assert.rejects(r.renameAccount('legacy', 'renamed', '123456'), /source_identity_unverified/);
+    // Independent operator verification can bind the legacy history. Stale
+    // writers are checked again atomically against the now-known owner.
+    await r.patchMeta('legacy', { userId: '999' });
+    assert.equal(await r.registerAccount('legacy', [sample(Date.now(), 9999)], 1, '123456'), false);
+    assert.equal(await r.registerAccount('legacy', [sample(Date.now(), 9999)], 1), false);
+    assert.deepEqual(await r.storeSamples('legacy', [sample(Date.now(), 9999)], { requireExisting: true, expectedUserId: '123456' }), []);
+    assert.equal((await r.getHistory('legacy')).at(-1).followers, 13);
+    await r.storeSamples('legacy', [sample(Date.now(), 14)], { requireExisting: true, expectedUserId: '999' });
+    assert.equal((await r.getHistory('legacy')).at(-1).followers, 14);
+  });
   test(`${backend}: pages deduplicate handles and IDs before writing`, options, async t => {
     const r = await repositoryFor(t, backend);
     await r.registerAccount('example', [], 10, '123456');

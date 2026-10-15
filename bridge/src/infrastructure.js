@@ -170,8 +170,10 @@ export class LocalHistoryRepository {
     await this.persist();
     return true;
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false, expectedUserId } = {}) {
     if (requireExisting && !Object.hasOwn(this.store.accounts, key)) return [];
+    const ownerId = this.store.meta[key]?.userId;
+    if (expectedUserId !== undefined && ownerId && ownerId !== expectedUserId) return [];
     // No await between reading and replacing the account: the complete merge is atomic.
     const existing = normalizeStoredSamples(this.store.accounts[key], this.maxHistoryDays, this.sampleRetentionDays, this.now());
     const previousAccess = Number(this.store.access[key] || 0);
@@ -188,7 +190,8 @@ export class LocalHistoryRepository {
   }
   async registerAccount(key, samples, maxAccounts, userId = "") {
     const existed = Object.hasOwn(this.store.accounts, key);
-    if (userId && existed && this.store.meta[key]?.userId !== userId) return false;
+    // Legacy histories keep working, but only new enrollments acquire an ID.
+    if (existed && this.store.meta[key]?.userId && this.store.meta[key].userId !== userId) return false;
     if (!existed && Object.keys(this.store.accounts).length >= maxAccounts) return false;
     if (!existed) {
       this.store.accounts[key] = [];
@@ -827,13 +830,14 @@ export class PostgresHistoryRepository {
     `, [retentionDays]);
     return result.rowCount;
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false, expectedUserId } = {}) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      if (requireExisting) {
-        const account = await client.query("SELECT 1 FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
-        if (!account.rowCount) {
+      if (requireExisting || expectedUserId !== undefined) {
+        const account = await client.query("SELECT metadata FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
+        const ownerId = account.rows[0]?.metadata?.userId;
+        if ((requireExisting && !account.rowCount) || (expectedUserId !== undefined && ownerId && ownerId !== expectedUserId)) {
           await client.query("COMMIT");
           return [];
         }
@@ -888,7 +892,8 @@ export class PostgresHistoryRepository {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(hashtext('twidget_history_registration'))");
       const exists = await client.query("SELECT metadata FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
-      if (userId && exists.rowCount && exists.rows[0].metadata?.userId !== userId) {
+      // An existing unbound row must not inherit the current handle owner's ID.
+      if (exists.rowCount && exists.rows[0].metadata?.userId && exists.rows[0].metadata.userId !== userId) {
         await client.query("ROLLBACK");
         return false;
       }

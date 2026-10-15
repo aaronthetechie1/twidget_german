@@ -1649,7 +1649,9 @@ async function withHistory(profile) {
     ...profile,
     syncedAt: Date.now(),
     historyUserId: owned ? meta.userId : "",
-    history: owned ? await historyFor(username) : [],
+    // Keep legacy handle-keyed history available to older clients without
+    // asserting ownership. ID-aware clients still require historyUserId.
+    history: owned || !meta.userId ? await historyFor(username) : [],
   };
 }
 
@@ -1674,15 +1676,15 @@ async function recordHistorySample(profile, { allowNew = false } = {}) {
     return registered ? historyRepository.getHistory(key) : null;
   }
   const meta = await historyRepository.getMeta(key);
-  if (!profile.userId || meta.userId !== profile.userId) return [];
-  return storeSamples(key, [historySampleFor(profile, Date.now())], { touchAccess: false });
+  if (meta.userId && meta.userId !== profile.userId) return [];
+  return storeSamples(key, [historySampleFor(profile, Date.now())], { touchAccess: false, expectedUserId: profile.userId || "" });
 }
 
 // Merge new samples into an account's history, one per calendar day. New
 // samples win by default; preferExisting keeps recorded daily closes intact
 // when merging coarser data such as Wayback anchors.
-async function storeSamples(key, samples, { preferExisting = false, touchAccess = true } = {}) {
-  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess, requireExisting: true });
+async function storeSamples(key, samples, { preferExisting = false, touchAccess = true, expectedUserId } = {}) {
+  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess, requireExisting: true, expectedUserId });
 }
 
 async function historyFor(username, { touch = false } = {}) {

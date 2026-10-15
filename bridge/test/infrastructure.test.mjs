@@ -377,7 +377,8 @@ test("registration cannot assign legacy or recycled history to a different live 
   const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
   await repository.initialize();
   await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
-  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), false);
+  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), true);
+  assert.equal((await repository.getMeta("legacy")).userId, undefined);
   await repository.registerAccount("known", [sample(Date.now(), 10)], 10, "123");
   assert.equal(await repository.registerAccount("known", [sample(Date.now(), 999)], 10, "999"), false);
   assert.equal((await repository.getHistory("known"))[0].followers, 10);
