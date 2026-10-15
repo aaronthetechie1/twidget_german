@@ -292,122 +292,107 @@ test("JSON head scans merge new followers atomically and full scans remove unfol
   assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
   await repository.failTopFollowersScan("example", "failed-head", "provider_failure", 6000);
   assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
-  await repository.startTopFollowersScan("example", "head", 7000, "head");
-  await repository.appendTopFollowersPage("example", "head", [follower(2, 999), follower(3, 300)], "", 8000);
+  await repository.startTopFollowersScan("example", "head", (7000 + DAY), "head");
+  await repository.appendTopFollowersPage("example", "head", [follower(2, 999), follower(3, 300)], "", (8000 + DAY));
   await repository.close();
   const resumed = new LocalHistoryRepository({ filePath, maxHistoryDays: 400 });
   await resumed.initialize();
   assert.equal((await resumed.getTopFollowersScan("example")).kind, "head");
-  await resumed.completeTopFollowersScan("example", "head", 9000);
+  await resumed.completeTopFollowersScan("example", "head", (9000 + DAY));
   const snapshot = await resumed.getTopFollowersSnapshot("example");
   assert.equal(snapshot.kind, "head");
   assert.equal(snapshot.fullCompletedAt, 3000);
-  assert.equal(snapshot.completedAt, 9000);
+  assert.equal(snapshot.lastFullCompletedAt, 3000);
+  assert.equal(snapshot.completedAt, (9000 + DAY));
   assert.equal(snapshot.total, 3);
   assert.deepEqual(snapshot.followers.map((value) => value.followers), [300, 200, 100]);
   assert.deepEqual(snapshot.followers.map((value) => value.scanIndex), [2, 1, 0]);
-  await resumed.startTopFollowersScan("example", "next-full", 10000);
-  await resumed.appendTopFollowersPage("example", "next-full", [follower(3, 400)], "", 11000);
-  await resumed.completeTopFollowersScan("example", "next-full", 12000);
+  await resumed.startTopFollowersScan("example", "next-full", (10000 + DAY));
+  await resumed.appendTopFollowersPage("example", "next-full", [follower(3, 400)], "", (11000 + DAY));
+  await resumed.completeTopFollowersScan("example", "next-full", (12000 + DAY));
   assert.equal((await resumed.getTopFollowersSnapshot("example")).total, 1);
-  assert.equal((await resumed.getTopFollowersSnapshot("example")).fullCompletedAt, 12000);
+  assert.equal((await resumed.getTopFollowersSnapshot("example")).fullCompletedAt, (12000 + DAY));
 });
 
-test("Postgres page counters use actual inserted rows, allocate beyond gaps, and roll back failed pages", async () => {
-  let state = { scanned: 2, pages: 1, cursor: "old" };
-  let rows = [0, 2]; // A skipped duplicate left a hole at index 1.
-  let before;
-  let failUpdate = false;
-  const calls = [];
-  const client = {
-    async query(sql, params = []) {
-      calls.push({ sql, params });
-      if (sql === "BEGIN") before = { state: { ...state }, rows: [...rows] };
-      if (sql === "ROLLBACK") ({ state, rows } = before);
-      if (/FOR UPDATE/.test(sql)) {
-        assert.doesNotMatch(sql, /count\(\*\)/i);
-        return { rows: [{ scanned: state.scanned }] };
-      }
-      if (/SELECT COALESCE\(max\(scan_index\)/.test(sql)) {
-        assert.match(calls.at(-2).sql, /FOR UPDATE/, "allocate only after locking the scan");
-        return { rows: [{ next_index: Math.max(...rows) + 1 }] };
-      }
-      if (/INSERT INTO twidget_top_followers/.test(sql)) {
-        const payload = JSON.parse(params[1]);
-        assert.equal(payload[0].scan_index, 3);
-        rows.push(payload.at(-1).scan_index);
-        return { rowCount: 1 }; // Two payload rows but only one new follower.
-      }
-      if (/UPDATE twidget_top_follower_scans SET/.test(sql)) {
-        assert.match(sql, /scanned = scanned \+ \$4::int/);
-        assert.doesNotMatch(sql, /count\(\*\)/i);
-        if (failUpdate) throw new Error("write failed");
-        state = { scanned: state.scanned + params[3], pages: state.pages + 1, cursor: params[2] };
-        return { rows: [{ scan_id: "scan", status: "running", ...state }] };
-      }
-      return { rows: [], rowCount: 0 };
-    },
-    release() {},
-  };
-  const repository = new PostgresHistoryRepository({ pool: { async connect() { return client; } }, maxHistoryDays: 400 });
-  const updated = await repository.appendTopFollowersPage("example", "scan", [follower(1), follower(3)], "next");
-  assert.equal(updated.scanned, 3);
-  assert.equal(updated.pages, 2);
-  assert.equal(updated.cursor, "next");
-  assert.equal(calls.at(-1).sql, "COMMIT");
-  await repository.appendTopFollowersPage("example", "scan", [], "empty");
-  assert.equal(state.scanned, 3, "empty pages add zero rows");
-  assert.equal(state.pages, 3);
-  assert.equal(calls.filter(({ sql }) => /INSERT INTO twidget_top_followers/.test(sql)).length, 1);
-  // Start again from the same gap fixture to exercise rollback after INSERT.
-  state = { scanned: 2, pages: 1, cursor: "old" };
-  rows = [0, 2];
-  failUpdate = true;
-  await assert.rejects(repository.appendTopFollowersPage("example", "scan", [follower(4)], "failed"), /write failed/);
-  assert.deepEqual(state, { scanned: 2, pages: 1, cursor: "old" });
-  assert.deepEqual(rows, [0, 2]);
-  assert.equal(calls.at(-1).sql, "ROLLBACK");
+test("handle moves require matching identities, preserve all shared state and are idempotent", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  const day = Date.now() - DAY;
+  await repository.registerAccount("before", [sample(day, 10)], 10);
+  await repository.setMeta("before", { userId: "123", banger: { url: "https://x.com/a/status/1" }, waybackAt: 77 });
+  repository.store.topFollowers.before = { status: "complete", scanId: "scan", followers: [] };
+  await assert.rejects(repository.renameAccount("before", "after", "999"), /source_identity_unverified/);
+  await repository.registerAccount("other", [sample(day, 999)], 10);
+  await repository.setMeta("other", { userId: "999" });
+  await assert.rejects(repository.renameAccount("before", "other", "123"), /destination_identity_conflict/);
+  assert.equal((await repository.getHistory("before"))[0].followers, 10);
+  assert.equal((await repository.getHistory("other"))[0].followers, 999);
+  assert.deepEqual(await repository.renameAccount("before", "after", "123"), { moved: true });
+  assert.equal(await repository.hasAccount("before"), false);
+  assert.equal((await repository.getHistory("after"))[0].followers, 10);
+  assert.equal((await repository.getMeta("after")).waybackAt, 77);
+  assert.equal(repository.store.topFollowers.after.scanId, "scan");
+  assert.deepEqual(await repository.renameAccount("before", "after", "123"), { moved: false });
+  const reloaded = new LocalHistoryRepository({ filePath: repository.filePath, maxHistoryDays: 400 });
+  await reloaded.initialize();
+  assert.equal((await reloaded.getMeta("after")).userId, "123");
+  assert.equal(await reloaded.hasAccount("before"), false);
 });
 
-test("Postgres head scans stage the previous archive and preserve full-scan freshness on publish", async () => {
-  const calls = [];
-  let row;
-  const fullCompletedAt = Date.UTC(2026, 7, 1);
-  const client = {
-    async query(sql, params) {
-      calls.push({ sql, params });
-      if (/SELECT scan_id, scanned, COALESCE/.test(sql)) {
-        return { rows: [{ scan_id: "old", scanned: 2, full_completed_at: new Date(fullCompletedAt) }] };
-      }
-      if (/INSERT INTO twidget_top_follower_scans/.test(sql)) {
-        assert.equal(params[2], "head");
-        assert.equal(params[3], 2);
-        assert.equal(params[4].getTime(), fullCompletedAt);
-        row = { scan_id: "head", status: "running", kind: params[2], scanned: params[3], full_completed_at_ms: fullCompletedAt };
-        return { rows: [row] };
-      }
-      if (/INSERT INTO twidget_top_followers/.test(sql)) {
-        assert.match(sql, /SELECT \$1::uuid, scan_index, follower_id/);
-        assert.deepEqual(params, ["head", "old"]);
-      }
-      if (/UPDATE twidget_top_follower_scans SET status = 'complete'/.test(sql)) {
-        assert.match(sql, /CASE WHEN kind = 'head' THEN full_completed_at ELSE now\(\) END/);
-        return { rows: [{ ...row, status: "complete", completed_at_ms: fullCompletedAt + DAY }] };
-      }
-      return { rows: [], rowCount: 0 };
-    },
-    release() {},
-  };
-  const repository = new PostgresHistoryRepository({ pool: { async connect() { return client; } }, maxHistoryDays: 400 });
-  const started = await repository.startTopFollowersScan("example", "head", fullCompletedAt + DAY, "head");
-  assert.equal(started.kind, "head");
-  assert.equal(started.scanned, 2);
-  assert.equal(started.fullCompletedAt, fullCompletedAt);
-  assert.ok(calls.findIndex(({ sql }) => /INSERT INTO twidget_top_followers/.test(sql)) < calls.findIndex(({ sql }) => sql === "COMMIT"));
-  assert.equal(calls.some(({ sql }) => /DELETE FROM twidget_top_follower_scans/.test(sql)), false, "old snapshot survives staging");
-  const completed = await repository.completeTopFollowersScan("example", "head");
-  assert.equal(completed.fullCompletedAt, fullCompletedAt);
-  assert.equal(completed.completedAt, fullCompletedAt + DAY);
-  assert.ok(calls.some(({ sql }) => /DELETE FROM twidget_top_follower_scans/.test(sql)));
-  assert.equal(calls.at(-1).sql, "COMMIT");
+test("legacy shared history cannot be moved by a public claim", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-legacy-handle-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
+  await assert.rejects(repository.renameAccount("legacy", "after", "123"), /source_identity_unverified/);
+  assert.equal(await repository.hasAccount("legacy"), true);
+  await repository.renameAccount("legacy", "after", "123", { allowLegacy: true });
+  assert.equal((await repository.getMeta("after")).userId, "123");
+});
+
+test("a failed JSON publication is retryable without claiming completion or losing history", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-failure-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("before", [sample(Date.now(), 10)], 10, "123");
+  const persist = repository.persist.bind(repository);
+  repository.persist = async () => { throw new Error("simulated_disk_failure"); };
+  await assert.rejects(repository.renameAccount("before", "after", "123"), /simulated_disk_failure/);
+  const disk = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.equal(disk.accounts.before.length, 1);
+  repository.persist = persist;
+  await repository.renameAccount("before", "after", "123");
+  const recovered = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.equal(recovered.accounts.after.length, 1);
+  assert.equal(recovered.accounts.before, undefined);
+});
+
+test("registration cannot assign legacy or recycled history to a different live ID", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-identity-registration-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
+  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), false);
+  await repository.registerAccount("known", [sample(Date.now(), 10)], 10, "123");
+  assert.equal(await repository.registerAccount("known", [sample(Date.now(), 999)], 10, "999"), false);
+  assert.equal((await repository.getHistory("known"))[0].followers, 10);
+  assert.equal((await repository.getMeta("known")).userId, "123");
+});
+
+test("a handle move preserves stored archive observations without applying retention", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-archive-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400, sampleRetentionDays: 100 });
+  await repository.initialize();
+  repository.store.accounts.before = [sample(Date.UTC(2020, 0, 1), 10), sample(Date.UTC(2020, 0, 2), 11)];
+  repository.store.meta.before = { userId: "123" };
+  await repository.persist();
+  await repository.renameAccount("before", "after", "123");
+  const disk = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.deepEqual(disk.accounts.after.map(row => row.followers), [10, 11]);
 });

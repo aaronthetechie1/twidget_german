@@ -70,17 +70,20 @@ object AnalyticsClient {
         System.currentTimeMillis() - prefs(context).getLong("attempt:${key(context, username)}", 0L) >= 60_000L
 
     fun cacheBanger(context: Context, username: String, result: BangerResult) {
-        val existing = cached(context, username) ?: return
-        val updated = existing.copy(
-            banger = result.post ?: existing.banger,
-            bangerComplete = result.complete,
-            bangerPostsScanned = result.postsScanned,
-        )
-        prefs(context).edit().putString(key(context, username), serialize(updated).toString()).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val existing = cached(context, username) ?: return
+            val updated = existing.copy(
+                banger = result.post ?: existing.banger,
+                bangerComplete = result.complete,
+                bangerPostsScanned = result.postsScanned,
+            )
+            prefs(context).edit().putString(key(context, username), serialize(updated).toString()).apply()
+        }
     }
 
     fun refresh(context: Context, username: String): PostAnalytics {
-        val clean = username.trim().trimStart('@')
+        val clean = TwidgetStore.canonicalAccount(context, username)
+        val generation = TwidgetStore.accountGeneration(context, clean)
         prefs(context).edit().putLong("attempt:${key(context, clean)}", System.currentTimeMillis()).apply()
         val previous = cached(context, clean)
         val settings = TwidgetStore.settings(context)
@@ -111,10 +114,10 @@ object AnalyticsClient {
             bangerPostsScanned = hallOfFame?.postsScanned ?: previous?.bangerPostsScanned ?: 0,
             cachedAt = System.currentTimeMillis(),
         )
-        prefs(context).edit()
-            .putString(key(context, clean), serialize(analytics).toString())
-            .apply()
-        return analytics
+        return TwidgetStore.withAccountGeneration(context, clean, generation) {
+            prefs(context).edit().putString(key(context, clean), serialize(analytics).toString()).apply()
+            analytics
+        }
     }
 
     private fun fetchBridge(context: Context, username: String, endpoint: BridgeEndpoint): PostAnalytics {
@@ -569,5 +572,5 @@ object AnalyticsClient {
     }
 
     private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
 }

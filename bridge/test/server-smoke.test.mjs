@@ -546,3 +546,23 @@ test("a checkpointed terminal page is published on resume without fetching the f
   assert.equal(archive.total, 1);
   assert.equal(archive.followers[0].username, "oldfan");
 });
+
+test("handle migration verifies destination identity and makes history identity explicit", async t => {
+  const base = await startBridge(t, { BRIDGE_API_TOKEN: "", HISTORY_ADMIN_TOKEN: "admin-test-token" });
+  const before = await fetch(`${base}/history/example`).then(r => r.json());
+  assert.equal(before.userId, "123456");
+  const move = body => fetch(`${base}/history/example/handle`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  assert.equal((await move({ username: "other", userId: "123456" })).status, 409);
+  const result = await move({ username: "renamed", userId: "123456" });
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).moved, true);
+  assert.equal((await move({ username: "renamed", userId: "123456" })).status, 200);
+  const after = await fetch(`${base}/history/renamed`).then(r => r.json());
+  assert.equal(after.userId, "123456");
+  assert.deepEqual(after.history, before.history);
+  const profile = await fetch(`${base}/user/renamed`).then(r => r.json());
+  assert.equal(profile.historyUserId, profile.userId);
+  assert.equal((await fetch(`${base}/admin/history/example/handle`, { method: "POST" })).status, 401);
+});

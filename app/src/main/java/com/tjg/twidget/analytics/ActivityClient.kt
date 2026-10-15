@@ -23,24 +23,27 @@ object ActivityClient {
     private const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
 
     fun refresh(context: Context, username: String): StreakSnapshot {
-        val clean = username.trim().trimStart('@')
+        val clean = TwidgetStore.canonicalAccount(context, username)
+        val generation = TwidgetStore.accountGeneration(context, clean)
         val now = System.currentTimeMillis()
         val activity = runCatching { fetchActivity(context, clean, now) }.getOrElse {
             OriginalActivity(emptySet(), now - WEEK_MS, now, complete = false)
         }
-        DailyStreakStore.mergeOriginalActivity(
-            context = context,
-            username = clean,
-            timestamps = activity.timestamps,
-            windowStartAt = activity.windowStartAt,
-            checkedAt = activity.checkedAt,
-            complete = activity.complete,
-        )
-        val key = refreshKey(context, clean)
-        prefs(context).edit().putLong("attempt_$key", now).apply {
-            if (activity.complete) putLong(key, now)
-        }.apply()
-        return DailyStreakStore.snapshot(context, clean)
+        return TwidgetStore.withAccountGeneration(context, clean, generation) {
+            DailyStreakStore.mergeOriginalActivity(
+                context = context,
+                username = clean,
+                timestamps = activity.timestamps,
+                windowStartAt = activity.windowStartAt,
+                checkedAt = activity.checkedAt,
+                complete = activity.complete,
+            )
+            val key = refreshKey(context, clean)
+            prefs(context).edit().putLong("attempt_$key", now).apply {
+                if (activity.complete) putLong(key, now)
+            }.apply()
+            DailyStreakStore.snapshot(context, clean)
+        }
     }
 
     fun isStale(context: Context, username: String): Boolean {

@@ -41,6 +41,7 @@ Twitter widget app, with extra stats
 - Find the largest public accounts following you with a rate-limited TwitterAPIs trial or your own key.
 - Local or cloud based stats history
 - Track multiple accounts
+- Keep local history and account settings when an X handle changes
 - One UI style app design
 - Blurred home screen widgets (One UI 7+ only)
 - Lock screen widget support (One UI 6.1+ only)
@@ -54,6 +55,8 @@ Twidget can fetch stats a few ways.
 3. **Self-hosted bridge** — deploy [`bridge/`](bridge/) yourself with any Node 22 host. Point Twidget at it under Settings → Advanced → Self-hosted bridge. Bridge routes include `GET /user/:username` and `GET /analytics/:username`. Set `BRIDGE_API_TOKEN` on self-hosted instances; the shared Twidget bridge remains token-free by design.
 4. **Official X API (bring your own credentials)** — for direct official profile stats. Bring your own API keys and fetch data directly from X using their V2 API. This is not cheap, so only paying X API users can utilise this option. Twidget does not provide this. 
 5. **TwitterAPIs** — Top Followers scans use Twidget's bridge and require shared-history consent. Add your own key for direct profile stats and bounded seven-day post analytics/media. Paid post analytics are cached for six hours and fall back to the configured bridge when unavailable.
+
+Changed your X handle? Twidget saves the permanent X account ID during profile sync and can resolve a missing or recycled handle to the same account. For older accounts with no saved ID, open **Settings → Accounts**, long-press the account, and choose **Change handle**. Enter the new handle for that same person to move local history, goals, widgets, imported analytics, streaks, cached results and scheduled posts together. Accounts that already have data under the new handle—including leftover goals or cached data—are kept separate to prevent overwriting either account. Migrations resume after an interruption, and late local writes follow the new handle. Shared-history reads require a matching permanent account ID. With shared history enabled, bridge transfers are queued and retried while offline; legacy bridge records with no saved ID require an administrator-verified transfer.
 
 The **Your Top Followers** dashboard card uses the shared-history bridge in both GitHub and Play builds. Enable shared history under Settings → Data and sources, then tap **Find top follower**. The bridge reuses a fresh completed scan or scans the public account through [TwitterAPIs](https://twitterapis.com), then refreshes enrolled accounts daily. Completed lists are shared with other opted-in installs tracking that handle. Device-side follower scans and their foreground service have been removed. Existing rankings remain cached when upgrading or disabling shared history. Personal provider keys remain available for profile and post analytics. Protected accounts are not supported.
 

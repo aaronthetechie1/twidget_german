@@ -10,9 +10,11 @@ test("Top Followers activity writes are hourly, per account, and preserve metada
   const recordActivity = createTopFollowersActivityRecorder({
     async hasAccount(key) { return metadata.has(key); },
     async getMeta(key) { return metadata.get(key); },
-    async setMeta(key, meta) {
+    async recordTopFollowersActivity(key, timestamp) {
+      if (!metadata.has(key)) return false;
       writes.push(key);
-      metadata.set(key, meta);
+      metadata.set(key, { ...metadata.get(key), topFollowersLastSeenAt: timestamp });
+      return true;
     },
   }, () => now);
 
@@ -37,7 +39,7 @@ test("failed activity writes can be retried", async () => {
   const recordActivity = createTopFollowersActivityRecorder({
     async hasAccount() { return true; },
     async getMeta() { return {}; },
-    async setMeta() { if (++attempts === 1) throw new Error("storage unavailable"); },
+    async recordTopFollowersActivity() { if (++attempts === 1) throw new Error("storage unavailable"); return true; },
   });
   await assert.rejects(recordActivity("example"), /storage unavailable/);
   await recordActivity("example");

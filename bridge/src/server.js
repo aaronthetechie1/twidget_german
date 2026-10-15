@@ -428,7 +428,8 @@ app.get("/history/:username", async (req, res) => {
       return;
     }
   }
-  res.json({ userName: username, history: await historyFor(username, { touch: true }) });
+  const meta = await historyRepository.getMeta(key);
+  res.json({ userName: username, userId: meta.userId || "", history: await historyFor(username, { touch: true }) });
 });
 
 app.get("/history/:username/top-followers", trackTopFollowersActivity, async (req, res) => {
@@ -664,6 +665,28 @@ app.post("/history/:username/analytics-import", historyJsonBody, async (req, res
     sendUpstreamFailure(res, "profile_fetch_failed", error);
   }
 });
+
+// Public callers can move only ID-bound records. Legacy attestation stays behind admin auth.
+async function handleAccountRename(req, res, allowLegacy) {
+  const old = cleanUsername(req.params.username).toLowerCase();
+  const next = cleanUsername(req.body?.username).toLowerCase();
+  const userId = stringValue(req.body?.userId);
+  if (!old || !next || old === next || !/^[0-9]+$/.test(userId)) return res.status(400).json({ error: "invalid_handle_change" });
+  try {
+    const profile = await fetchProfileLimited(next);
+    if (profile.userId !== userId || profile.userName.toLowerCase() !== next || profile.isPrivate === true) {
+      return res.status(409).json({ error: "destination_identity_conflict" });
+    }
+    const result = await historyRepository.renameAccount(old, next, userId, { allowLegacy });
+    res.json({ ...result, userName: next, userId });
+  } catch (error) {
+    if (["source_identity_unverified", "destination_identity_conflict"].includes(error.message)) return res.status(409).json({ error: error.message });
+    console.error("Account handle migration failed:", error.message);
+    res.status(503).json({ error: "handle_migration_failed" });
+  }
+}
+app.post("/history/:username/handle", historyJsonBody, (req, res) => handleAccountRename(req, res, false));
+app.post("/admin/history/:username/handle", historyJsonBody, (req, res) => handleAccountRename(req, res, req.body?.attestLegacyIdentity === true));
 
 app.delete("/admin/history/:username", async (req, res) => {
   const username = cleanUsername(req.params.username);
@@ -1176,7 +1199,7 @@ async function scheduleTopFollowersRefreshes(accounts) {
       }
       if (!meta.topFollowersLastSeenAt) {
         meta.topFollowersLastSeenAt = meta.topFollowersEnrolledAt || now;
-        await historyRepository.setMeta(key, meta);
+        await historyRepository.recordTopFollowersActivity(key, meta.topFollowersLastSeenAt);
       }
       if (now - meta.topFollowersLastSeenAt > topFollowersActiveDays * 24 * 60 * 60 * 1000) {
         dormant += 1;
@@ -1422,6 +1445,7 @@ async function fetchProfile(username) {
 function mockProfile(username) {
   const clean = cleanUsername(username) || "example";
   return {
+    userId: ["example", "renamed"].includes(clean) ? "123456" : String([...clean].reduce((id, char) => id * 31n + BigInt(char.charCodeAt(0)), 1n)),
     fullName: `Mock ${clean}`,
     userName: clean,
     followersCount: 1234,
@@ -1455,6 +1479,7 @@ async function fetchFxProfile(username) {
     throw new Error(`FxTwitter returned no user (${stringValue(json.message) || "unknown"})`);
   }
   return {
+    userId: stringValue(user.id),
     fullName: stringValue(user.name) || username,
     userName: (stringValue(user.screen_name) || username).replace(/^@+/, ""),
     followersCount: numberValue(user.followers),
@@ -1531,6 +1556,7 @@ function normalizeUser(user, fallbackUsername) {
   const statuses = findDeep(user, ["statusesCount", "statusCount", "tweetCount", "tweetsCount", "statuses_count", "listed_count"]);
   const likes = findDeep(user, ["likeCount", "likesCount", "favouritesCount", "favoritesCount", "favourites_count", "favorites_count"]);
   return {
+    userId: stringValue(firstDefined(user.userId, user.id_str, user.rest_id, user.id)),
     fullName: stringValue(firstDefined(findDeep(user, ["fullName", "name", "displayName", "display_name"]), fallbackUsername)),
     userName: stringValue(firstDefined(findDeep(user, ["userName", "username", "screenName", "screen_name", "handle"]), fallbackUsername)).replace(/^@+/, ""),
     followersCount: numberValue(followers),
@@ -1593,6 +1619,7 @@ async function fetchXMe(accessToken) {
 function normalizeXUser(user) {
   const metrics = user.public_metrics || {};
   const normalized = {
+    userId: stringValue(user.id),
     fullName: stringValue(user.name || user.username),
     userName: stringValue(user.username).replace(/^@+/, ""),
     followersCount: numberValue(metrics.followers_count),
@@ -1616,10 +1643,13 @@ function normalizeXUser(user) {
 
 async function withHistory(profile) {
   const username = cleanUsername(profile.userName);
+  const meta = await historyRepository.getMeta(username.toLowerCase());
+  const owned = Boolean(profile.userId && meta.userId === profile.userId);
   return {
     ...profile,
     syncedAt: Date.now(),
-    history: await historyFor(username),
+    historyUserId: owned ? meta.userId : "",
+    history: owned ? await historyFor(username) : [],
   };
 }
 
@@ -1639,9 +1669,12 @@ async function recordHistorySample(profile, { allowNew = false } = {}) {
       key,
       [historySampleFor(profile, Date.now())],
       maxHistoryAccounts,
+      profile.userId,
     );
     return registered ? historyRepository.getHistory(key) : null;
   }
+  const meta = await historyRepository.getMeta(key);
+  if (!profile.userId || meta.userId !== profile.userId) return [];
   return storeSamples(key, [historySampleFor(profile, Date.now())], { touchAccess: false });
 }
 

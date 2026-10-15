@@ -15,6 +15,8 @@ import com.tjg.twidget.widget.TwidgetWidget
 class TwidgetApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(this)
+        com.tjg.twidget.bridge.BridgeHandleMigrationWorker.enqueueIfPending(this)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             android.app.WallpaperManager.getInstance(this).addOnColorsChangedListener(
                 { _, _ -> refreshHomeWidgets() }, android.os.Handler(mainLooper),

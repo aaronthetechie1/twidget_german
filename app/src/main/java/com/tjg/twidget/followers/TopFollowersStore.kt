@@ -69,48 +69,52 @@ object TopFollowersStore {
     }
 
     fun write(context: Context, username: String, state: TopFollowersState) {
-        val top = JSONArray()
-        state.top.forEach { user ->
-            top.put(JSONObject().apply {
-                put("id", user.id)
-                put("username", user.username)
-                put("name", user.name)
-                put("followers", user.followers)
-                put("verified", user.verified)
-                put("avatar", user.avatarUrl)
-                if (user.scanIndex > 0) put("scanIndex", user.scanIndex)
-                user.mutual?.let { put("mutual", it) }
-            })
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val top = JSONArray()
+            state.top.forEach { user ->
+                top.put(JSONObject().apply {
+                    put("id", user.id)
+                    put("username", user.username)
+                    put("name", user.name)
+                    put("followers", user.followers)
+                    put("verified", user.verified)
+                    put("avatar", user.avatarUrl)
+                    if (user.scanIndex > 0) put("scanIndex", user.scanIndex)
+                    user.mutual?.let { put("mutual", it) }
+                })
+            }
+            val root = JSONObject().apply {
+                put("top", top)
+                put("cursor", state.cursor)
+                put("pages", state.pages)
+                put("scanned", state.scanned)
+                put("scanning", state.scanning)
+                put("complete", state.complete)
+                put("error", state.error)
+                put("startedAt", state.startedAt)
+                put("lastStartedDay", state.lastStartedDay)
+                put("completedAt", state.completedAt)
+                put("activeRunId", state.activeRunId)
+            }
+            prefs(context).edit().putString(key(username), root.toString()).apply()
         }
-        val root = JSONObject().apply {
-            put("top", top)
-            put("cursor", state.cursor)
-            put("pages", state.pages)
-            put("scanned", state.scanned)
-            put("scanning", state.scanning)
-            put("complete", state.complete)
-            put("error", state.error)
-            put("startedAt", state.startedAt)
-            put("lastStartedDay", state.lastStartedDay)
-            put("completedAt", state.completedAt)
-            put("activeRunId", state.activeRunId)
-        }
-        prefs(context).edit().putString(key(username), root.toString()).apply()
     }
 
-    @Synchronized
     fun clear(context: Context, username: String) {
-        prefs(context).edit().remove(key(username)).apply()
-        TopFollowersArchiveStore.clear(context, username)
-        androidx.work.WorkManager.getInstance(context.applicationContext)
-            .cancelUniqueWork("twidget-top-followers-bridge-${key(username)}")
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            prefs(context).edit().remove(key(username)).apply()
+            TopFollowersArchiveStore.clear(context, username)
+            androidx.work.WorkManager.getInstance(context.applicationContext)
+                .cancelUniqueWork("twidget-top-followers-bridge-${key(username)}")
+        }
     }
 
-    @Synchronized
     fun stopScan(context: Context, username: String): TopFollowersState {
-        val stopped = read(context, username).copy(scanning = false, error = "", activeRunId = "")
-        write(context, username, stopped)
-        return stopped
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val stopped = read(context, username).copy(scanning = false, error = "", activeRunId = "")
+            write(context, username, stopped)
+            return stopped
+        }
     }
 
     /** Preserve completed rankings, but discard state belonging to removed on-device scans. */
@@ -124,7 +128,7 @@ object TopFollowersStore {
     }
 
     private fun key(username: String) = username.trim().trimStart('@').lowercase(Locale.US)
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
 }
 
 private fun JSONObject.optNullableBoolean(key: String): Boolean? =

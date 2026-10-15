@@ -17,22 +17,26 @@ object BriefStore {
     }
 
     fun write(context: Context, snapshot: BriefSnapshot) {
-        prefs(context).edit().putString(key(snapshot.username), encode(snapshot).toString()).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            prefs(context).edit().putString(key(snapshot.username), encode(snapshot).toString()).apply()
+        }
     }
 
     fun resetAi(context: Context, username: String) {
-        read(context, username)?.let { snapshot ->
-            write(
-                context,
-                snapshot.copy(
-                    providerUsed = BriefProviderUsed.TEMPLATE,
-                    providerMessage = context.getString(R.string.brief_provider_note_template),
-                    aiGeneratedAt = 0L,
-                    headline = "",
-                    subheading = "",
-                    shortDescription = "",
-                ),
-            )
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            read(context, username)?.let { snapshot ->
+                write(
+                    context,
+                    snapshot.copy(
+                        providerUsed = BriefProviderUsed.TEMPLATE,
+                        providerMessage = context.getString(R.string.brief_provider_note_template),
+                        aiGeneratedAt = 0L,
+                        headline = "",
+                        subheading = "",
+                        shortDescription = "",
+                    ),
+                )
+            }
         }
     }
 
@@ -182,5 +186,5 @@ object BriefStore {
         username.trim().trimStart('@').lowercase(Locale.US)
 
     private fun prefs(context: Context) =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
 }

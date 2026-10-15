@@ -70,6 +70,7 @@ object TwitterApisClient {
             "TwitterAPIs returned an unrecognized profile response"
         }
         return ProfileStats(
+            userId = string("id_str", "rest_id", "id", "userId").takeIf { it.matches(Regex("[0-9]+")) }.orEmpty(),
             fullName = string("name").ifBlank { handle },
             userName = handle,
             followersCount = count("followers_count", "followers"),

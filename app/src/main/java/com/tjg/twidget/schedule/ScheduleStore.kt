@@ -35,6 +35,7 @@ class ScheduleStore(
 
     /** Reads never write, purge files, or release URI grants. Call maintain on a background thread. */
     fun snapshot(): List<ScheduledPost> = synchronized(lock) {
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(appContext)
         activeSnapshot(readAllLocked(), System.currentTimeMillis())
     }
 
@@ -75,9 +76,17 @@ class ScheduleStore(
 
     /** Caller must not do network work inside this edit; notifications run after the successful commit. */
     internal fun <T> transaction(edit: (MutableList<ScheduledPost>) -> T): T = synchronized(lock) {
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(appContext)
         val previous = readAllLocked()
         val posts = activeSnapshot(previous, System.currentTimeMillis()).toMutableList()
         val result = edit(posts)
+        posts.replaceAll { post ->
+            val canonical = com.tjg.twidget.data.TwidgetStore.canonicalAccount(appContext, post.accountUsername)
+            if (canonical.equals(post.accountUsername, true)) post else post.copy(
+                accountUsername = canonical,
+                accountId = if (post.accountId?.equals(post.accountUsername, true) == true) canonical else post.accountId,
+            )
+        }
         if (posts == previous) return@synchronized result
         writeAllLocked(posts)
         releaseUnusedLocalMedia(previous, posts)
@@ -133,6 +142,6 @@ class ScheduleStore(
         const val PREFS_NAME = "twidget_schedules"
         private const val KEY_POSTS = "posts"
         private const val KEY_CORRUPT_BACKUP = "posts_corrupt_backup"
-        private val lock = Any()
+        private val lock = com.tjg.twidget.data.TwidgetStore
     }
 }

@@ -79,10 +79,10 @@ original completion time. Preview reads and explicit scan requests also obey
 the full-scan interval, so polling cannot bypass the weekly cadence.
 `TOP_FOLLOWERS_FRESH_HOURS` (default 24) remains the immediate request-reuse
 window; older snapshots are still reused until the configured scan is due.
-`TOP_FOLLOWERS_REFRESH_HOURS` (default 24, range 1–168) now controls the cadence
-of optional head checks and the cooldown before retrying a failed attempt,
-rather than scheduling daily full scans. Failed full scans can retry after this
-cooldown; successful full scans reset the full-scan clock.
+`TOP_FOLLOWERS_REFRESH_HOURS` (default 24, range 1–168) controls the cadence
+of optional head checks and the fallback cooldown for legacy failed attempts.
+Persisted provider-specific retry times take precedence, preserving staging's
+resumable scans and backoff. Successful full scans reset the full-scan clock.
 
 **Provider ordering is unverified:** neither the `followers_v2` adapter nor the
 repository's docs/tests establish newest-first follower ordering. Head checks
@@ -103,8 +103,12 @@ time as the last full scan. `/health` exposes `history.topFollowers.fullScanDays
 `headCheck`, `headPages`, and `providerOrderingVerified` (currently false),
 alongside the existing settings.
 
-Postgres page writes increment the scan count by actual inserted rows, in the
-same transaction as the cursor. The single-instance JSON backend keeps its existing coalesced atomic writes. Expired provider cursors
+Activity updates patch only the last-seen timestamp, preserve concurrent metadata,
+and cannot recreate a deleted or renamed account. The timestamp never moves backward.
+
+Postgres page writes adjust the scan count by actual inserted and removed rows,
+without counting updates as new followers, in the same transaction as the cursor.
+Head/full state uses the existing `scan_state` JSONB column; no parallel scan schema is added. The single-instance JSON backend keeps its existing coalesced atomic writes. Expired provider cursors
 can fail the attempt, which will restart after the retry cooldown. Head scans
 stage a copy of the archive and publish atomically, so they still incur local
 archive-copy/storage costs even though provider calls are bounded.
@@ -226,3 +230,11 @@ controls include:
 - `X_BEARER_TOKEN` and `PUBLIC_OFFICIAL_API=1` — official endpoint credentials and public exposure opt-in.
 - `X_OAUTH_ENABLED=1`, `X_CLIENT_ID`, and `X_CALLBACK_URL` — OAuth opt-in and fixed callback.
 - `CORS_ALLOW_ORIGIN` — exact browser origin; absent means no CORS header.
+
+### Account handle changes
+
+Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. Clients must not merge history with a missing or different account ID. Existing legacy pool records are not automatically bound to whoever currently owns a handle.
+
+`POST /history/:oldHandle/handle` accepts `{ "username": "newHandle", "userId": "permanentXId" }`. The bridge verifies the live destination, then moves only ID-bound source records. A destination with a different or unknown ID is rejected. Transfers are atomic in PostgreSQL and atomically published by the JSON backend, preserve history, metadata and follower scans, and can be retried safely. No client history samples are uploaded by this operation.
+
+For independently verified legacy records only, operators can use the admin-authenticated equivalent `POST /admin/history/:oldHandle/handle` with `attestLegacyIdentity: true`. This credential and attestation are never available to Android clients. The administrator must independently establish that both handles identify the same person. Keep a scoped backup before an operator transfer.
