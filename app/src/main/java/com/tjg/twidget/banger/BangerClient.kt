@@ -27,7 +27,7 @@ data class BangerResult(
 /** Builds a durable per-account Hall of Fame without retaining full timelines. */
 object BangerClient {
     private const val PREFS = "twidget_bangers"
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val PAGES_PER_REFRESH = 5
     private const val MAX_POSTS = 75_000
     private const val PAGE_SIZE = 100
@@ -90,8 +90,10 @@ object BangerClient {
         val key = "v$VERSION:${username.lowercase(Locale.US)}"
         val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
         val state = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
-        var winner = state.optJSONObject("post")?.let(::postFromJson)
-        var winnerScore = state.optDouble("score", 0.0)
+        val previous = prefs.getString("v2:${username.lowercase(Locale.US)}", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        var winner = (state.optJSONObject("post") ?: previous?.optJSONObject("post"))?.let(::postFromJson)
+        var winnerScore = winner?.let(BangerScore::calculate) ?: 0.0
         var complete = state.optBoolean("complete", false)
         var postsScanned = state.optInt("postsScanned", 0)
         var capped = state.optBoolean("capped", false)
@@ -118,7 +120,7 @@ object BangerClient {
             val results = root.optJSONArray("results") ?: JSONArray()
             for (index in 0 until results.length()) {
                 val status = results.optJSONObject(index) ?: continue
-                if (!isOwnOriginal(status, requested)) continue
+                if (!isOwnPost(status, requested)) continue
                 val post = AnalyticsClient.parseFxPost(status)
                 if (post.views <= 0) continue
                 if (!complete && !capped) postsScanned++
@@ -159,14 +161,10 @@ object BangerClient {
         return BangerResult(winner, winnerScore, complete, postsScanned, capped)
     }
 
-    private fun isOwnOriginal(status: JSONObject, username: String): Boolean {
+    internal fun isOwnPost(status: JSONObject, username: String): Boolean {
         if (status.optString("type") != "status") return false
         if (!status.optJSONObject("author")?.optString("screen_name").orEmpty().equals(username, true)) return false
-        if (AnalyticsClient.hasValue(status, "reposted_by") || AnalyticsClient.hasValue(status, "replying_to") ||
-            AnalyticsClient.hasValue(status, "in_reply_to_status_id") || AnalyticsClient.hasValue(status, "in_reply_to_status_id_str")) return false
-        val id = status.optString("id")
-        val conversation = status.optString("conversation_id")
-        if (conversation.isNotBlank() && id.isNotBlank() && conversation != id) return false
+        if (AnalyticsClient.hasValue(status, "reposted_by")) return false
         return status.optString("url").lowercase(Locale.US).contains("/$username/status/") &&
             AnalyticsClient.fxTimestamp(status) in 1..(System.currentTimeMillis() + 5 * 60_000)
     }

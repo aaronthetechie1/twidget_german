@@ -39,7 +39,7 @@ internal data class TwitterApisTimelineResult(
 object AnalyticsClient {
     private const val WORST_POST_MATURITY_MS = 24 * 60 * 60 * 1000L
     private const val PREFS = "twidget_analytics"
-    private const val CACHE_VERSION = 6
+    private const val CACHE_VERSION = 7
     private const val STALE_MS = 60 * 60 * 1000L // 1 hour
     private const val TWITTERAPIS_STALE_MS = 6 * 60 * 60 * 1000L
     private const val MAX_ANALYTICS_STATUSES = 200
@@ -147,6 +147,7 @@ object AnalyticsClient {
             statusesInspected = statuses.size,
             sampled = timeline.incomplete,
             posts = posts,
+            bestCandidates = statuses.mapNotNull { parseTwitterApisPost(it, username, weekAgo, now, includeReplies = true) },
             cachedAt = now,
         )
     }
@@ -207,6 +208,7 @@ object AnalyticsClient {
             statusesInspected = statuses.size,
             sampled = timeline.incomplete,
             posts = posts,
+            bestCandidates = statuses.filter { isOwnWeeklyPost(it, requested, weekAgo, now, includeReplies = true) }.map(::parseFxPost),
             cachedAt = System.currentTimeMillis(),
         )
     }
@@ -216,6 +218,7 @@ object AnalyticsClient {
         requestedUsername: String,
         weekAgo: Long,
         now: Long,
+        includeReplies: Boolean = false,
     ): PostSummary? {
         val author = tweet.optJSONObject("author") ?: tweet.optJSONObject("user") ?: JSONObject()
         val authorUsername = tweetString(author, "userName", "username", "screen_name")
@@ -228,8 +231,8 @@ object AnalyticsClient {
         val isRepost = tweetBoolean(tweet, "is_retweet", "isRetweet", "is_repost", "isRepost") ||
             tweet.has("retweeted_tweet") || tweet.has("reposted_tweet")
         val timestamp = twitterApisTimestamp(tweet)
-        if (isReply || isRepost || timestamp !in weekAgo..(now + 5 * 60_000L)) return null
-        if (conversationId.isNotBlank() && id.isNotBlank() && conversationId != id) return null
+        if ((!includeReplies && isReply) || isRepost || timestamp !in weekAgo..(now + 5 * 60_000L)) return null
+        if (!includeReplies && conversationId.isNotBlank() && id.isNotBlank() && conversationId != id) return null
 
         val url = safeWebUrl(tweetString(tweet, "url", "tweet_url", "twitterUrl")).ifBlank {
             if (id.isBlank()) "" else "https://x.com/$authorUsername/status/$id"
@@ -259,12 +262,13 @@ object AnalyticsClient {
         )
     }
 
-    private fun analyticsFromPosts(
+    internal fun analyticsFromPosts(
         username: String,
         followers: Long,
         statusesInspected: Int,
         sampled: Boolean,
         posts: List<PostSummary>,
+        bestCandidates: List<PostSummary> = posts,
         cachedAt: Long,
     ): PostAnalytics {
         val views = posts.map { it.views }
@@ -294,7 +298,7 @@ object AnalyticsClient {
                 totalEngagements.toDouble() / count / followers
             } else 0.0,
             engagementRate = if (totalViews > 0) totalEngagements.toDouble() / totalViews else 0.0,
-            best = posts.maxByOrNull { it.engagements },
+            best = bestCandidates.maxByOrNull { it.engagements },
             worst = maturePosts.minByOrNull { it.engagements }.takeIf { maturePosts.size >= 2 },
             cachedAt = cachedAt,
             medianLikes = median(likes),
@@ -304,8 +308,8 @@ object AnalyticsClient {
         )
     }
 
-    private fun isOwnWeeklyPost(status: JSONObject, username: String, weekAgo: Long, now: Long): Boolean =
-        FxPostPolicy.isOwnOriginalInWindow(
+    internal fun isOwnWeeklyPost(status: JSONObject, username: String, weekAgo: Long, now: Long, includeReplies: Boolean = false): Boolean =
+        FxPostPolicy.isOwnInWindow(
             FxStatusCandidate(
                 type = status.optString("type"),
                 authorUsername = status.optJSONObject("author")?.optString("screen_name").orEmpty(),
@@ -321,6 +325,7 @@ object AnalyticsClient {
             username,
             weekAgo,
             now,
+            includeReplies,
         )
 
     internal fun parseFxPost(status: JSONObject): PostSummary {

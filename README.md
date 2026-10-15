@@ -160,3 +160,5 @@ Use `-PbetaNumber=N` when a non-Git build needs an explicit beta number.
 - [Localisation guide](docs/LOCALISATION.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Maintainer release process](docs/RELEASING.md)
+
+Banger and Best tweet this week rankings include your own replies, so a breakout reply can win. Worst tweet, weekly averages, and posting streaks use original posts only; replies and reposts do not enter those baselines. Updated Banger scans revisit older pages while keeping the previous winner until a stronger post is found.

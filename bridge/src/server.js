@@ -6,6 +6,7 @@ import path from "node:path";
 import { Pool } from "pg";
 import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
+import { ownFxPostEligible, weeklyWinners } from "./post-ranking.js";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
 import { createTopFollowersActivityRecorder, prepareTopFollowersCache, topFollowersRefreshKind } from "./top-followers.js";
@@ -54,7 +55,7 @@ const topFollowersMaxConcurrent = envInteger("TOP_FOLLOWERS_MAX_CONCURRENT", 2, 
 const topFollowersMaxPages = envInteger("TOP_FOLLOWERS_MAX_PAGES", 6250, 1, 6250);
 const bangerPagesPerRequest = envInteger("BANGER_PAGES_PER_REQUEST", 5, 1, 20);
 const bangerMaxPosts = envInteger("BANGER_MAX_POSTS", 75000, 20, 100000);
-const bangerScoringVersion = 2;
+const bangerScoringVersion = 3;
 // Archive lookups fan one request out into many remote fetches, so self-hosters
 // must opt in deliberately. It is unsafe as a public-instance default.
 const waybackEnabled = process.env.WAYBACK_BACKFILL === "1";
@@ -76,7 +77,7 @@ const twitterApisFollowersEndpoint = String(process.env.TWITTERAPIS_FOLLOWERS_EN
 
 const redisClient = await connectRedis(redisUrl);
 const cache = new SharedJsonCache({ client: redisClient, prefix: "twidget:profile", maxEntries: maxCacheEntries });
-const analyticsCache = new SharedJsonCache({ client: redisClient, prefix: "twidget:analytics", maxEntries: maxCacheEntries });
+const analyticsCache = new SharedJsonCache({ client: redisClient, prefix: "twidget:analytics:v2", maxEntries: maxCacheEntries });
 const requestLimiter = redisClient
   ? new RedisFixedWindowLimiter({ client: redisClient, prefix: "twidget:rate:all", windowMs: rateLimitWindowMs })
   : new LocalFixedWindowLimiter({ windowMs: rateLimitWindowMs, maxKeys: maxTrackedIps });
@@ -782,9 +783,7 @@ async function computeAnalytics(username) {
   const shares = posts.map((post) => post.reposts + post.quotes);
   const totalViews = sum(views);
   const totalEngagements = sum(engagements);
-  const best = maxBy(posts, (post) => post.engagements);
-  const maturePosts = posts.filter((post) => post.ts > 0 && Date.now() - post.ts >= 24 * 60 * 60 * 1000);
-  const worst = minBy(maturePosts, (post) => post.engagements);
+  const { best, worst } = weeklyWinners(posts, activity.bestCandidates || posts);
 
   return {
     userName: username,
@@ -810,8 +809,8 @@ async function computeAnalytics(username) {
       medianShares: median(shares),
     },
     // Require two posts with a full day of exposure before naming a quietest one.
-    best: posts.length ? best : null,
-    worst: maturePosts.length >= 2 ? worst : null,
+    best,
+    worst,
     // Lets clients derive conservative, account-specific guidance without
     // exposing replies or reposts (already excluded by fetchFxWeeklyPosts).
     recentPosts: posts.slice(0, 50).map((post) => ({
@@ -837,7 +836,10 @@ async function refreshBanger(username) {
   }
   const meta = await historyRepository.getMeta(key);
   let state = normalizeBangerState(meta.banger);
-  if (state.version !== bangerScoringVersion) state = normalizeBangerState(null);
+  if (state.version !== bangerScoringVersion) {
+    // Revisit older pages for replies while retaining the previous winner.
+    state = { ...normalizeBangerState(null), post: state.post, score: state.post ? bangerScore(state.post) : 0 };
+  }
   // A raised BANGER_MAX_POSTS lets a previously capped scan resume from its cursor.
   if (state.capped && state.postsScanned < bangerMaxPosts) state.capped = false;
   let cursor = state.complete || state.capped ? "" : state.cursor;
@@ -852,7 +854,7 @@ async function refreshBanger(username) {
       break;
     }
     for (const status of page.results) {
-      if (!isOwnOriginalPost(status, key)) continue;
+      if (!ownFxPostEligible(status, key, { includeReplies: true })) continue;
       const post = normalizeFxStatus(status);
       if (post.views <= 0) continue;
       if (!state.complete && !state.capped) state.postsScanned += 1;
@@ -904,17 +906,6 @@ async function fetchFxStatusPage(username, cursor = "") {
   };
 }
 
-function isOwnOriginalPost(status, requestedUsername) {
-  if (!status || status.type !== "status") return false;
-  if (stringValue(status.author?.screen_name).toLowerCase() !== requestedUsername) return false;
-  if (status.reposted_by || status.replying_to || status.in_reply_to_status_id || status.in_reply_to_status_id_str) return false;
-  const id = stringValue(status.id);
-  if (status.conversation_id != null && id && stringValue(status.conversation_id) !== id) return false;
-  const ts = timestampForStatus(status);
-  return ts > 0 && ts <= Date.now() + 5 * 60 * 1000 &&
-    stringValue(status.url).toLowerCase().includes(`/${requestedUsername}/status/`);
-}
-
 function normalizeBangerState(value) {
   const state = value && typeof value === "object" ? value : {};
   return {
@@ -960,7 +951,10 @@ async function fetchFxWeeklyPosts(username, weekAgo) {
     .filter((status) => isWeeklyOwnPost(status, requested, weekAgo))
     .map(normalizeFxStatus)
     .sort((a, b) => b.ts - a.ts);
-  return { posts, complete: results.length < analyticsPostCount };
+  const bestCandidates = results
+    .filter(status => ownFxPostEligible(status, requested, { windowStart: weekAgo, includeReplies: true }))
+    .map(normalizeFxStatus);
+  return { posts, bestCandidates, complete: results.length < analyticsPostCount };
 }
 
 function normalizeFxStatus(status) {
@@ -990,16 +984,7 @@ function normalizeFxStatus(status) {
 }
 
 function isWeeklyOwnPost(status, requestedUsername, weekAgo) {
-  if (!status || status.type !== "status") return false;
-  if (stringValue(status.author?.screen_name).toLowerCase() !== requestedUsername) return false;
-  if (status.reposted_by) return false;
-  if (status.replying_to || status.in_reply_to_status_id || status.in_reply_to_status_id_str) return false;
-
-  const id = stringValue(status.id);
-  if (stringValue(status.url).toLowerCase().includes(`/${requestedUsername}/status/`) === false) return false;
-
-  const ts = timestampForStatus(status);
-  return ts >= weekAgo && ts <= Date.now() + 5 * 60 * 1000 && (!id || status.conversation_id == null || stringValue(status.conversation_id) === id);
+  return ownFxPostEligible(status, requestedUsername, { windowStart: weekAgo });
 }
 
 function timestampForStatus(status) {
