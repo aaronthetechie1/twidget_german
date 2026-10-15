@@ -60,7 +60,7 @@ jobs:
             exit 1
           fi
           VERSION_RE=$(printf '%s' "$VERSION" | sed 's/[.[*^$(){}?+|]/\\&/g')
-          if ! grep -Eq "## \[${VERSION_RE}(-beta\.[1-9][0-9]*)?\]" CHANGELOG.md; then
+          if ! grep -Eq "^## \[${VERSION_RE}(-beta\.[1-9][0-9]*)?\]([[:space:]]|$)" CHANGELOG.md; then
             echo "::error::CHANGELOG.md has no section for [$VERSION] or [$VERSION-beta.N]."
             exit 1
           fi
