@@ -44,6 +44,29 @@ for (const backend of ['json', 'postgres']) {
     await repository.recordTopFollowersActivity('example', 1000);
     assert.equal((await repository.getMeta('example')).topFollowersLastSeenAt, 2000);
   });
+  test(`${backend}: pages deduplicate handles and IDs before writing`, options, async t => {
+    const r = await repositoryFor(t, backend);
+    await r.registerAccount('example', [], 10, '123456');
+    const scanId = crypto.randomUUID();
+    await r.startTopFollowersScan('example', scanId);
+    const page = [follower('1'), { ...follower('2'), username: 'FAN1' },
+      { ...follower('1'), username: 'alias' }, follower('3')];
+    const first = await r.appendTopFollowersPage('example', scanId, page, 'next');
+    assert.equal(first.scanned, 2);
+    const second = await r.appendTopFollowersPage('example', scanId,
+      [{ ...follower('3'), followers: 300 }, follower('4'), { ...follower('5'), username: 'FAN4' }], '');
+    assert.equal(second.scanned, 3);
+    await r.completeTopFollowersScan('example', scanId);
+    const snapshot = await r.getTopFollowersSnapshot('example');
+    assert.equal(snapshot.total, 3);
+    assert.deepEqual(snapshot.followers.map(value => value.id), ['3', '4', '1']);
+    const head = crypto.randomUUID();
+    await r.startTopFollowersScan('example', head, Date.now(), 'head');
+    const appended = await r.appendTopFollowersPage('example', head, page, '');
+    assert.equal(appended.scanned, 3);
+    await r.completeTopFollowersScan('example', head);
+    assert.equal((await r.getTopFollowersSnapshot('example')).total, 3);
+  });
   test(`${backend}: activity cannot resurrect a deleted or renamed account`, options, async t => {
     const repository = await repositoryFor(t, backend);
     for (const mutation of ['delete', 'rename']) {

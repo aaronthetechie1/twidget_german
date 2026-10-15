@@ -3,27 +3,6 @@ const MAX_SCANNED = 10_000_000;
 const MAX_PAGES = 6_250;
 const DAY = 24 * 60 * 60 * 1000;
 
-export function planTopFollowersScan({ snapshot, followersCount, now = Date.now(), fullRefreshMs = 7 * DAY, buffer = 100 }) {
-  const count = Number.isSafeInteger(followersCount) && followersCount >= 0 ? followersCount : null;
-  const fullAt = Number(snapshot?.lastFullCompletedAt || snapshot?.completedAt || 0);
-  const baseline = snapshot?.sourceFollowers;
-  const full = !snapshot || !fullAt || now - fullAt >= fullRefreshMs || count === null ||
-    !Number.isSafeInteger(baseline) || baseline < 0;
-  return {
-    mode: full ? "full" : "incremental",
-    baseScanId: full ? "" : snapshot.scanId,
-    sourceFollowers: count,
-    lastFullCompletedAt: fullAt,
-    // Net growth underestimates gross follows when there is churn. Read a
-    // generous overlap as well, then reconcile the entire list each week.
-    targetRows: full ? 0 : Math.max(buffer, Math.ceil(Math.max(0, count - baseline) * 1.5) + buffer),
-    processed: 0,
-    knownStreak: 0,
-    failureCount: 0,
-    retryAt: 0,
-  };
-}
-
 export function canResumeTopFollowersScan(scan, { now = Date.now(), resumeMaxAgeMs = DAY, maxPages = MAX_PAGES } = {}) {
   return scan?.status === "failed" && now >= Number(scan.retryAt || 0) &&
     now - scan.startedAt <= resumeMaxAgeMs && scan.pages < maxPages &&

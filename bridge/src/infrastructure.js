@@ -253,7 +253,7 @@ export class LocalHistoryRepository {
     const previous = existing?.status === "complete" ? existing : existing?.previous;
     const kind = options.kind === "head" && previous ? "head" : "full";
     const scan = {
-      ...options.plan, kind,
+      kind,
       fullCompletedAt: kind === "head" ? Number(previous.fullCompletedAt || previous.lastFullCompletedAt || previous.completedAt || 0) : 0,
       scanId, status: "running", cursor: "", pages: 0, scanned: 0,
       startedAt: now, updatedAt: now, completedAt: 0, error: "",
@@ -266,6 +266,7 @@ export class LocalHistoryRepository {
     return topFollowersScanSummary(scan);
   }
   async appendTopFollowersPage(key, scanId, followers, cursor, now = this.now()) {
+    followers = uniqueTopFollowerPage(followers);
     const scan = this.store.topFollowers[key];
     if (!scan || scan.scanId !== scanId || scan.status !== "running") return null;
     let index = this.scanIdentities.get(scan);
@@ -273,18 +274,8 @@ export class LocalHistoryRepository {
       index = followerIndex(scan.followers);
       this.scanIdentities.set(scan, index);
     }
-    let base;
-    if (scan.mode === "incremental" && scan.previous) {
-      base = this.scanIdentities.get(scan.previous);
-      if (!base) {
-        base = followerIndex(scan.previous.followers);
-        this.scanIdentities.set(scan.previous, base);
-      }
-    }
     for (const value of followers) {
       if (!topFollowerIdentity(value)) continue;
-      const known = indexedFollower(base, value);
-      scan.knownStreak = known ? Number(scan.knownStreak || 0) + 1 : 0;
       const row = indexedFollower(index, value);
       if (row) { if (scan.kind !== "head") Object.assign(row, value); }
       else {
@@ -293,7 +284,6 @@ export class LocalHistoryRepository {
         indexFollower(index, added);
       }
     }
-    scan.processed = Number(scan.processed || 0) + followers.length;
     scan.failureCount = 0;
     scan.retryAt = 0;
     scan.cursor = cursor;
@@ -306,18 +296,12 @@ export class LocalHistoryRepository {
   async completeTopFollowersScan(key, scanId, now = this.now()) {
     const scan = this.store.topFollowers[key];
     if (!scan || scan.scanId !== scanId || scan.status !== "running") return null;
-    if (scan.mode === "incremental" && scan.previous) {
-      const fresh = followerIndex(scan.followers);
-      for (const value of scan.previous.followers) {
-        if (!indexedFollower(fresh, value)) scan.followers.push({ ...value, scanIndex: scan.followers.length });
-      }
-    }
     scan.scanned = scan.followers.length;
     scan.status = "complete";
     scan.cursor = "";
     scan.completedAt = now;
     scan.updatedAt = now;
-    if (scan.kind !== "head" && scan.mode !== "incremental") scan.lastFullCompletedAt = now;
+    if (scan.kind !== "head") scan.lastFullCompletedAt = now;
     scan.fullCompletedAt = scan.kind === "head" ? scan.fullCompletedAt : scan.lastFullCompletedAt;
     delete scan.previous;
     await this.persist();
@@ -666,7 +650,7 @@ export class PostgresHistoryRepository {
         ORDER BY completed_at DESC LIMIT 1
       `, [key]) : { rows: [] };
       const source = previous.rows[0];
-      const plan = { ...options.plan, kind: source ? "head" : "full" };
+      const plan = { kind: source ? "head" : "full" };
       if (source) plan.fullCompletedAt = Number(source.scan_state?.fullCompletedAt || source.scan_state?.lastFullCompletedAt || source.completed_at_ms || 0);
       const inserted = await client.query(`
         INSERT INTO twidget_top_follower_scans (scan_id, username, status, scan_state, scanned)
@@ -690,6 +674,7 @@ export class PostgresHistoryRepository {
     } finally { client.release(); }
   }
   async appendTopFollowersPage(key, scanId, followers, cursor) {
+    followers = uniqueTopFollowerPage(followers);
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -702,17 +687,6 @@ export class PostgresHistoryRepository {
         return null;
       }
       const state = { ...current.rows[0].scan_state };
-      if (state.mode === "incremental") {
-        const known = await client.query(`
-          SELECT follower_id, lower(follower_username) AS username FROM twidget_top_followers
-          WHERE scan_id = $1::uuid AND
-            ((follower_id <> '' AND follower_id = ANY($2::text[])) OR lower(follower_username) = ANY($3::text[]))
-        `, [state.baseScanId, followers.map(v => v.id || ""), followers.map(v => v.username.toLowerCase())]);
-        const ids = new Set(known.rows.map(v => v.follower_id).filter(Boolean));
-        const names = new Set(known.rows.map(v => v.username));
-        for (const value of followers) state.knownStreak = ids.has(value.id) || names.has(value.username.toLowerCase()) ? Number(state.knownStreak || 0) + 1 : 0;
-      }
-      state.processed = Number(state.processed || 0) + followers.length;
       state.failureCount = 0;
       state.retryAt = 0;
       const lastIndex = await client.query("SELECT COALESCE(max(scan_index), -1) + 1 AS next_index FROM twidget_top_followers WHERE scan_id = $1::uuid", [scanId]);
@@ -778,26 +752,7 @@ export class PostgresHistoryRepository {
       const current = await client.query("SELECT scan_state FROM twidget_top_follower_scans WHERE scan_id = $1::uuid AND username = $2 AND status = 'running' FOR UPDATE", [scanId, key]);
       if (!current.rows[0]) { await client.query("ROLLBACK"); return null; }
       const state = { ...current.rows[0].scan_state };
-      if (state.mode === "incremental") {
-        // Publish an entire merged snapshot atomically. Old rows remain visible
-        // during the crawl and keep their last known counts until reconciliation.
-        await client.query(`
-          INSERT INTO twidget_top_followers
-            (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
-          SELECT $1::uuid,
-            (SELECT COALESCE(max(scan_index), -1) FROM twidget_top_followers WHERE scan_id = $1::uuid) +
-              row_number() OVER (ORDER BY old.scan_index),
-            old.follower_id, old.follower_username, old.display_name, old.followers, old.verified, old.avatar, old.mutual
-          FROM twidget_top_followers old
-          WHERE old.scan_id = $3::uuid AND EXISTS (
-            SELECT 1 FROM twidget_top_follower_scans WHERE scan_id = $3::uuid AND username = $2 AND status = 'complete'
-          ) AND NOT EXISTS (
-            SELECT 1 FROM twidget_top_followers fresh WHERE fresh.scan_id = $1::uuid AND
-              (lower(fresh.follower_username) = lower(old.follower_username) OR
-               (old.follower_id <> '' AND fresh.follower_id = old.follower_id))
-          )
-        `, [scanId, key, state.baseScanId]);
-      } else if (state.kind !== "head") state.lastFullCompletedAt = Date.now();
+      if (state.kind !== "head") state.lastFullCompletedAt = Date.now();
       state.fullCompletedAt = state.kind === "head" ? state.fullCompletedAt : state.lastFullCompletedAt;
       const updated = await client.query(`
         UPDATE twidget_top_follower_scans SET status = 'complete', cursor = '', completed_at = now(), updated_at = now(),
@@ -1186,11 +1141,8 @@ function topFollowersScanSummary(scan) {
   return {
     kind: scan.kind === "head" ? "head" : "full",
     fullCompletedAt: Number(scan.fullCompletedAt || scan.lastFullCompletedAt || (scan.kind !== "head" ? scan.completedAt : 0) || 0),
-    mode: scan.mode || "full", baseScanId: scan.baseScanId || "",
-    sourceFollowers: Number.isSafeInteger(scan.sourceFollowers) ? scan.sourceFollowers : null,
     lastFullCompletedAt: Number(scan.fullCompletedAt || scan.lastFullCompletedAt || (scan.kind !== "head" && scan.status === "complete" ? scan.completedAt : 0) || 0),
-    targetRows: Number(scan.targetRows || 0), processed: Number(scan.processed || 0),
-    knownStreak: Number(scan.knownStreak || 0), failureCount: Number(scan.failureCount || 0), retryAt: Number(scan.retryAt || 0),
+    failureCount: Number(scan.failureCount || 0), retryAt: Number(scan.retryAt || 0),
     scanId: String(scan.scanId || ""),
     status: String(scan.status || ""),
     cursor: String(scan.cursor || ""),
@@ -1215,6 +1167,21 @@ function topFollowersScanFromRow(row) {
     startedAt: row.started_at_ms,
     updatedAt: row.updated_at_ms,
     completedAt: row.completed_at_ms,
+  });
+}
+
+// Provider pages can repeat a handle under different IDs, or an ID under aliases.
+// Keep the first row for either identity so PostgreSQL never upserts one row twice.
+function uniqueTopFollowerPage(followers) {
+  const ids = new Set();
+  const usernames = new Set();
+  return followers.filter(value => {
+    const username = String(value.username || "").toLowerCase();
+    const id = String(value.id || "");
+    if (!username || usernames.has(username) || (id && ids.has(id))) return false;
+    usernames.add(username);
+    if (id) ids.add(id);
+    return true;
   });
 }
 

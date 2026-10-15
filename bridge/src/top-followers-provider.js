@@ -33,14 +33,16 @@ export async function fetchTwitterApisFollowersPage({
 export function parseTwitterApisFollowersPage(body) {
   const root = body && typeof body === "object" ? body : {};
   const values = Array.isArray(root.users) ? root.users : [];
-  const seen = new Set();
+  const seenIds = new Set();
+  const seenUsernames = new Set();
   const users = [];
   for (const value of values) {
     const follower = normalizeProviderFollower(value);
     if (!follower) continue;
-    const identity = String(follower.id || follower.username).toLowerCase();
-    if (seen.has(identity)) continue;
-    seen.add(identity);
+    const username = follower.username.toLowerCase();
+    if (seenUsernames.has(username) || (follower.id && seenIds.has(follower.id))) continue;
+    seenUsernames.add(username);
+    if (follower.id) seenIds.add(follower.id);
     users.push(follower);
   }
   return {
