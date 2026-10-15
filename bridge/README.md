@@ -60,12 +60,62 @@ distributed APK.
 
 Top Followers provider credentials remain server-side. When a shared-history
 user first asks to find their top follower, that request enrolls the account in
-server-owned refreshes once per `TOP_FOLLOWERS_REFRESH_HOURS` (24 hours by
-default), including while phones are offline. Accounts that only participate in
-pooled metric history are not scanned until that explicit first request.
-Ordinary app installs cannot submit follower rows. Initial client requests have
+server-owned full scans once per `TOP_FOLLOWERS_FULL_SCAN_DAYS` (default 7,
+allowed 1–90 days), including while phones are offline, as long as a client has used Top
+Followers within `TOP_FOLLOWERS_ACTIVE_DAYS` (default 7, allowed 1–365 days).
+Preview, archive, scan-status, and scan-start requests record activity, with
+metadata writes throttled to once per hour per account in each bridge process.
+Dormant accounts keep their stale ranking but stop starting paid scans; scans
+already running still resume. A returning preview reader receives that stale
+ranking immediately and triggers a refresh when due through the same capacity, global
+daily, and per-IP daily limits as an explicit scan request. Legacy accounts use
+their enrollment time as activity; those without it receive a persisted grace
+period starting on the first scheduler run after deployment.
+Accounts that only participate in pooled metric history are not scanned until
+that explicit first request.
+
+The default between full scans is to serve the existing snapshot, with its
+original completion time. Preview reads and explicit scan requests also obey
+the full-scan interval, so polling cannot bypass the weekly cadence.
+`TOP_FOLLOWERS_FRESH_HOURS` (default 24) remains the immediate request-reuse
+window; older snapshots are still reused until the configured scan is due.
+`TOP_FOLLOWERS_REFRESH_HOURS` (default 24, range 1–168) controls the cadence
+of optional head checks and the fallback cooldown for legacy failed attempts.
+Persisted provider-specific retry times take precedence, preserving staging's
+resumable scans and backoff. Successful full scans reset the full-scan clock.
+
+**Provider ordering is unverified:** neither the `followers_v2` adapter nor the
+repository's docs/tests establish newest-first follower ordering. Head checks
+are therefore off by default. Only set `TOP_FOLLOWERS_HEAD_CHECK=1` after
+confirming newest-first ordering for the configured provider endpoint.
+When enabled, a due head check fetches up to `TOP_FOLLOWERS_HEAD_PAGES` (default
+1, range 1–5) from the beginning and merges new followers into the existing
+ranked archive. A head check preserves existing follower profiles and does not
+detect unfollows or refresh their follower counts; those changes are detected
+on full scans. New followers beyond the configured head-page window can also
+wait until the next full scan. Partial merges never reset the full-scan clock.
+
+Endpoints and existing response fields remain compatible. `completedAt` and
+`cachedAt` identify the latest published snapshot, including a head merge;
+additive `fullCompletedAt` and `scanKind` (`full` or `head`) fields distinguish
+full-scan freshness from partial updates. Old snapshots use their completion
+time as the last full scan. `/health` exposes `history.topFollowers.fullScanDays`,
+`headCheck`, `headPages`, and `providerOrderingVerified` (currently false),
+alongside the existing settings.
+
+Activity updates patch only the last-seen timestamp, preserve concurrent metadata,
+and cannot recreate a deleted or renamed account. The timestamp never moves backward.
+
+Postgres page writes adjust the scan count by actual inserted and removed rows,
+without counting updates as new followers, in the same transaction as the cursor.
+Head/full state uses the existing `scan_state` JSONB column; no parallel scan schema is added. The single-instance JSON backend keeps its existing coalesced atomic writes. Expired provider cursors
+can fail the attempt, which will restart after the retry cooldown. Head scans
+stage a copy of the archive and publish atomically, so they still incur local
+archive-copy/storage costs even though provider calls are bounded.
+
+Ordinary app installs cannot submit follower rows. Client scan starts have
 global and per-IP daily-start limits; scheduled work remains bounded by the
-enrolled-account cap, refresh cadence, upstream concurrency, page cost, and
+enrolled-account cap, activity window, refresh cadence, upstream concurrency, page cost, and
 retention. The legacy ranking write remains fail-closed behind
 `TOP_FOLLOWERS_PUBLISH_TOKEN` for compatibility and must never be exposed to an
 app install.
@@ -159,8 +209,11 @@ controls include:
 - `BRIDGE_API_TOKEN` — optional token for private/self-hosted data routes.
 - `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TWITTERAPIS_API_KEY` — server-only key used for opted-in bridge-owned follower scans.
-- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — request reuse, scheduled refresh, and permanent deletion windows.
-- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — initial client-request budgets.
+- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — immediate request reuse, head-check/retry cadence, and permanent deletion windows (see cadence details above).
+- `TOP_FOLLOWERS_FULL_SCAN_DAYS` — full-scan interval (default `7`, range `1–90`).
+- `TOP_FOLLOWERS_HEAD_CHECK`, `TOP_FOLLOWERS_HEAD_PAGES` — opt-in partial checks (`0` by default) and their page cap (default `1`, range `1–5`); require confirmed newest-first provider ordering.
+- `TOP_FOLLOWERS_ACTIVE_DAYS` — client activity window for scheduled scans (default `7`, range `1–365`); exposed as `history.topFollowers.activeDays` in `/health`.
+- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — explicit and returning-preview client scan-start budgets.
 - `TOP_FOLLOWERS_MAX_CONCURRENT`, `TOP_FOLLOWERS_MAX_PAGES` — scheduled and requested provider-work bounds.
 - `TRUST_PROXY_HOPS` — exact reverse-proxy hop count; Railway uses `1`.
 - `RATE_LIMIT_*`, `EXPENSIVE_RATE_LIMIT_MAX` — request budgets; shared when Redis is configured.
@@ -180,7 +233,9 @@ controls include:
 
 ### Account handle changes
 
-Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. Clients must not merge history with a missing or different account ID. Existing legacy pool records are not automatically bound to whoever currently owns a handle.
+Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. ID-aware clients must not merge history with a missing or different account ID.
+
+Legacy accounts with no stored ID continue to serve their handle-keyed history and record daily observations, including through existing clients and repeat registration. Their metadata stays unbound and `historyUserId` stays empty; a current lookup does not establish who owned the historical observations. A known stored ID must match the live profile before its history is attached or updated. Normal profile writes recheck identity atomically, so a concurrent ownership verification cannot admit a stale mismatched write. New accounts are ID-bound on enrollment. Legacy records require independent operator verification before binding or migration.
 
 `POST /history/:oldHandle/handle` accepts `{ "username": "newHandle", "userId": "permanentXId" }`. The bridge verifies the live destination, then moves only ID-bound source records. A destination with a different or unknown ID is rejected. Transfers are atomic in PostgreSQL and atomically published by the JSON backend, preserve history, metadata and follower scans, and can be retried safely. No client history samples are uploaded by this operation.
 

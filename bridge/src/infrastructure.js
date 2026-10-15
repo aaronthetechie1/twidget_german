@@ -151,8 +151,17 @@ export class LocalHistoryRepository {
   }
   async getMeta(key) { return { ...(this.store.meta[key] || {}) }; }
   async setMeta(key, meta) {
+    const lastSeenAt = this.store.meta[key]?.topFollowersLastSeenAt || 0;
     this.store.meta[key] = { ...meta };
+    if (lastSeenAt > (meta.topFollowersLastSeenAt || 0)) this.store.meta[key].topFollowersLastSeenAt = lastSeenAt;
     await this.persist();
+  }
+  async recordTopFollowersActivity(key, timestamp) {
+    if (!Object.hasOwn(this.store.accounts, key)) return false;
+    const meta = this.store.meta[key] || {};
+    this.store.meta[key] = { ...meta, topFollowersLastSeenAt: Math.max(meta.topFollowersLastSeenAt || 0, timestamp) };
+    await this.persist();
+    return true;
   }
   async patchMeta(key, patch) {
     // Patches never enroll an account or recreate one deleted during a fetch.
@@ -161,8 +170,10 @@ export class LocalHistoryRepository {
     await this.persist();
     return true;
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false, expectedUserId } = {}) {
     if (requireExisting && !Object.hasOwn(this.store.accounts, key)) return [];
+    const ownerId = this.store.meta[key]?.userId;
+    if (expectedUserId !== undefined && ownerId && ownerId !== expectedUserId) return [];
     // No await between reading and replacing the account: the complete merge is atomic.
     const existing = normalizeStoredSamples(this.store.accounts[key], this.maxHistoryDays, this.sampleRetentionDays, this.now());
     const previousAccess = Number(this.store.access[key] || 0);
@@ -179,7 +190,8 @@ export class LocalHistoryRepository {
   }
   async registerAccount(key, samples, maxAccounts, userId = "") {
     const existed = Object.hasOwn(this.store.accounts, key);
-    if (userId && existed && this.store.meta[key]?.userId !== userId) return false;
+    // Legacy histories keep working, but only new enrollments acquire an ID.
+    if (existed && this.store.meta[key]?.userId && this.store.meta[key].userId !== userId) return false;
     if (!existed && Object.keys(this.store.accounts).length >= maxAccounts) return false;
     if (!existed) {
       this.store.accounts[key] = [];
@@ -231,6 +243,7 @@ export class LocalHistoryRepository {
     return scan ? topFollowersScanSummary(scan) : null;
   }
   async startTopFollowersScan(key, scanId, now = this.now(), options = {}) {
+    options = typeof options === "string" ? { kind: options } : options;
     const existing = this.store.topFollowers[key];
     if (topFollowersAttemptBlocked(existing, now, options.refreshMs)) return topFollowersScanSummary(existing);
     if (canResumeTopFollowersScan(existing, { ...options, now })) {
@@ -241,18 +254,22 @@ export class LocalHistoryRepository {
       return topFollowersScanSummary(existing);
     }
     const previous = existing?.status === "complete" ? existing : existing?.previous;
+    const kind = options.kind === "head" && previous ? "head" : "full";
     const scan = {
-      ...options.plan,
+      kind,
+      fullCompletedAt: kind === "head" ? Number(previous.fullCompletedAt || previous.lastFullCompletedAt || previous.completedAt || 0) : 0,
       scanId, status: "running", cursor: "", pages: 0, scanned: 0,
       startedAt: now, updatedAt: now, completedAt: 0, error: "",
-      followers: [],
+      followers: kind === "head" ? previous.followers.map(value => ({ ...value })) : [],
       ...(previous?.status === "complete" ? { previous } : {}),
     };
+    scan.scanned = scan.followers.length;
     this.store.topFollowers[key] = scan;
     await this.persist();
     return topFollowersScanSummary(scan);
   }
   async appendTopFollowersPage(key, scanId, followers, cursor, now = this.now()) {
+    followers = uniqueTopFollowerPage(followers);
     const scan = this.store.topFollowers[key];
     if (!scan || scan.scanId !== scanId || scan.status !== "running") return null;
     let index = this.scanIdentities.get(scan);
@@ -260,27 +277,16 @@ export class LocalHistoryRepository {
       index = followerIndex(scan.followers);
       this.scanIdentities.set(scan, index);
     }
-    let base;
-    if (scan.mode === "incremental" && scan.previous) {
-      base = this.scanIdentities.get(scan.previous);
-      if (!base) {
-        base = followerIndex(scan.previous.followers);
-        this.scanIdentities.set(scan.previous, base);
-      }
-    }
     for (const value of followers) {
       if (!topFollowerIdentity(value)) continue;
-      const known = indexedFollower(base, value);
-      scan.knownStreak = known ? Number(scan.knownStreak || 0) + 1 : 0;
       const row = indexedFollower(index, value);
-      if (row) Object.assign(row, value);
+      if (row) { if (scan.kind !== "head") Object.assign(row, value); }
       else {
         const added = { ...value, scanIndex: scan.followers.length };
         scan.followers.push(added);
         indexFollower(index, added);
       }
     }
-    scan.processed = Number(scan.processed || 0) + followers.length;
     scan.failureCount = 0;
     scan.retryAt = 0;
     scan.cursor = cursor;
@@ -293,18 +299,13 @@ export class LocalHistoryRepository {
   async completeTopFollowersScan(key, scanId, now = this.now()) {
     const scan = this.store.topFollowers[key];
     if (!scan || scan.scanId !== scanId || scan.status !== "running") return null;
-    if (scan.mode === "incremental" && scan.previous) {
-      const fresh = followerIndex(scan.followers);
-      for (const value of scan.previous.followers) {
-        if (!indexedFollower(fresh, value)) scan.followers.push({ ...value, scanIndex: scan.followers.length });
-      }
-    }
     scan.scanned = scan.followers.length;
     scan.status = "complete";
     scan.cursor = "";
     scan.completedAt = now;
     scan.updatedAt = now;
-    if (scan.mode !== "incremental") scan.lastFullCompletedAt = now;
+    if (scan.kind !== "head") scan.lastFullCompletedAt = now;
+    scan.fullCompletedAt = scan.kind === "head" ? scan.fullCompletedAt : scan.lastFullCompletedAt;
     delete scan.previous;
     await this.persist();
     return topFollowersScanSummary(scan);
@@ -586,8 +587,20 @@ export class PostgresHistoryRepository {
     await this.pool.query(`
       INSERT INTO twidget_history_accounts (username, metadata)
       VALUES ($1, $2::jsonb)
-      ON CONFLICT (username) DO UPDATE SET metadata = EXCLUDED.metadata
+      ON CONFLICT (username) DO UPDATE SET metadata = CASE
+        WHEN (twidget_history_accounts.metadata->>'topFollowersLastSeenAt')::bigint
+          > COALESCE((EXCLUDED.metadata->>'topFollowersLastSeenAt')::bigint, 0)
+        THEN EXCLUDED.metadata || jsonb_build_object('topFollowersLastSeenAt', twidget_history_accounts.metadata->'topFollowersLastSeenAt')
+        ELSE EXCLUDED.metadata END
     `, [key, JSON.stringify(meta)]);
+  }
+  async recordTopFollowersActivity(key, timestamp) {
+    const result = await this.pool.query(`
+      UPDATE twidget_history_accounts SET metadata = metadata || jsonb_build_object(
+        'topFollowersLastSeenAt', GREATEST(COALESCE((metadata->>'topFollowersLastSeenAt')::bigint, 0), $2::bigint))
+      WHERE username = $1
+    `, [key, timestamp]);
+    return result.rowCount > 0;
   }
   async patchMeta(key, patch) {
     const result = await this.pool.query(`
@@ -610,6 +623,7 @@ export class PostgresHistoryRepository {
     return result.rows[0] ? topFollowersScanFromRow(result.rows[0]) : null;
   }
   async startTopFollowersScan(key, scanId, now = Date.now(), options = {}) {
+    options = typeof options === "string" ? { kind: options } : options;
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -632,14 +646,29 @@ export class PostgresHistoryRepository {
         await client.query("COMMIT");
         return { ...existing, status: "running", error: "", updatedAt: now };
       }
+      const previous = options.kind === "head" ? await client.query(`
+        SELECT scan_id::text, scanned, scan_state,
+               extract(epoch from completed_at) * 1000 AS completed_at_ms
+        FROM twidget_top_follower_scans WHERE username = $1 AND status = 'complete'
+        ORDER BY completed_at DESC LIMIT 1
+      `, [key]) : { rows: [] };
+      const source = previous.rows[0];
+      const plan = { kind: source ? "head" : "full" };
+      if (source) plan.fullCompletedAt = Number(source.scan_state?.fullCompletedAt || source.scan_state?.lastFullCompletedAt || source.completed_at_ms || 0);
       const inserted = await client.query(`
-        INSERT INTO twidget_top_follower_scans (scan_id, username, status, scan_state)
-        VALUES ($1::uuid, $2, 'running', $3::jsonb)
+        INSERT INTO twidget_top_follower_scans (scan_id, username, status, scan_state, scanned)
+        VALUES ($1::uuid, $2, 'running', $3::jsonb, $4::int)
         RETURNING scan_id::text, status, cursor, pages, scanned, error, scan_state,
                   extract(epoch from started_at) * 1000 AS started_at_ms,
                   extract(epoch from updated_at) * 1000 AS updated_at_ms,
                   NULL::numeric AS completed_at_ms
-      `, [scanId, key, JSON.stringify(options.plan || {})]);
+      `, [scanId, key, JSON.stringify(plan), Number(source?.scanned || 0)]);
+      if (source) await client.query(`
+        INSERT INTO twidget_top_followers
+          (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
+        SELECT $1::uuid, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual
+        FROM twidget_top_followers WHERE scan_id = $2::uuid
+      `, [scanId, source.scan_id]);
       await client.query("COMMIT");
       return topFollowersScanFromRow(inserted.rows[0]);
     } catch (error) {
@@ -648,6 +677,7 @@ export class PostgresHistoryRepository {
     } finally { client.release(); }
   }
   async appendTopFollowersPage(key, scanId, followers, cursor) {
+    followers = uniqueTopFollowerPage(followers);
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -660,28 +690,18 @@ export class PostgresHistoryRepository {
         return null;
       }
       const state = { ...current.rows[0].scan_state };
-      if (state.mode === "incremental") {
-        const known = await client.query(`
-          SELECT follower_id, lower(follower_username) AS username FROM twidget_top_followers
-          WHERE scan_id = $1::uuid AND
-            ((follower_id <> '' AND follower_id = ANY($2::text[])) OR lower(follower_username) = ANY($3::text[]))
-        `, [state.baseScanId, followers.map(v => v.id || ""), followers.map(v => v.username.toLowerCase())]);
-        const ids = new Set(known.rows.map(v => v.follower_id).filter(Boolean));
-        const names = new Set(known.rows.map(v => v.username));
-        for (const value of followers) state.knownStreak = ids.has(value.id) || names.has(value.username.toLowerCase()) ? Number(state.knownStreak || 0) + 1 : 0;
-      }
-      state.processed = Number(state.processed || 0) + followers.length;
       state.failureCount = 0;
       state.retryAt = 0;
       const lastIndex = await client.query("SELECT COALESCE(max(scan_index), -1) + 1 AS next_index FROM twidget_top_followers WHERE scan_id = $1::uuid", [scanId]);
       const base = Number(lastIndex.rows[0].next_index);
       const payload = followers.map((value, index) => ({ ...value, scanIndex: base + index }));
+      let countDelta = 0;
       if (payload.length) {
-        await client.query(`
+        const removed = await client.query(`
           DELETE FROM twidget_top_followers WHERE scan_id = $1::uuid AND follower_id <> ''
             AND follower_id = ANY($2::text[]) AND lower(follower_username) <> ALL($3::text[])
         `, [scanId, payload.map(v => v.id || ""), payload.map(v => v.username.toLowerCase())]);
-        await client.query(`
+        const inserted = await client.query(`
           INSERT INTO twidget_top_followers
             (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
           SELECT $1::uuid, value.scan_index, value.id, value.username, value.name,
@@ -690,10 +710,11 @@ export class PostgresHistoryRepository {
             scan_index integer, id varchar(80), username varchar(15), name varchar(100),
             followers bigint, verified boolean, avatar text, mutual boolean
           )
-          ON CONFLICT (scan_id, lower(follower_username)) DO UPDATE SET
+          ${state.kind === "head" ? "ON CONFLICT DO NOTHING" : `ON CONFLICT (scan_id, lower(follower_username)) DO UPDATE SET
             follower_id = EXCLUDED.follower_id, display_name = EXCLUDED.display_name,
             followers = EXCLUDED.followers, verified = EXCLUDED.verified,
-            avatar = EXCLUDED.avatar, mutual = EXCLUDED.mutual
+            avatar = EXCLUDED.avatar, mutual = EXCLUDED.mutual`}
+          RETURNING (xmax = 0) AS inserted
         `, [scanId, JSON.stringify(payload.map((value) => ({
           scan_index: value.scanIndex,
           id: value.id,
@@ -704,19 +725,20 @@ export class PostgresHistoryRepository {
           avatar: value.avatar,
           mutual: value.mutual,
         })))]);
+        countDelta = inserted.rows.filter(row => row.inserted).length - removed.rowCount;
       }
       const updated = await client.query(`
         UPDATE twidget_top_follower_scans SET
           cursor = $3, scan_state = $4::jsonb,
           pages = pages + 1,
-          scanned = (SELECT count(*)::int FROM twidget_top_followers WHERE scan_id = $1::uuid),
+          scanned = scanned + $5::int,
           updated_at = now()
         WHERE scan_id = $1::uuid AND username = $2 AND status = 'running'
         RETURNING scan_id::text, status, cursor, pages, scanned, error, scan_state,
                   extract(epoch from started_at) * 1000 AS started_at_ms,
                   extract(epoch from updated_at) * 1000 AS updated_at_ms,
                   extract(epoch from completed_at) * 1000 AS completed_at_ms
-      `, [scanId, key, cursor, JSON.stringify(state)]);
+      `, [scanId, key, cursor, JSON.stringify(state), countDelta]);
       await client.query("COMMIT");
       return updated.rows[0] ? topFollowersScanFromRow(updated.rows[0]) : null;
     } catch (error) {
@@ -733,26 +755,8 @@ export class PostgresHistoryRepository {
       const current = await client.query("SELECT scan_state FROM twidget_top_follower_scans WHERE scan_id = $1::uuid AND username = $2 AND status = 'running' FOR UPDATE", [scanId, key]);
       if (!current.rows[0]) { await client.query("ROLLBACK"); return null; }
       const state = { ...current.rows[0].scan_state };
-      if (state.mode === "incremental") {
-        // Publish an entire merged snapshot atomically. Old rows remain visible
-        // during the crawl and keep their last known counts until reconciliation.
-        await client.query(`
-          INSERT INTO twidget_top_followers
-            (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
-          SELECT $1::uuid,
-            (SELECT COALESCE(max(scan_index), -1) FROM twidget_top_followers WHERE scan_id = $1::uuid) +
-              row_number() OVER (ORDER BY old.scan_index),
-            old.follower_id, old.follower_username, old.display_name, old.followers, old.verified, old.avatar, old.mutual
-          FROM twidget_top_followers old
-          WHERE old.scan_id = $3::uuid AND EXISTS (
-            SELECT 1 FROM twidget_top_follower_scans WHERE scan_id = $3::uuid AND username = $2 AND status = 'complete'
-          ) AND NOT EXISTS (
-            SELECT 1 FROM twidget_top_followers fresh WHERE fresh.scan_id = $1::uuid AND
-              (lower(fresh.follower_username) = lower(old.follower_username) OR
-               (old.follower_id <> '' AND fresh.follower_id = old.follower_id))
-          )
-        `, [scanId, key, state.baseScanId]);
-      } else state.lastFullCompletedAt = Date.now();
+      if (state.kind !== "head") state.lastFullCompletedAt = Date.now();
+      state.fullCompletedAt = state.kind === "head" ? state.fullCompletedAt : state.lastFullCompletedAt;
       const updated = await client.query(`
         UPDATE twidget_top_follower_scans SET status = 'complete', cursor = '', completed_at = now(), updated_at = now(),
           scan_state = $3::jsonb,
@@ -800,7 +804,7 @@ export class PostgresHistoryRepository {
              followers::text, verified, avatar, mutual, scan_index
       FROM twidget_top_followers
       WHERE scan_id = $1::uuid
-      ORDER BY followers DESC, lower(display_name), lower(follower_username), follower_id, scan_index
+      ORDER BY twidget_top_followers.followers DESC, lower(display_name), lower(follower_username), follower_id, scan_index
       OFFSET $2 LIMIT $3
     `, [scan.rows[0].scan_id, offset, limit]);
     return {
@@ -826,13 +830,14 @@ export class PostgresHistoryRepository {
     `, [retentionDays]);
     return result.rowCount;
   }
-  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false } = {}) {
+  async storeSamples(key, samples, { preferExisting = false, touchAccess = true, requireExisting = false, expectedUserId } = {}) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      if (requireExisting) {
-        const account = await client.query("SELECT 1 FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
-        if (!account.rowCount) {
+      if (requireExisting || expectedUserId !== undefined) {
+        const account = await client.query("SELECT metadata FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
+        const ownerId = account.rows[0]?.metadata?.userId;
+        if ((requireExisting && !account.rowCount) || (expectedUserId !== undefined && ownerId && ownerId !== expectedUserId)) {
           await client.query("COMMIT");
           return [];
         }
@@ -887,7 +892,8 @@ export class PostgresHistoryRepository {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(hashtext('twidget_history_registration'))");
       const exists = await client.query("SELECT metadata FROM twidget_history_accounts WHERE username = $1 FOR UPDATE", [key]);
-      if (userId && exists.rowCount && exists.rows[0].metadata?.userId !== userId) {
+      // An existing unbound row must not inherit the current handle owner's ID.
+      if (exists.rowCount && exists.rows[0].metadata?.userId && exists.rows[0].metadata.userId !== userId) {
         await client.query("ROLLBACK");
         return false;
       }
@@ -1138,11 +1144,10 @@ function objectValue(value) { return value && typeof value === "object" && !Arra
 
 function topFollowersScanSummary(scan) {
   return {
-    mode: scan.mode || "full", baseScanId: scan.baseScanId || "",
-    sourceFollowers: Number.isSafeInteger(scan.sourceFollowers) ? scan.sourceFollowers : null,
-    lastFullCompletedAt: Number(scan.lastFullCompletedAt || (scan.status === "complete" ? scan.completedAt : 0) || 0),
-    targetRows: Number(scan.targetRows || 0), processed: Number(scan.processed || 0),
-    knownStreak: Number(scan.knownStreak || 0), failureCount: Number(scan.failureCount || 0), retryAt: Number(scan.retryAt || 0),
+    kind: scan.kind === "head" ? "head" : "full",
+    fullCompletedAt: Number(scan.fullCompletedAt || scan.lastFullCompletedAt || (scan.kind !== "head" ? scan.completedAt : 0) || 0),
+    lastFullCompletedAt: Number(scan.fullCompletedAt || scan.lastFullCompletedAt || (scan.kind !== "head" && scan.status === "complete" ? scan.completedAt : 0) || 0),
+    failureCount: Number(scan.failureCount || 0), retryAt: Number(scan.retryAt || 0),
     scanId: String(scan.scanId || ""),
     status: String(scan.status || ""),
     cursor: String(scan.cursor || ""),
@@ -1167,6 +1172,21 @@ function topFollowersScanFromRow(row) {
     startedAt: row.started_at_ms,
     updatedAt: row.updated_at_ms,
     completedAt: row.completed_at_ms,
+  });
+}
+
+// Provider pages can repeat a handle under different IDs, or an ID under aliases.
+// Keep the first row for either identity so PostgreSQL never upserts one row twice.
+function uniqueTopFollowerPage(followers) {
+  const ids = new Set();
+  const usernames = new Set();
+  return followers.filter(value => {
+    const username = String(value.username || "").toLowerCase();
+    const id = String(value.id || "");
+    if (!username || usernames.has(username) || (id && ids.has(id))) return false;
+    usernames.add(username);
+    if (id) ids.add(id);
+    return true;
   });
 }
 

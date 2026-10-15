@@ -3,27 +3,6 @@ const MAX_SCANNED = 10_000_000;
 const MAX_PAGES = 6_250;
 const DAY = 24 * 60 * 60 * 1000;
 
-export function planTopFollowersScan({ snapshot, followersCount, now = Date.now(), fullRefreshMs = 7 * DAY, buffer = 100 }) {
-  const count = Number.isSafeInteger(followersCount) && followersCount >= 0 ? followersCount : null;
-  const fullAt = Number(snapshot?.lastFullCompletedAt || snapshot?.completedAt || 0);
-  const baseline = snapshot?.sourceFollowers;
-  const full = !snapshot || !fullAt || now - fullAt >= fullRefreshMs || count === null ||
-    !Number.isSafeInteger(baseline) || baseline < 0;
-  return {
-    mode: full ? "full" : "incremental",
-    baseScanId: full ? "" : snapshot.scanId,
-    sourceFollowers: count,
-    lastFullCompletedAt: fullAt,
-    // Net growth underestimates gross follows when there is churn. Read a
-    // generous overlap as well, then reconcile the entire list each week.
-    targetRows: full ? 0 : Math.max(buffer, Math.ceil(Math.max(0, count - baseline) * 1.5) + buffer),
-    processed: 0,
-    knownStreak: 0,
-    failureCount: 0,
-    retryAt: 0,
-  };
-}
-
 export function canResumeTopFollowersScan(scan, { now = Date.now(), resumeMaxAgeMs = DAY, maxPages = MAX_PAGES } = {}) {
   return scan?.status === "failed" && now >= Number(scan.retryAt || 0) &&
     now - scan.startedAt <= resumeMaxAgeMs && scan.pages < maxPages &&
@@ -44,6 +23,28 @@ export function topFollowersAttemptBlocked(scan, now, refreshMs = 0) {
     (scan?.status === "complete" && refreshMs > 0 && now - scan.completedAt < refreshMs);
 }
 
+// Reserve the throttle slot before awaiting storage so concurrent polling only
+// writes once. Failed writes can be retried by the next request.
+export function createTopFollowersActivityRecorder(repository, now = Date.now) {
+  const lastWrites = new Map();
+  const throttleMs = 60 * 60 * 1000;
+  return async function recordActivity(key) {
+    const timestamp = now();
+    if (timestamp - (lastWrites.get(key) ?? -Infinity) < throttleMs) return;
+    lastWrites.set(key, timestamp);
+    try {
+      if (!(await repository.recordTopFollowersActivity(key, timestamp))) lastWrites.delete(key);
+    } catch (error) {
+      lastWrites.delete(key);
+      throw error;
+    } finally {
+      for (const [account, writtenAt] of lastWrites) {
+        if (timestamp - writtenAt >= throttleMs) lastWrites.delete(account);
+      }
+    }
+  };
+}
+
 export function shouldRefreshTopFollowers({
   snapshot,
   scan,
@@ -57,6 +58,23 @@ export function shouldRefreshTopFollowers({
     Number(scan?.updatedAt || scan?.startedAt || 0),
   );
   return lastAttemptAt <= 0 || now - lastAttemptAt >= refreshMs;
+}
+
+// Full-snapshot age and the last head check are separate clocks. A partial
+// merge must never reset the full-scan clock that detects unfollows.
+export function topFollowersRefreshKind({
+  snapshot,
+  scan,
+  now = Date.now(),
+  refreshMs = 24 * 60 * 60 * 1000,
+  fullScanMs = 7 * 24 * 60 * 60 * 1000,
+  headCheck = false,
+}) {
+  if (scan?.status === "running") return null;
+  if (scan?.status === "failed" && !shouldRefreshTopFollowers({ scan, now, refreshMs })) return null;
+  const fullCompletedAt = Number(snapshot?.fullCompletedAt || snapshot?.lastFullCompletedAt || snapshot?.completedAt || snapshot?.cachedAt || 0);
+  if (!fullCompletedAt || now - fullCompletedAt >= fullScanMs) return "full";
+  return headCheck && shouldRefreshTopFollowers({ snapshot, scan, now, refreshMs }) ? "head" : null;
 }
 
 export function prepareTopFollowersCache(body, now = Date.now()) {

@@ -75,6 +75,20 @@ test("local Top Followers scans publish atomically, paginate by rank, and expire
   assert.equal(await repository.getTopFollowersSnapshot("example"), null);
 });
 
+test("local metadata writes cannot erase or roll back Top Followers activity", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-meta-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.setMeta("example", { topFollowersLastSeenAt: 2000 });
+  await repository.setMeta("example", { banger: { score: 1 } });
+  assert.deepEqual(await repository.getMeta("example"), { topFollowersLastSeenAt: 2000, banger: { score: 1 } });
+  await repository.setMeta("example", { topFollowersLastSeenAt: 1000 });
+  assert.equal((await repository.getMeta("example")).topFollowersLastSeenAt, 2000);
+  await repository.setMeta("example", { topFollowersLastSeenAt: 3000 });
+  assert.equal((await repository.getMeta("example")).topFollowersLastSeenAt, 3000);
+});
+
 test("history merge never lets an estimate replace a real daily sample", () => {
   const now = Date.UTC(2026, 6, 10);
   const merged = mergeSamples(
@@ -205,6 +219,13 @@ test("PostgreSQL repository creates cascading schema and stores dates in UTC", a
   assert.deepEqual(sampleInsert.params.slice(2), [10, true, 1, true, 2, true, 3, true, "live", false]);
   assert.ok(calls.some((call) => call.sql === "COMMIT"));
   assert.ok(calls.some((call) => call.sql === "RELEASE"));
+
+  await repository.setMeta("example", { topFollowersLastSeenAt: ts });
+  const metaUpdate = calls.find((call) => /DO UPDATE SET metadata = CASE/.test(call.sql));
+  assert.match(metaUpdate.sql, /twidget_history_accounts.metadata->>'topFollowersLastSeenAt'/);
+  assert.match(metaUpdate.sql, /COALESCE\(\(EXCLUDED.metadata->>'topFollowersLastSeenAt'\)::bigint, 0\)/);
+  assert.match(metaUpdate.sql, /THEN EXCLUDED.metadata \|\| jsonb_build_object/);
+  assert.deepEqual(metaUpdate.params, ["example", JSON.stringify({ topFollowersLastSeenAt: ts })]);
 });
 
 function sample(ts, followers) {
@@ -251,6 +272,46 @@ test("PostgreSQL metadata patches update existing JSONB without enrolling delete
   assert.equal(await repository.patchMeta("removed", { banger: { score: 1 } }), false);
   assert.match(calls[0].sql, /metadata = metadata \|\| \$2::jsonb/);
   assert.doesNotMatch(calls[0].sql, /INSERT/);
+});
+
+const follower = (id, followers = Number(id)) => ({
+  id: String(id), username: `fan${id}`, name: `Fan ${id}`, followers,
+  verified: false, avatar: "", mutual: null,
+});
+
+test("JSON head scans merge new followers atomically and full scans remove unfollows", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-head-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const filePath = path.join(temp, "history.json");
+  const repository = new LocalHistoryRepository({ filePath, maxHistoryDays: 400 });
+  await repository.startTopFollowersScan("example", "full", 1000);
+  await repository.appendTopFollowersPage("example", "full", [follower(1, 100), follower(2, 200)], "", 2000);
+  await repository.completeTopFollowersScan("example", "full", 3000);
+  await repository.startTopFollowersScan("example", "failed-head", 4000, "head");
+  await repository.appendTopFollowersPage("example", "failed-head", [follower(3, 300)], "", 5000);
+  assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
+  await repository.failTopFollowersScan("example", "failed-head", "provider_failure", 6000);
+  assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
+  await repository.startTopFollowersScan("example", "head", (7000 + DAY), "head");
+  await repository.appendTopFollowersPage("example", "head", [follower(2, 999), follower(3, 300)], "", (8000 + DAY));
+  await repository.close();
+  const resumed = new LocalHistoryRepository({ filePath, maxHistoryDays: 400 });
+  await resumed.initialize();
+  assert.equal((await resumed.getTopFollowersScan("example")).kind, "head");
+  await resumed.completeTopFollowersScan("example", "head", (9000 + DAY));
+  const snapshot = await resumed.getTopFollowersSnapshot("example");
+  assert.equal(snapshot.kind, "head");
+  assert.equal(snapshot.fullCompletedAt, 3000);
+  assert.equal(snapshot.lastFullCompletedAt, 3000);
+  assert.equal(snapshot.completedAt, (9000 + DAY));
+  assert.equal(snapshot.total, 3);
+  assert.deepEqual(snapshot.followers.map((value) => value.followers), [300, 200, 100]);
+  assert.deepEqual(snapshot.followers.map((value) => value.scanIndex), [2, 1, 0]);
+  await resumed.startTopFollowersScan("example", "next-full", (10000 + DAY));
+  await resumed.appendTopFollowersPage("example", "next-full", [follower(3, 400)], "", (11000 + DAY));
+  await resumed.completeTopFollowersScan("example", "next-full", (12000 + DAY));
+  assert.equal((await resumed.getTopFollowersSnapshot("example")).total, 1);
+  assert.equal((await resumed.getTopFollowersSnapshot("example")).fullCompletedAt, (12000 + DAY));
 });
 
 test("handle moves require matching identities, preserve all shared state and are idempotent", async t => {
@@ -316,7 +377,8 @@ test("registration cannot assign legacy or recycled history to a different live 
   const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
   await repository.initialize();
   await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
-  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), false);
+  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), true);
+  assert.equal((await repository.getMeta("legacy")).userId, undefined);
   await repository.registerAccount("known", [sample(Date.now(), 10)], 10, "123");
   assert.equal(await repository.registerAccount("known", [sample(Date.now(), 999)], 10, "999"), false);
   assert.equal((await repository.getHistory("known"))[0].followers, 10);
