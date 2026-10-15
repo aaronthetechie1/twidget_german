@@ -252,3 +252,86 @@ test("PostgreSQL metadata patches update existing JSONB without enrolling delete
   assert.match(calls[0].sql, /metadata = metadata \|\| \$2::jsonb/);
   assert.doesNotMatch(calls[0].sql, /INSERT/);
 });
+
+test("handle moves require matching identities, preserve all shared state and are idempotent", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  const day = Date.now() - DAY;
+  await repository.registerAccount("before", [sample(day, 10)], 10);
+  await repository.setMeta("before", { userId: "123", banger: { url: "https://x.com/a/status/1" }, waybackAt: 77 });
+  repository.store.topFollowers.before = { status: "complete", scanId: "scan", followers: [] };
+  await assert.rejects(repository.renameAccount("before", "after", "999"), /source_identity_unverified/);
+  await repository.registerAccount("other", [sample(day, 999)], 10);
+  await repository.setMeta("other", { userId: "999" });
+  await assert.rejects(repository.renameAccount("before", "other", "123"), /destination_identity_conflict/);
+  assert.equal((await repository.getHistory("before"))[0].followers, 10);
+  assert.equal((await repository.getHistory("other"))[0].followers, 999);
+  assert.deepEqual(await repository.renameAccount("before", "after", "123"), { moved: true });
+  assert.equal(await repository.hasAccount("before"), false);
+  assert.equal((await repository.getHistory("after"))[0].followers, 10);
+  assert.equal((await repository.getMeta("after")).waybackAt, 77);
+  assert.equal(repository.store.topFollowers.after.scanId, "scan");
+  assert.deepEqual(await repository.renameAccount("before", "after", "123"), { moved: false });
+  const reloaded = new LocalHistoryRepository({ filePath: repository.filePath, maxHistoryDays: 400 });
+  await reloaded.initialize();
+  assert.equal((await reloaded.getMeta("after")).userId, "123");
+  assert.equal(await reloaded.hasAccount("before"), false);
+});
+
+test("legacy shared history cannot be moved by a public claim", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-legacy-handle-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
+  await assert.rejects(repository.renameAccount("legacy", "after", "123"), /source_identity_unverified/);
+  assert.equal(await repository.hasAccount("legacy"), true);
+  await repository.renameAccount("legacy", "after", "123", { allowLegacy: true });
+  assert.equal((await repository.getMeta("after")).userId, "123");
+});
+
+test("a failed JSON publication is retryable without claiming completion or losing history", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-failure-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("before", [sample(Date.now(), 10)], 10, "123");
+  const persist = repository.persist.bind(repository);
+  repository.persist = async () => { throw new Error("simulated_disk_failure"); };
+  await assert.rejects(repository.renameAccount("before", "after", "123"), /simulated_disk_failure/);
+  const disk = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.equal(disk.accounts.before.length, 1);
+  repository.persist = persist;
+  await repository.renameAccount("before", "after", "123");
+  const recovered = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.equal(recovered.accounts.after.length, 1);
+  assert.equal(recovered.accounts.before, undefined);
+});
+
+test("registration cannot assign legacy or recycled history to a different live ID", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-identity-registration-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.registerAccount("legacy", [sample(Date.now(), 10)], 10);
+  assert.equal(await repository.registerAccount("legacy", [sample(Date.now(), 999)], 10, "123"), false);
+  await repository.registerAccount("known", [sample(Date.now(), 10)], 10, "123");
+  assert.equal(await repository.registerAccount("known", [sample(Date.now(), 999)], 10, "999"), false);
+  assert.equal((await repository.getHistory("known"))[0].followers, 10);
+  assert.equal((await repository.getMeta("known")).userId, "123");
+});
+
+test("a handle move preserves stored archive observations without applying retention", async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-handle-archive-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400, sampleRetentionDays: 100 });
+  await repository.initialize();
+  repository.store.accounts.before = [sample(Date.UTC(2020, 0, 1), 10), sample(Date.UTC(2020, 0, 2), 11)];
+  repository.store.meta.before = { userId: "123" };
+  await repository.persist();
+  await repository.renameAccount("before", "after", "123");
+  const disk = JSON.parse(await readFile(repository.filePath, "utf8"));
+  assert.deepEqual(disk.accounts.after.map(row => row.followers), [10, 11]);
+});

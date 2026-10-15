@@ -177,3 +177,11 @@ controls include:
 - `X_BEARER_TOKEN` and `PUBLIC_OFFICIAL_API=1` — official endpoint credentials and public exposure opt-in.
 - `X_OAUTH_ENABLED=1`, `X_CLIENT_ID`, and `X_CALLBACK_URL` — OAuth opt-in and fixed callback.
 - `CORS_ALLOW_ORIGIN` — exact browser origin; absent means no CORS header.
+
+### Account handle changes
+
+Profile responses include `userId`; pooled history includes its stored `userId`, and profile-attached history includes `historyUserId`. Clients must not merge history with a missing or different account ID. Existing legacy pool records are not automatically bound to whoever currently owns a handle.
+
+`POST /history/:oldHandle/handle` accepts `{ "username": "newHandle", "userId": "permanentXId" }`. The bridge verifies the live destination, then moves only ID-bound source records. A destination with a different or unknown ID is rejected. Transfers are atomic in PostgreSQL and atomically published by the JSON backend, preserve history, metadata and follower scans, and can be retried safely. No client history samples are uploaded by this operation.
+
+For independently verified legacy records only, operators can use the admin-authenticated equivalent `POST /admin/history/:oldHandle/handle` with `attestLegacyIdentity: true`. This credential and attestation are never available to Android clients. The administrator must independently establish that both handles identify the same person. Keep a scoped backup before an operator transfer.

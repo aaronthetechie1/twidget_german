@@ -1,6 +1,48 @@
 const MAX_TOP_FOLLOWERS = 5;
 const MAX_SCANNED = 10_000_000;
 const MAX_PAGES = 6_250;
+const DAY = 24 * 60 * 60 * 1000;
+
+export function planTopFollowersScan({ snapshot, followersCount, now = Date.now(), fullRefreshMs = 7 * DAY, buffer = 100 }) {
+  const count = Number.isSafeInteger(followersCount) && followersCount >= 0 ? followersCount : null;
+  const fullAt = Number(snapshot?.lastFullCompletedAt || snapshot?.completedAt || 0);
+  const baseline = snapshot?.sourceFollowers;
+  const full = !snapshot || !fullAt || now - fullAt >= fullRefreshMs || count === null ||
+    !Number.isSafeInteger(baseline) || baseline < 0;
+  return {
+    mode: full ? "full" : "incremental",
+    baseScanId: full ? "" : snapshot.scanId,
+    sourceFollowers: count,
+    lastFullCompletedAt: fullAt,
+    // Net growth underestimates gross follows when there is churn. Read a
+    // generous overlap as well, then reconcile the entire list each week.
+    targetRows: full ? 0 : Math.max(buffer, Math.ceil(Math.max(0, count - baseline) * 1.5) + buffer),
+    processed: 0,
+    knownStreak: 0,
+    failureCount: 0,
+    retryAt: 0,
+  };
+}
+
+export function canResumeTopFollowersScan(scan, { now = Date.now(), resumeMaxAgeMs = DAY, maxPages = MAX_PAGES } = {}) {
+  return scan?.status === "failed" && now >= Number(scan.retryAt || 0) &&
+    now - scan.startedAt <= resumeMaxAgeMs && scan.pages < maxPages &&
+    ["provider_unavailable", "provider_rate_limited", "provider_credit_empty", "provider_key_rejected", "provider_timeout", "provider_request_budget"].includes(scan.error);
+}
+
+export function topFollowersRetryState(scan, error, now = Date.now()) {
+  const failureCount = Number(scan.failureCount || 0) + 1;
+  const delay = error === "provider_credit_empty" ? 60 * 60 * 1000
+    : error === "provider_key_rejected" ? DAY
+    : error === "provider_rate_limited" ? 15 * 60 * 1000
+    : ["provider_unavailable", "provider_timeout"].includes(error) ? 5 * 60 * 1000 : DAY;
+  return { failureCount, retryAt: now + Math.min(DAY, delay * 2 ** Math.min(failureCount - 1, 8)) };
+}
+
+export function topFollowersAttemptBlocked(scan, now, refreshMs = 0) {
+  return scan?.status === "running" || (scan?.status === "failed" && Number(scan.retryAt || 0) > now) ||
+    (scan?.status === "complete" && refreshMs > 0 && now - scan.completedAt < refreshMs);
+}
 
 export function shouldRefreshTopFollowers({
   snapshot,
@@ -9,9 +51,10 @@ export function shouldRefreshTopFollowers({
   refreshMs = 24 * 60 * 60 * 1000,
 }) {
   if (scan?.status === "running") return false;
+  if (scan?.status === "failed" && scan.retryAt) return now >= scan.retryAt;
   const lastAttemptAt = Math.max(
     Number(snapshot?.completedAt || snapshot?.cachedAt || 0),
-    Number(scan?.startedAt || scan?.updatedAt || 0),
+    Number(scan?.updatedAt || scan?.startedAt || 0),
   );
   return lastAttemptAt <= 0 || now - lastAttemptAt >= refreshMs;
 }
