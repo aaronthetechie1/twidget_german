@@ -88,7 +88,15 @@ internal class MainSyncController(
                 if (generation != syncGeneration) return@postUiIfCurrent
                 isSyncing = false
                 activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
-                if (result.isSuccess) activity.render()
+                if (result.isSuccess) {
+                    val refreshed = result.getOrThrow()
+                    if (activity.selectedAccount.equals(account, true) &&
+                        !refreshed.userName.equals(account, true) &&
+                        TwidgetStore.accounts(activity).any { it.equals(refreshed.userName, true) }) {
+                        activity.selectedAccount = refreshed.userName
+                    }
+                    activity.render()
+                }
                 if (result.isFailure && showProgress) {
                     Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
                 }

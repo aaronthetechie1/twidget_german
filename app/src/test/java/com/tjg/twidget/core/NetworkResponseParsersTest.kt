@@ -12,6 +12,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NetworkResponseParsersTest {
+    @org.junit.Test fun permanentIdsAreReadWithoutMistakingPostIdsForAccountIds() {
+        org.junit.Assert.assertEquals("1234567890123456789", NetworkResponseParsers.parseFxTwitterUser(
+            org.json.JSONObject("""{"user":{"id":"1234567890123456789","screen_name":"renamed"}}"""), "old",
+        ).userId)
+        org.junit.Assert.assertEquals("123", NetworkResponseParsers.parseXApiUser(
+            org.json.JSONObject("""{"data":{"id":"123","username":"renamed"}}"""), "old",
+        ).userId)
+        org.junit.Assert.assertEquals("456", NetworkResponseParsers.parseBridgeProfile(
+            """{"user":{"userId":"456","userName":"renamed"}}""",
+        ).userId)
+        org.junit.Assert.assertEquals("", NetworkResponseParsers.parseBridgeProfile(
+            """{"user":{"userName":"renamed","status":{"id":"999"}}}""",
+        ).userId)
+    }
+
     @Test
     fun parseFxTwitterUser_readsVerificationAndProtectedFlags() {
         val json = JSONObject(
@@ -78,7 +93,9 @@ class NetworkResponseParsersTest {
     fun parseBridgeProfile_supportsNestedUserObjectAndHistory() {
         val body = """
             {
+              "historyUserId": "123",
               "user": {
+                "userId": "123",
                 "fullName": "Bridge User",
                 "userName": "bridgeuser",
                 "followersCount": 2500,

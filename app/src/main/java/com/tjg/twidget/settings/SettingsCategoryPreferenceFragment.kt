@@ -340,6 +340,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         val labels = actions.map { action -> getString(when (action) {
             AccountPopupAction.SET_DEFAULT -> R.string.set_as_default
             AccountPopupAction.IMPORT_ANALYTICS -> R.string.import_x_analytics
+            AccountPopupAction.CHANGE_HANDLE -> R.string.change_account_handle
             AccountPopupAction.DELETE -> R.string.delete
         }) }.toTypedArray()
         AlertDialog.Builder(requireContext())
@@ -351,6 +352,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                         buildScreen()
                     }
                     AccountPopupAction.IMPORT_ANALYTICS -> beginAnalyticsImport(username)
+                    AccountPopupAction.CHANGE_HANDLE -> changeAccountHandle(username)
                     AccountPopupAction.DELETE -> {
                         if (TwidgetStore.accounts(requireContext()).size <= 1) {
                             Toast.makeText(requireContext(), R.string.cannot_delete_last_account, Toast.LENGTH_SHORT).show()
@@ -381,6 +383,63 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                     }
                 }
             }.setNegativeButton(android.R.string.cancel, null).show()
+    }
+
+    private fun changeAccountHandle(username: String) {
+        val context = requireContext()
+        val input = android.widget.EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setSingleLine()
+            setText(username)
+            selectAll()
+        }
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(R.string.change_account_handle)
+            .setMessage(R.string.change_account_handle_message)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val next = input.text.toString().trim().trimStart('@')
+                if (!next.matches(Regex("[A-Za-z0-9_]{1,15}"))) {
+                    input.error = getString(R.string.invalid_account_handle)
+                    return@setOnClickListener
+                }
+                if (accountRemovalBusy) return@setOnClickListener
+                accountRemovalBusy = true
+                val generation = TwidgetStore.accountGeneration(context, username)
+                val appContext = context.applicationContext
+                val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+                    accountRemovalBusy = false
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }) {
+                    val result = runCatching {
+                        val profile = com.tjg.twidget.providers.RettiwtClient.refresh(appContext, next)
+                        TwidgetStore.migrateAccount(appContext, username, profile, generation, allowLegacy = true)
+                        TwidgetWidget.updateAll(appContext)
+                        TwidgetBriefWidget.updateAll(appContext)
+                    }
+                    handler.post {
+                        accountRemovalBusy = false
+                        if (isAdded) {
+                            if (result.isSuccess) {
+                                dialog.dismiss()
+                                Toast.makeText(appContext, R.string.account_handle_changed, Toast.LENGTH_LONG).show()
+                                buildScreen()
+                            } else {
+                                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                                input.error = result.exceptionOrNull()?.message ?: getString(R.string.sync_failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun beginAnalyticsImport(username: String) {

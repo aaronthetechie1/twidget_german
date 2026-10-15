@@ -6,6 +6,7 @@ import com.tjg.twidget.analytics.PostLink
 import com.tjg.twidget.analytics.PostMedia
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.BridgeEndpoint
+import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.data.TwidgetSettings
 import com.tjg.twidget.core.json
 import java.net.URLEncoder
@@ -37,38 +38,46 @@ object BangerClient {
         settings: TwidgetSettings,
         endpoint: BridgeEndpoint,
     ): BangerResult {
+        val clean = TwidgetStore.canonicalAccount(context, username)
+        val generation = TwidgetStore.accountGeneration(context, clean)
         val result = if (settings.shareHistory) {
-            fetchShared(context, username, endpoint)
+            fetchShared(context, clean, endpoint)
         } else {
-            refreshLocal(context, username)
+            refreshLocal(context, clean, generation)
         }
-        remember(context, username, result)
-        return result
+        return TwidgetStore.withAccountGeneration(context, clean, generation) {
+            remember(context, clean, result)
+            result
+        }
     }
 
     fun cached(context: Context, username: String): BangerResult? {
         val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(key, null) ?: return null
+        val raw = com.tjg.twidget.data.AccountPreferences.open(context, PREFS).getString(key, null) ?: return null
         return runCatching { resultFromJson(JSONObject(raw)) }.getOrNull()
     }
 
     fun clear(context: Context, username: String) {
-        val suffix = ":${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val edit = prefs.edit()
-        prefs.all.keys.filter { it.endsWith(suffix) }.forEach(edit::remove)
-        edit.apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val suffix = ":${username.trim().trimStart('@').lowercase(Locale.US)}"
+            val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
+            val edit = prefs.edit()
+            prefs.all.keys.filter { it.endsWith(suffix) }.forEach(edit::remove)
+            edit.apply()
+        }
     }
 
     private fun remember(context: Context, username: String, result: BangerResult) {
-        val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val json = JSONObject()
-            .put("score", result.score)
-            .put("complete", result.complete)
-            .put("postsScanned", result.postsScanned)
-            .put("capped", result.capped)
-        result.post?.let { json.put("post", postToJson(it)) }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(key, json.toString()).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
+            val json = JSONObject()
+                .put("score", result.score)
+                .put("complete", result.complete)
+                .put("postsScanned", result.postsScanned)
+                .put("capped", result.capped)
+            result.post?.let { json.put("post", postToJson(it)) }
+            com.tjg.twidget.data.AccountPreferences.open(context, PREFS).edit().putString(key, json.toString()).apply()
+        }
     }
 
     private fun fetchShared(context: Context, username: String, endpoint: BridgeEndpoint): BangerResult {
@@ -77,9 +86,9 @@ object BangerClient {
         return resultFromJson(root)
     }
 
-    private fun refreshLocal(context: Context, username: String): BangerResult {
+    private fun refreshLocal(context: Context, username: String, generation: Long): BangerResult {
         val key = "v$VERSION:${username.lowercase(Locale.US)}"
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
         val state = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
         var winner = state.optJSONObject("post")?.let(::postFromJson)
         var winnerScore = state.optDouble("score", 0.0)
@@ -146,7 +155,7 @@ object BangerClient {
             .put("cursor", cursor)
             .put("updatedAt", System.currentTimeMillis())
         winner?.let { stored.put("post", postToJson(it)) }
-        prefs.edit().putString(key, stored.toString()).apply()
+        TwidgetStore.withAccountGeneration(context, username, generation) { prefs.edit().putString(key, stored.toString()).apply() }
         return BangerResult(winner, winnerScore, complete, postsScanned, capped)
     }
 

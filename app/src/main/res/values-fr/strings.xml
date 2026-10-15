@@ -1127,4 +1127,8 @@
     <string name="widget_one_ui_only">Disponible uniquement sur les appareils Samsung</string>
     <string name="notices_latest_version">Dernière version</string>
     <string name="notices_older_releases">Versions précédentes</string>
+    <string name="change_account_handle">Modifier le nom d’utilisateur</string>
+    <string name="change_account_handle_message">Saisissez le nouveau nom d’utilisateur X de ce même compte. Votre historique, vos widgets, vos objectifs et vos données locales seront conservés. Pour les comptes enregistrés avant le suivi de l’identité, vérifiez qu’il s’agit de la même personne.</string>
+    <string name="invalid_account_handle">Saisissez un nom d’utilisateur X de 1 à 15 lettres, chiffres ou traits de soulignement.</string>
+    <string name="account_handle_changed">Nom d’utilisateur mis à jour. Vos données ont été conservées.</string>
 </resources>

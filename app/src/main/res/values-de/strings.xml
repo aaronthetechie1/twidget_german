@@ -1108,4 +1108,8 @@
     <string name="widget_one_ui_only">Nur auf Samsung-Geräten unterstützt</string>
     <string name="notices_latest_version">Neueste Version</string>
     <string name="notices_older_releases">Ältere Versionen</string>
+    <string name="change_account_handle">Nutzernamen ändern</string>
+    <string name="change_account_handle_message">Gib den neuen X-Nutzernamen dieses Kontos ein. Dein Verlauf, deine Widgets, Ziele und lokalen Daten werden übernommen. Prüfe bei Konten, die vor der Identitätserfassung gespeichert wurden, dass es sich um dieselbe Person handelt.</string>
+    <string name="invalid_account_handle">Gib einen X-Nutzernamen mit 1–15 Buchstaben, Zahlen oder Unterstrichen ein.</string>
+    <string name="account_handle_changed">Nutzername aktualisiert. Deine Daten wurden beibehalten.</string>
 </resources>

@@ -1149,4 +1149,8 @@
     <string name="widget_one_ui_only">Only supported on Samsung devices</string>
     <string name="notices_latest_version">Latest version</string>
     <string name="notices_older_releases">Older releases</string>
+    <string name="change_account_handle">Change handle</string>
+    <string name="change_account_handle_message">Enter the new X handle for this same account. Your history, widgets, goals and local data will move with it. For accounts saved before identity tracking, make sure this is the same person.</string>
+    <string name="invalid_account_handle">Enter an X handle using 1–15 letters, numbers or underscores.</string>
+    <string name="account_handle_changed">Account handle updated. Your data has been kept.</string>
 </resources>
