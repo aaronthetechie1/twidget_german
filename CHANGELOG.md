@@ -84,6 +84,7 @@ is reused by someone else.
   being squeezed into one line.
 - Show saved dashboard cards immediately on launch while refreshing quietly in
   the background.
+- Fixed Gemini Nano being unavailable on Play and GitHub release builds.
 
 ### Contributors
 
