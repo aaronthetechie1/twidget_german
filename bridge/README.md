@@ -61,11 +61,21 @@ distributed APK.
 Top Followers provider credentials remain server-side. When a shared-history
 user first asks to find their top follower, that request enrolls the account in
 server-owned refreshes once per `TOP_FOLLOWERS_REFRESH_HOURS` (24 hours by
-default), including while phones are offline. Accounts that only participate in
-pooled metric history are not scanned until that explicit first request.
-Ordinary app installs cannot submit follower rows. Initial client requests have
+default), including while phones are offline, as long as a client has used Top
+Followers within `TOP_FOLLOWERS_ACTIVE_DAYS` (default 7, allowed 1–365 days).
+Preview, archive, scan-status, and scan-start requests record activity, with
+metadata writes throttled to once per hour per account in each bridge process.
+Dormant accounts keep their stale ranking but stop starting paid scans; scans
+already running still resume. A returning preview reader receives that stale
+ranking immediately and triggers a refresh through the same capacity, global
+daily, and per-IP daily limits as an explicit scan request. Legacy accounts use
+their enrollment time as activity; those without it receive a persisted grace
+period starting on the first scheduler run after deployment.
+Accounts that only participate in pooled metric history are not scanned until
+that explicit first request.
+Ordinary app installs cannot submit follower rows. Client scan starts have
 global and per-IP daily-start limits; scheduled work remains bounded by the
-enrolled-account cap, refresh cadence, upstream concurrency, page cost, and
+enrolled-account cap, activity window, refresh cadence, upstream concurrency, page cost, and
 retention. The legacy ranking write remains fail-closed behind
 `TOP_FOLLOWERS_PUBLISH_TOKEN` for compatibility and must never be exposed to an
 app install.
@@ -160,7 +170,8 @@ controls include:
 - `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TWITTERAPIS_API_KEY` — server-only key used for opted-in bridge-owned follower scans.
 - `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — request reuse, scheduled refresh, and permanent deletion windows.
-- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — initial client-request budgets.
+- `TOP_FOLLOWERS_ACTIVE_DAYS` — client activity window for scheduled scans (default `7`, range `1–365`); exposed as `history.topFollowers.activeDays` in `/health`.
+- `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — explicit and returning-preview client scan-start budgets.
 - `TOP_FOLLOWERS_MAX_CONCURRENT`, `TOP_FOLLOWERS_MAX_PAGES` — scheduled and requested provider-work bounds.
 - `TRUST_PROXY_HOPS` — exact reverse-proxy hop count; Railway uses `1`.
 - `RATE_LIMIT_*`, `EXPENSIVE_RATE_LIMIT_MAX` — request budgets; shared when Redis is configured.

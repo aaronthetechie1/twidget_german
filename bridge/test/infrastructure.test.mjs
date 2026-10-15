@@ -75,6 +75,20 @@ test("local Top Followers scans publish atomically, paginate by rank, and expire
   assert.equal(await repository.getTopFollowersSnapshot("example"), null);
 });
 
+test("local metadata writes cannot erase or roll back Top Followers activity", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-meta-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const repository = new LocalHistoryRepository({ filePath: path.join(temp, "history.json"), maxHistoryDays: 400 });
+  await repository.initialize();
+  await repository.setMeta("example", { topFollowersLastSeenAt: 2000 });
+  await repository.setMeta("example", { banger: { score: 1 } });
+  assert.deepEqual(await repository.getMeta("example"), { topFollowersLastSeenAt: 2000, banger: { score: 1 } });
+  await repository.setMeta("example", { topFollowersLastSeenAt: 1000 });
+  assert.equal((await repository.getMeta("example")).topFollowersLastSeenAt, 2000);
+  await repository.setMeta("example", { topFollowersLastSeenAt: 3000 });
+  assert.equal((await repository.getMeta("example")).topFollowersLastSeenAt, 3000);
+});
+
 test("history merge never lets an estimate replace a real daily sample", () => {
   const now = Date.UTC(2026, 6, 10);
   const merged = mergeSamples(
@@ -205,6 +219,13 @@ test("PostgreSQL repository creates cascading schema and stores dates in UTC", a
   assert.deepEqual(sampleInsert.params.slice(2), [10, true, 1, true, 2, true, 3, true, "live", false]);
   assert.ok(calls.some((call) => call.sql === "COMMIT"));
   assert.ok(calls.some((call) => call.sql === "RELEASE"));
+
+  await repository.setMeta("example", { topFollowersLastSeenAt: ts });
+  const metaUpdate = calls.find((call) => /DO UPDATE SET metadata = CASE/.test(call.sql));
+  assert.match(metaUpdate.sql, /twidget_history_accounts.metadata->>'topFollowersLastSeenAt'/);
+  assert.match(metaUpdate.sql, /COALESCE\(\(EXCLUDED.metadata->>'topFollowersLastSeenAt'\)::bigint, 0\)/);
+  assert.match(metaUpdate.sql, /THEN EXCLUDED.metadata \|\| jsonb_build_object/);
+  assert.deepEqual(metaUpdate.params, ["example", JSON.stringify({ topFollowersLastSeenAt: ts })]);
 });
 
 function sample(ts, followers) {

@@ -150,7 +150,12 @@ export class LocalHistoryRepository {
   }
   async getMeta(key) { return { ...(this.store.meta[key] || {}) }; }
   async setMeta(key, meta) {
+    const lastSeenAt = this.store.meta[key]?.topFollowersLastSeenAt;
     this.store.meta[key] = { ...meta };
+    // Other metadata writers may have read their copy before client activity.
+    if (lastSeenAt > (meta.topFollowersLastSeenAt || 0)) {
+      this.store.meta[key].topFollowersLastSeenAt = lastSeenAt;
+    }
     await this.persist();
   }
   async patchMeta(key, patch) {
@@ -534,7 +539,13 @@ export class PostgresHistoryRepository {
     await this.pool.query(`
       INSERT INTO twidget_history_accounts (username, metadata)
       VALUES ($1, $2::jsonb)
-      ON CONFLICT (username) DO UPDATE SET metadata = EXCLUDED.metadata
+      ON CONFLICT (username) DO UPDATE SET metadata = CASE
+        WHEN (twidget_history_accounts.metadata->>'topFollowersLastSeenAt')::bigint
+          > COALESCE((EXCLUDED.metadata->>'topFollowersLastSeenAt')::bigint, 0)
+        THEN EXCLUDED.metadata || jsonb_build_object(
+          'topFollowersLastSeenAt', twidget_history_accounts.metadata->'topFollowersLastSeenAt')
+        ELSE EXCLUDED.metadata
+      END
     `, [key, JSON.stringify(meta)]);
   }
   async patchMeta(key, patch) {

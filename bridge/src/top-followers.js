@@ -2,6 +2,33 @@ const MAX_TOP_FOLLOWERS = 5;
 const MAX_SCANNED = 10_000_000;
 const MAX_PAGES = 6_250;
 
+// Reserve the throttle slot before awaiting storage so concurrent polling only
+// writes once. Failed writes can be retried by the next request.
+export function createTopFollowersActivityRecorder(repository, now = Date.now) {
+  const lastWrites = new Map();
+  const throttleMs = 60 * 60 * 1000;
+  return async function recordActivity(key) {
+    const timestamp = now();
+    if (timestamp - (lastWrites.get(key) ?? -Infinity) < throttleMs) return;
+    lastWrites.set(key, timestamp);
+    try {
+      if (!(await repository.hasAccount(key))) {
+        lastWrites.delete(key);
+        return;
+      }
+      const meta = await repository.getMeta(key);
+      await repository.setMeta(key, { ...meta, topFollowersLastSeenAt: timestamp });
+    } catch (error) {
+      lastWrites.delete(key);
+      throw error;
+    } finally {
+      for (const [account, writtenAt] of lastWrites) {
+        if (timestamp - writtenAt >= throttleMs) lastWrites.delete(account);
+      }
+    }
+  };
+}
+
 export function shouldRefreshTopFollowers({
   snapshot,
   scan,
