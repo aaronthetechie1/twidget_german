@@ -801,7 +801,7 @@ export class PostgresHistoryRepository {
              followers::text, verified, avatar, mutual, scan_index
       FROM twidget_top_followers
       WHERE scan_id = $1::uuid
-      ORDER BY followers DESC, lower(display_name), lower(follower_username), follower_id, scan_index
+      ORDER BY twidget_top_followers.followers DESC, lower(display_name), lower(follower_username), follower_id, scan_index
       OFFSET $2 LIMIT $3
     `, [scan.rows[0].scan_id, offset, limit]);
     return {
