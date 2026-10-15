@@ -210,21 +210,23 @@ export class LocalHistoryRepository {
     const scan = this.store.topFollowers[key];
     return scan ? topFollowersScanSummary(scan) : null;
   }
-  async startTopFollowersScan(key, scanId, now = this.now()) {
+  async startTopFollowersScan(key, scanId, now = this.now(), kind = "full") {
     const existing = this.store.topFollowers[key];
     if (existing?.status === "running") return topFollowersScanSummary(existing);
     const previous = existing?.status === "complete" ? existing : existing?.previous;
     const scan = {
       scanId,
+      kind: previous && kind === "head" ? "head" : "full",
+      fullCompletedAt: kind === "head" ? Number(previous?.fullCompletedAt || previous?.completedAt || 0) : 0,
       status: "running",
       cursor: "",
       pages: 0,
-      scanned: 0,
+      scanned: kind === "head" ? Number(previous?.scanned || 0) : 0,
       startedAt: now,
       updatedAt: now,
       completedAt: 0,
       error: "",
-      followers: [],
+      followers: kind === "head" ? [...(previous?.followers || [])] : [],
       ...(previous?.status === "complete" ? { previous } : {}),
     };
     this.store.topFollowers[key] = scan;
@@ -258,6 +260,7 @@ export class LocalHistoryRepository {
     scan.status = "complete";
     scan.cursor = "";
     scan.completedAt = now;
+    if (scan.kind !== "head") scan.fullCompletedAt = now;
     scan.updatedAt = now;
     delete scan.previous;
     await this.persist();
@@ -459,6 +462,9 @@ export class PostgresHistoryRepository {
       CREATE INDEX IF NOT EXISTS twidget_top_followers_rank_idx
         ON twidget_top_followers (scan_id, followers DESC, follower_username);
 
+      ALTER TABLE twidget_top_follower_scans ADD COLUMN IF NOT EXISTS kind varchar(8) NOT NULL DEFAULT 'full';
+      ALTER TABLE twidget_top_follower_scans ADD COLUMN IF NOT EXISTS full_completed_at timestamptz;
+
       ALTER TABLE twidget_history_samples ADD COLUMN IF NOT EXISTS followers_known boolean;
       ALTER TABLE twidget_history_samples ADD COLUMN IF NOT EXISTS following_known boolean;
       ALTER TABLE twidget_history_samples ADD COLUMN IF NOT EXISTS posts_known boolean;
@@ -557,7 +563,8 @@ export class PostgresHistoryRepository {
   }
   async getTopFollowersScan(key) {
     const result = await this.pool.query(`
-      SELECT scan_id::text, status, cursor, pages, scanned, error,
+      SELECT scan_id::text, status, cursor, pages, scanned, error, kind,
+             extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
              extract(epoch from started_at) * 1000 AS started_at_ms,
              extract(epoch from updated_at) * 1000 AS updated_at_ms,
              extract(epoch from completed_at) * 1000 AS completed_at_ms
@@ -568,13 +575,14 @@ export class PostgresHistoryRepository {
     `, [key]);
     return result.rows[0] ? topFollowersScanFromRow(result.rows[0]) : null;
   }
-  async startTopFollowersScan(key, scanId) {
+  async startTopFollowersScan(key, scanId, _now = Date.now(), kind = "full") {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(hashtext('twidget_top_followers:' || $1))", [key]);
       const running = await client.query(`
-        SELECT scan_id::text, status, cursor, pages, scanned, error,
+        SELECT scan_id::text, status, cursor, pages, scanned, error, kind,
+               extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
                extract(epoch from started_at) * 1000 AS started_at_ms,
                extract(epoch from updated_at) * 1000 AS updated_at_ms,
                extract(epoch from completed_at) * 1000 AS completed_at_ms
@@ -585,14 +593,31 @@ export class PostgresHistoryRepository {
         await client.query("COMMIT");
         return topFollowersScanFromRow(running.rows[0]);
       }
+      const previous = kind === "head" ? await client.query(`
+        SELECT scan_id, scanned, COALESCE(full_completed_at, completed_at) AS full_completed_at
+        FROM twidget_top_follower_scans
+        WHERE username = $1 AND status = 'complete'
+        ORDER BY completed_at DESC LIMIT 1
+      `, [key]) : { rows: [] };
+      const source = previous.rows[0];
       const inserted = await client.query(`
-        INSERT INTO twidget_top_follower_scans (scan_id, username, status)
-        VALUES ($1::uuid, $2, 'running')
-        RETURNING scan_id::text, status, cursor, pages, scanned, error,
+        INSERT INTO twidget_top_follower_scans (scan_id, username, status, kind, scanned, full_completed_at)
+        VALUES ($1::uuid, $2, 'running', $3, $4, $5)
+        RETURNING scan_id::text, status, cursor, pages, scanned, error, kind,
+                  extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
                   extract(epoch from started_at) * 1000 AS started_at_ms,
                   extract(epoch from updated_at) * 1000 AS updated_at_ms,
                   NULL::numeric AS completed_at_ms
-      `, [scanId, key]);
+      `, [scanId, key, source ? "head" : "full", Number(source?.scanned || 0), source?.full_completed_at || null]);
+      if (source) {
+        // Keep the published snapshot intact until the bounded head scan commits.
+        await client.query(`
+          INSERT INTO twidget_top_followers
+            (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
+          SELECT $1::uuid, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual
+          FROM twidget_top_followers WHERE scan_id = $2::uuid
+        `, [scanId, source.scan_id]);
+      }
       await client.query("COMMIT");
       return topFollowersScanFromRow(inserted.rows[0]);
     } catch (error) {
@@ -614,10 +639,18 @@ export class PostgresHistoryRepository {
         await client.query("ROLLBACK");
         return null;
       }
-      const base = Number(current.rows[0].scanned || 0);
+      // An indexed maximum handles gaps left by duplicate rows. Read it in a
+      // separate statement after acquiring the lock so a concurrent append's
+      // committed rows are visible under READ COMMITTED.
+      const nextIndex = followers.length ? await client.query(`
+        SELECT COALESCE(max(scan_index) + 1, 0) AS next_index
+        FROM twidget_top_followers WHERE scan_id = $1::uuid
+      `, [scanId]) : null;
+      const base = Number(nextIndex?.rows[0]?.next_index || 0);
+      let insertedCount = 0;
       const payload = followers.map((value, index) => ({ ...value, scanIndex: base + index }));
       if (payload.length) {
-        await client.query(`
+        const inserted = await client.query(`
           INSERT INTO twidget_top_followers
             (scan_id, scan_index, follower_id, follower_username, display_name, followers, verified, avatar, mutual)
           SELECT $1::uuid, value.scan_index, value.id, value.username, value.name,
@@ -637,19 +670,21 @@ export class PostgresHistoryRepository {
           avatar: value.avatar,
           mutual: value.mutual,
         })))]);
+        insertedCount = inserted.rowCount;
       }
       const updated = await client.query(`
         UPDATE twidget_top_follower_scans SET
           cursor = $3,
           pages = pages + 1,
-          scanned = (SELECT count(*)::int FROM twidget_top_followers WHERE scan_id = $1::uuid),
+          scanned = scanned + $4::int,
           updated_at = now()
         WHERE scan_id = $1::uuid AND username = $2 AND status = 'running'
-        RETURNING scan_id::text, status, cursor, pages, scanned, error,
+        RETURNING scan_id::text, status, cursor, pages, scanned, error, kind,
+                  extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
                   extract(epoch from started_at) * 1000 AS started_at_ms,
                   extract(epoch from updated_at) * 1000 AS updated_at_ms,
                   extract(epoch from completed_at) * 1000 AS completed_at_ms
-      `, [scanId, key, cursor]);
+      `, [scanId, key, cursor, insertedCount]);
       await client.query("COMMIT");
       return updated.rows[0] ? topFollowersScanFromRow(updated.rows[0]) : null;
     } catch (error) {
@@ -664,9 +699,11 @@ export class PostgresHistoryRepository {
     try {
       await client.query("BEGIN");
       const updated = await client.query(`
-        UPDATE twidget_top_follower_scans SET status = 'complete', cursor = '', completed_at = now(), updated_at = now()
+        UPDATE twidget_top_follower_scans SET status = 'complete', cursor = '', completed_at = now(), updated_at = now(),
+          full_completed_at = CASE WHEN kind = 'head' THEN full_completed_at ELSE now() END
         WHERE scan_id = $1::uuid AND username = $2 AND status = 'running' AND scanned > 0
-        RETURNING scan_id::text, status, cursor, pages, scanned, error,
+        RETURNING scan_id::text, status, cursor, pages, scanned, error, kind,
+                  extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
                   extract(epoch from started_at) * 1000 AS started_at_ms,
                   extract(epoch from updated_at) * 1000 AS updated_at_ms,
                   extract(epoch from completed_at) * 1000 AS completed_at_ms
@@ -690,7 +727,8 @@ export class PostgresHistoryRepository {
     const result = await this.pool.query(`
       UPDATE twidget_top_follower_scans SET status = 'failed', error = $3, updated_at = now()
       WHERE scan_id = $1::uuid AND username = $2 AND status = 'running'
-      RETURNING scan_id::text, status, cursor, pages, scanned, error,
+      RETURNING scan_id::text, status, cursor, pages, scanned, error, kind,
+                extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
                 extract(epoch from started_at) * 1000 AS started_at_ms,
                 extract(epoch from updated_at) * 1000 AS updated_at_ms,
                 extract(epoch from completed_at) * 1000 AS completed_at_ms
@@ -699,7 +737,8 @@ export class PostgresHistoryRepository {
   }
   async getTopFollowersSnapshot(key, { offset = 0, limit = 250 } = {}) {
     const scan = await this.pool.query(`
-      SELECT scan_id::text, status, cursor, pages, scanned, error,
+      SELECT scan_id::text, status, cursor, pages, scanned, error, kind,
+             extract(epoch from full_completed_at) * 1000 AS full_completed_at_ms,
              extract(epoch from started_at) * 1000 AS started_at_ms,
              extract(epoch from updated_at) * 1000 AS updated_at_ms,
              extract(epoch from completed_at) * 1000 AS completed_at_ms
@@ -1019,6 +1058,8 @@ function topFollowersScanSummary(scan) {
   return {
     scanId: String(scan.scanId || ""),
     status: String(scan.status || ""),
+    kind: scan.kind === "head" ? "head" : "full",
+    fullCompletedAt: Number(scan.fullCompletedAt || (scan.kind !== "head" ? scan.completedAt : 0) || 0),
     cursor: String(scan.cursor || ""),
     pages: Number(scan.pages || 0),
     scanned: Number(scan.scanned || 0),
@@ -1033,6 +1074,8 @@ function topFollowersScanFromRow(row) {
   return topFollowersScanSummary({
     scanId: row.scan_id,
     status: row.status,
+    kind: row.kind,
+    fullCompletedAt: row.full_completed_at_ms,
     cursor: row.cursor,
     pages: row.pages,
     scanned: row.scanned,

@@ -43,6 +43,23 @@ export function shouldRefreshTopFollowers({
   return lastAttemptAt <= 0 || now - lastAttemptAt >= refreshMs;
 }
 
+// Full-snapshot age and the last head check are separate clocks. A partial
+// merge must never reset the full-scan clock that detects unfollows.
+export function topFollowersRefreshKind({
+  snapshot,
+  scan,
+  now = Date.now(),
+  refreshMs = 24 * 60 * 60 * 1000,
+  fullScanMs = 7 * 24 * 60 * 60 * 1000,
+  headCheck = false,
+}) {
+  if (scan?.status === "running") return null;
+  if (scan?.status === "failed" && !shouldRefreshTopFollowers({ scan, now, refreshMs })) return null;
+  const fullCompletedAt = Number(snapshot?.fullCompletedAt || snapshot?.completedAt || snapshot?.cachedAt || 0);
+  if (!fullCompletedAt || now - fullCompletedAt >= fullScanMs) return "full";
+  return headCheck && shouldRefreshTopFollowers({ snapshot, scan, now, refreshMs }) ? "head" : null;
+}
+
 export function prepareTopFollowersCache(body, now = Date.now()) {
   if (!body || typeof body !== "object" || !Array.isArray(body.top)) return null;
   if (body.top.length < 1 || body.top.length > MAX_TOP_FOLLOWERS) return null;

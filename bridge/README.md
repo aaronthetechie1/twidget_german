@@ -60,19 +60,59 @@ distributed APK.
 
 Top Followers provider credentials remain server-side. When a shared-history
 user first asks to find their top follower, that request enrolls the account in
-server-owned refreshes once per `TOP_FOLLOWERS_REFRESH_HOURS` (24 hours by
-default), including while phones are offline, as long as a client has used Top
+server-owned full scans once per `TOP_FOLLOWERS_FULL_SCAN_DAYS` (default 7,
+allowed 1–90 days), including while phones are offline, as long as a client has used Top
 Followers within `TOP_FOLLOWERS_ACTIVE_DAYS` (default 7, allowed 1–365 days).
 Preview, archive, scan-status, and scan-start requests record activity, with
 metadata writes throttled to once per hour per account in each bridge process.
 Dormant accounts keep their stale ranking but stop starting paid scans; scans
 already running still resume. A returning preview reader receives that stale
-ranking immediately and triggers a refresh through the same capacity, global
+ranking immediately and triggers a refresh when due through the same capacity, global
 daily, and per-IP daily limits as an explicit scan request. Legacy accounts use
 their enrollment time as activity; those without it receive a persisted grace
 period starting on the first scheduler run after deployment.
 Accounts that only participate in pooled metric history are not scanned until
 that explicit first request.
+
+The default between full scans is to serve the existing snapshot, with its
+original completion time. Preview reads and explicit scan requests also obey
+the full-scan interval, so polling cannot bypass the weekly cadence.
+`TOP_FOLLOWERS_FRESH_HOURS` (default 24) remains the immediate request-reuse
+window; older snapshots are still reused until the configured scan is due.
+`TOP_FOLLOWERS_REFRESH_HOURS` (default 24, range 1–168) now controls the cadence
+of optional head checks and the cooldown before retrying a failed attempt,
+rather than scheduling daily full scans. Failed full scans can retry after this
+cooldown; successful full scans reset the full-scan clock.
+
+**Provider ordering is unverified:** neither the `followers_v2` adapter nor the
+repository's docs/tests establish newest-first follower ordering. Head checks
+are therefore off by default. Only set `TOP_FOLLOWERS_HEAD_CHECK=1` after
+confirming newest-first ordering for the configured provider endpoint.
+When enabled, a due head check fetches up to `TOP_FOLLOWERS_HEAD_PAGES` (default
+1, range 1–5) from the beginning and merges new followers into the existing
+ranked archive. A head check preserves existing follower profiles and does not
+detect unfollows or refresh their follower counts; those changes are detected
+on full scans. New followers beyond the configured head-page window can also
+wait until the next full scan. Partial merges never reset the full-scan clock.
+
+Endpoints and existing response fields remain compatible. `completedAt` and
+`cachedAt` identify the latest published snapshot, including a head merge;
+additive `fullCompletedAt` and `scanKind` (`full` or `head`) fields distinguish
+full-scan freshness from partial updates. Old snapshots use their completion
+time as the last full scan. `/health` exposes `history.topFollowers.fullScanDays`,
+`headCheck`, `headPages`, and `providerOrderingVerified` (currently false),
+alongside the existing settings.
+
+Postgres page writes increment the scan count by actual inserted rows, in the
+same transaction as the cursor. The single-instance JSON backend checkpoints
+rows and cursor together every 100 pages or five seconds, whichever comes
+first, and flushes on completion, failure, and graceful shutdown. Other history
+writes may also checkpoint pending pages. An abrupt process exit may replay up
+to one batch from the last atomic file replacement; expired provider cursors
+can fail the attempt, which will restart after the retry cooldown. Head scans
+stage a copy of the archive and publish atomically, so they still incur local
+archive-copy/storage costs even though provider calls are bounded.
+
 Ordinary app installs cannot submit follower rows. Client scan starts have
 global and per-IP daily-start limits; scheduled work remains bounded by the
 enrolled-account cap, activity window, refresh cadence, upstream concurrency, page cost, and
@@ -169,7 +209,9 @@ controls include:
 - `BRIDGE_API_TOKEN` — optional token for private/self-hosted data routes.
 - `TOP_FOLLOWERS_PUBLISH_TOKEN` — trusted shared-ranking writer credential for an otherwise public bridge.
 - `TWITTERAPIS_API_KEY` — server-only key used for opted-in bridge-owned follower scans.
-- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — request reuse, scheduled refresh, and permanent deletion windows.
+- `TOP_FOLLOWERS_FRESH_HOURS`, `TOP_FOLLOWERS_REFRESH_HOURS`, `TOP_FOLLOWERS_RETENTION_DAYS` — immediate request reuse, head-check/retry cadence, and permanent deletion windows (see cadence details above).
+- `TOP_FOLLOWERS_FULL_SCAN_DAYS` — full-scan interval (default `7`, range `1–90`).
+- `TOP_FOLLOWERS_HEAD_CHECK`, `TOP_FOLLOWERS_HEAD_PAGES` — opt-in partial checks (`0` by default) and their page cap (default `1`, range `1–5`); require confirmed newest-first provider ordering.
 - `TOP_FOLLOWERS_ACTIVE_DAYS` — client activity window for scheduled scans (default `7`, range `1–365`); exposed as `history.topFollowers.activeDays` in `/health`.
 - `TOP_FOLLOWERS_DAILY_SCAN_LIMIT`, `TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP` — explicit and returning-preview client scan-start budgets.
 - `TOP_FOLLOWERS_MAX_CONCURRENT`, `TOP_FOLLOWERS_MAX_PAGES` — scheduled and requested provider-work bounds.

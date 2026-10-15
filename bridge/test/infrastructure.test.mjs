@@ -273,3 +273,141 @@ test("PostgreSQL metadata patches update existing JSONB without enrolling delete
   assert.match(calls[0].sql, /metadata = metadata \|\| \$2::jsonb/);
   assert.doesNotMatch(calls[0].sql, /INSERT/);
 });
+
+const follower = (id, followers = Number(id)) => ({
+  id: String(id), username: `fan${id}`, name: `Fan ${id}`, followers,
+  verified: false, avatar: "", mutual: null,
+});
+
+test("JSON head scans merge new followers atomically and full scans remove unfollows", async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "twidget-head-test-"));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const filePath = path.join(temp, "history.json");
+  const repository = new LocalHistoryRepository({ filePath, maxHistoryDays: 400 });
+  await repository.startTopFollowersScan("example", "full", 1000);
+  await repository.appendTopFollowersPage("example", "full", [follower(1, 100), follower(2, 200)], "", 2000);
+  await repository.completeTopFollowersScan("example", "full", 3000);
+  await repository.startTopFollowersScan("example", "failed-head", 4000, "head");
+  await repository.appendTopFollowersPage("example", "failed-head", [follower(3, 300)], "", 5000);
+  assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
+  await repository.failTopFollowersScan("example", "failed-head", "provider_failure", 6000);
+  assert.equal((await repository.getTopFollowersSnapshot("example")).total, 2);
+  await repository.startTopFollowersScan("example", "head", 7000, "head");
+  await repository.appendTopFollowersPage("example", "head", [follower(2, 999), follower(3, 300)], "", 8000);
+  await repository.close();
+  const resumed = new LocalHistoryRepository({ filePath, maxHistoryDays: 400 });
+  await resumed.initialize();
+  assert.equal((await resumed.getTopFollowersScan("example")).kind, "head");
+  await resumed.completeTopFollowersScan("example", "head", 9000);
+  const snapshot = await resumed.getTopFollowersSnapshot("example");
+  assert.equal(snapshot.kind, "head");
+  assert.equal(snapshot.fullCompletedAt, 3000);
+  assert.equal(snapshot.completedAt, 9000);
+  assert.equal(snapshot.total, 3);
+  assert.deepEqual(snapshot.followers.map((value) => value.followers), [300, 200, 100]);
+  assert.deepEqual(snapshot.followers.map((value) => value.scanIndex), [2, 1, 0]);
+  await resumed.startTopFollowersScan("example", "next-full", 10000);
+  await resumed.appendTopFollowersPage("example", "next-full", [follower(3, 400)], "", 11000);
+  await resumed.completeTopFollowersScan("example", "next-full", 12000);
+  assert.equal((await resumed.getTopFollowersSnapshot("example")).total, 1);
+  assert.equal((await resumed.getTopFollowersSnapshot("example")).fullCompletedAt, 12000);
+});
+
+test("Postgres page counters use actual inserted rows, allocate beyond gaps, and roll back failed pages", async () => {
+  let state = { scanned: 2, pages: 1, cursor: "old" };
+  let rows = [0, 2]; // A skipped duplicate left a hole at index 1.
+  let before;
+  let failUpdate = false;
+  const calls = [];
+  const client = {
+    async query(sql, params = []) {
+      calls.push({ sql, params });
+      if (sql === "BEGIN") before = { state: { ...state }, rows: [...rows] };
+      if (sql === "ROLLBACK") ({ state, rows } = before);
+      if (/FOR UPDATE/.test(sql)) {
+        assert.doesNotMatch(sql, /count\(\*\)/i);
+        return { rows: [{ scanned: state.scanned }] };
+      }
+      if (/SELECT COALESCE\(max\(scan_index\)/.test(sql)) {
+        assert.match(calls.at(-2).sql, /FOR UPDATE/, "allocate only after locking the scan");
+        return { rows: [{ next_index: Math.max(...rows) + 1 }] };
+      }
+      if (/INSERT INTO twidget_top_followers/.test(sql)) {
+        const payload = JSON.parse(params[1]);
+        assert.equal(payload[0].scan_index, 3);
+        rows.push(payload.at(-1).scan_index);
+        return { rowCount: 1 }; // Two payload rows but only one new follower.
+      }
+      if (/UPDATE twidget_top_follower_scans SET/.test(sql)) {
+        assert.match(sql, /scanned = scanned \+ \$4::int/);
+        assert.doesNotMatch(sql, /count\(\*\)/i);
+        if (failUpdate) throw new Error("write failed");
+        state = { scanned: state.scanned + params[3], pages: state.pages + 1, cursor: params[2] };
+        return { rows: [{ scan_id: "scan", status: "running", ...state }] };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {},
+  };
+  const repository = new PostgresHistoryRepository({ pool: { async connect() { return client; } }, maxHistoryDays: 400 });
+  const updated = await repository.appendTopFollowersPage("example", "scan", [follower(1), follower(3)], "next");
+  assert.equal(updated.scanned, 3);
+  assert.equal(updated.pages, 2);
+  assert.equal(updated.cursor, "next");
+  assert.equal(calls.at(-1).sql, "COMMIT");
+  await repository.appendTopFollowersPage("example", "scan", [], "empty");
+  assert.equal(state.scanned, 3, "empty pages add zero rows");
+  assert.equal(state.pages, 3);
+  assert.equal(calls.filter(({ sql }) => /INSERT INTO twidget_top_followers/.test(sql)).length, 1);
+  // Start again from the same gap fixture to exercise rollback after INSERT.
+  state = { scanned: 2, pages: 1, cursor: "old" };
+  rows = [0, 2];
+  failUpdate = true;
+  await assert.rejects(repository.appendTopFollowersPage("example", "scan", [follower(4)], "failed"), /write failed/);
+  assert.deepEqual(state, { scanned: 2, pages: 1, cursor: "old" });
+  assert.deepEqual(rows, [0, 2]);
+  assert.equal(calls.at(-1).sql, "ROLLBACK");
+});
+
+test("Postgres head scans stage the previous archive and preserve full-scan freshness on publish", async () => {
+  const calls = [];
+  let row;
+  const fullCompletedAt = Date.UTC(2026, 7, 1);
+  const client = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      if (/SELECT scan_id, scanned, COALESCE/.test(sql)) {
+        return { rows: [{ scan_id: "old", scanned: 2, full_completed_at: new Date(fullCompletedAt) }] };
+      }
+      if (/INSERT INTO twidget_top_follower_scans/.test(sql)) {
+        assert.equal(params[2], "head");
+        assert.equal(params[3], 2);
+        assert.equal(params[4].getTime(), fullCompletedAt);
+        row = { scan_id: "head", status: "running", kind: params[2], scanned: params[3], full_completed_at_ms: fullCompletedAt };
+        return { rows: [row] };
+      }
+      if (/INSERT INTO twidget_top_followers/.test(sql)) {
+        assert.match(sql, /SELECT \$1::uuid, scan_index, follower_id/);
+        assert.deepEqual(params, ["head", "old"]);
+      }
+      if (/UPDATE twidget_top_follower_scans SET status = 'complete'/.test(sql)) {
+        assert.match(sql, /CASE WHEN kind = 'head' THEN full_completed_at ELSE now\(\) END/);
+        return { rows: [{ ...row, status: "complete", completed_at_ms: fullCompletedAt + DAY }] };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {},
+  };
+  const repository = new PostgresHistoryRepository({ pool: { async connect() { return client; } }, maxHistoryDays: 400 });
+  const started = await repository.startTopFollowersScan("example", "head", fullCompletedAt + DAY, "head");
+  assert.equal(started.kind, "head");
+  assert.equal(started.scanned, 2);
+  assert.equal(started.fullCompletedAt, fullCompletedAt);
+  assert.ok(calls.findIndex(({ sql }) => /INSERT INTO twidget_top_followers/.test(sql)) < calls.findIndex(({ sql }) => sql === "COMMIT"));
+  assert.equal(calls.some(({ sql }) => /DELETE FROM twidget_top_follower_scans/.test(sql)), false, "old snapshot survives staging");
+  const completed = await repository.completeTopFollowersScan("example", "head");
+  assert.equal(completed.fullCompletedAt, fullCompletedAt);
+  assert.equal(completed.completedAt, fullCompletedAt + DAY);
+  assert.ok(calls.some(({ sql }) => /DELETE FROM twidget_top_follower_scans/.test(sql)));
+  assert.equal(calls.at(-1).sql, "COMMIT");
+});

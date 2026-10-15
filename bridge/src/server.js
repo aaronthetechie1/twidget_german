@@ -8,7 +8,7 @@ import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
-import { createTopFollowersActivityRecorder, prepareTopFollowersCache, shouldRefreshTopFollowers } from "./top-followers.js";
+import { createTopFollowersActivityRecorder, prepareTopFollowersCache, topFollowersRefreshKind } from "./top-followers.js";
 import {
   fetchTwitterApisFollowersPage,
   TopFollowersProviderError,
@@ -40,6 +40,12 @@ const historyInactiveAccountDays = envInteger("HISTORY_INACTIVE_ACCOUNT_DAYS", 0
 const historyPruneMs = envInteger("HISTORY_PRUNE_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersFreshMs = envInteger("TOP_FOLLOWERS_FRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersRefreshMs = envInteger("TOP_FOLLOWERS_REFRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
+const topFollowersFullScanDays = envInteger("TOP_FOLLOWERS_FULL_SCAN_DAYS", 7, 1, 90);
+const topFollowersFullScanMs = topFollowersFullScanDays * 24 * 60 * 60 * 1000;
+// followers_v2 ordering is unverified in this repo. Operators must confirm
+// newest-first ordering for their endpoint before opting in.
+const topFollowersHeadCheck = process.env.TOP_FOLLOWERS_HEAD_CHECK === "1";
+const topFollowersHeadPages = envInteger("TOP_FOLLOWERS_HEAD_PAGES", 1, 1, 5);
 const topFollowersActiveDays = envInteger("TOP_FOLLOWERS_ACTIVE_DAYS", 7, 1, 365);
 const topFollowersRetentionDays = envInteger("TOP_FOLLOWERS_RETENTION_DAYS", 30, 1, 365);
 const topFollowersDailyStarts = envInteger("TOP_FOLLOWERS_DAILY_SCAN_LIMIT", 50, 1, 10000);
@@ -94,6 +100,7 @@ const profileInFlight = new Map();
 const bangerInFlight = new Map();
 const topFollowersJobs = new Map();
 const topFollowersQueue = new Map();
+let shuttingDown = false;
 let topFollowersActive = 0;
 const withUpstreamSlot = upstreamGate(maxConcurrentUpstream);
 
@@ -238,6 +245,10 @@ app.get("/health", async (_req, res) => {
         serverScans: Boolean(twitterApisApiKey),
         freshnessHours: topFollowersFreshMs / (60 * 60 * 1000),
         refreshHours: topFollowersRefreshMs / (60 * 60 * 1000),
+        fullScanDays: topFollowersFullScanDays,
+        headCheck: topFollowersHeadCheck,
+        headPages: topFollowersHeadPages,
+        providerOrderingVerified: false,
         activeDays: topFollowersActiveDays,
         retentionDays: topFollowersRetentionDays,
       },
@@ -531,13 +542,26 @@ app.post("/history/:username/top-followers/scan", trackTopFollowersActivity, asy
     res.status(result.status).json({ error: result.error });
     return;
   }
+  if (result.snapshot) {
+    res.json(topFollowersSnapshotResponse(username, result.snapshot, true));
+    return;
+  }
   res.status(202).json(topFollowersScanResponse(username, result.scan));
 });
 
 async function refreshTopFollowersOnReturn(key, username, snapshot, meta, req) {
   if (!twitterApisApiKey || (!meta.topFollowersEnrolledAt && !snapshot && !meta.topFollowers)) return;
-  if (!shouldRefreshTopFollowers({ snapshot: snapshot || meta.topFollowers, refreshMs: topFollowersRefreshMs })) return;
+  if (!topFollowersRefreshDecision(snapshot || meta.topFollowers)) return;
   await startClientTopFollowersScan(key, username, req);
+}
+
+function topFollowersRefreshDecision(snapshot, scan, now = Date.now()) {
+  return topFollowersRefreshKind({
+    snapshot, scan, now,
+    refreshMs: topFollowersRefreshMs,
+    fullScanMs: topFollowersFullScanMs,
+    headCheck: topFollowersHeadCheck,
+  });
 }
 
 // Both explicit starts and returning preview readers share all admission checks.
@@ -547,6 +571,9 @@ async function startClientTopFollowersScan(key, username, req) {
     if (!topFollowersJobs.has(key)) launchTopFollowersJob(key, username, existing);
     return { scan: existing };
   }
+  const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
+  const kind = topFollowersRefreshDecision(snapshot, existing);
+  if (!kind) return snapshot ? { snapshot } : { scan: existing };
   if (topFollowersActive >= topFollowersMaxConcurrent) {
     return { status: 503, error: "top_followers_scan_capacity_reached", retryMs: 15_000 };
   }
@@ -558,7 +585,7 @@ async function startClientTopFollowersScan(key, username, req) {
   if (daily.capacityReached || daily.count > topFollowersDailyStarts) {
     return { status: 429, error: "top_followers_daily_limit_reached", retryMs: daily.retryMs };
   }
-  const scan = await historyRepository.startTopFollowersScan(key, crypto.randomUUID());
+  const scan = await historyRepository.startTopFollowersScan(key, crypto.randomUUID(), Date.now(), kind);
   launchTopFollowersJob(key, username, scan);
   return { scan };
 }
@@ -1067,6 +1094,16 @@ server.maxRequestsPerSocket = envInteger("MAX_REQUESTS_PER_SOCKET", 100, 1, 1000
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => {
     console.log(`${signal} received, shutting down`);
+    shuttingDown = true;
+    clearInterval(refreshTimer);
+    clearTimeout(bootRefreshTimer);
+    clearInterval(pruneTimer);
+    topFollowersQueue.clear();
+    // close() flushes the JSON checkpoint synchronously before its first await.
+    // Flush now as well as on socket drain, including during a stalled request.
+    if (historyRepository.backendName() === "json") {
+      void historyRepository.close().catch((error) => console.error("Shutdown checkpoint failed:", error));
+    }
     server.closeIdleConnections?.();
     server.close(async () => {
       await Promise.allSettled([
@@ -1145,10 +1182,11 @@ async function scheduleTopFollowersRefreshes(accounts) {
         dormant += 1;
         continue;
       }
-      if (!shouldRefreshTopFollowers({ snapshot, scan, now, refreshMs: topFollowersRefreshMs })) continue;
-      const started = await historyRepository.startTopFollowersScan(key, crypto.randomUUID());
+      const kind = topFollowersRefreshDecision(snapshot || meta.topFollowers, scan, now);
+      if (!kind) continue;
+      const started = await historyRepository.startTopFollowersScan(key, crypto.randomUUID(), now, kind);
       launchTopFollowersJob(key, key, started);
-      console.log(`Daily Top Followers refresh queued for ${key}`);
+      console.log(`Top Followers ${kind} refresh queued for ${key}`);
     } catch (error) {
       console.warn(`Unable to queue daily Top Followers refresh for ${key}:`, error?.message || error);
     }
@@ -1174,13 +1212,13 @@ async function pruneHistory() {
 }
 
 function launchTopFollowersJob(key, username, scan) {
-  if (topFollowersJobs.has(key) || topFollowersQueue.has(key)) return;
+  if (shuttingDown || topFollowersJobs.has(key) || topFollowersQueue.has(key)) return;
   topFollowersQueue.set(key, { username, scan });
   drainTopFollowersQueue();
 }
 
 function drainTopFollowersQueue() {
-  while (topFollowersActive < topFollowersMaxConcurrent && topFollowersQueue.size) {
+  while (!shuttingDown && topFollowersActive < topFollowersMaxConcurrent && topFollowersQueue.size) {
     const next = topFollowersQueue.entries().next().value;
     if (!next) return;
     const [key, { username, scan }] = next;
@@ -1214,8 +1252,17 @@ async function runTopFollowersJobWithLock(key, username, scan) {
 async function runTopFollowersJob(key, username, initial) {
   let scan = initial;
   try {
-    while (scan.pages < topFollowersMaxPages) {
+    const pageLimit = scan.kind === "head" ? topFollowersHeadPages : topFollowersMaxPages;
+    // A crash can occur after checkpointing the terminal page but before
+    // publishing. Its empty cursor means completion, not a new first page.
+    if (scan.pages > 0 && !scan.cursor) {
+      await historyRepository.completeTopFollowersScan(key, scan.scanId);
+      return;
+    }
+    while (scan.pages < pageLimit) {
+      if (shuttingDown) return;
       const page = await withUpstreamSlot(() => fetchTopFollowersProviderPage(username, scan.cursor));
+      if (shuttingDown) return;
       if (!page.users.length) {
         if (!scan.scanned) throw new Error("top_followers_unavailable");
         await historyRepository.completeTopFollowersScan(key, scan.scanId);
@@ -1230,11 +1277,15 @@ async function runTopFollowersJob(key, username, initial) {
         page.nextCursor,
       );
       if (!scan) return;
-      if (!page.nextCursor) {
+      if (!page.nextCursor || (scan.kind === "head" && scan.pages >= pageLimit)) {
         scan = await historyRepository.completeTopFollowersScan(key, scan.scanId);
         console.log(`Top Followers scan completed for ${key}: ${scan?.scanned || 0} followers across ${scan?.pages || 0} pages`);
         return;
       }
+    }
+    if (scan.kind === "head") {
+      await historyRepository.completeTopFollowersScan(key, scan.scanId);
+      return;
     }
     throw new Error("top_followers_page_limit_reached");
   } catch (error) {
@@ -1285,6 +1336,8 @@ function topFollowersScanResponse(username, scan) {
     startedAt: scan.startedAt,
     updatedAt: scan.updatedAt,
     completedAt: scan.completedAt,
+    fullCompletedAt: scan.fullCompletedAt,
+    scanKind: scan.kind,
     ...(scan.error ? { error: scan.error } : {}),
   };
 }

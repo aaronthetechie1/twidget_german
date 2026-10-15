@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTopFollowersActivityRecorder, prepareTopFollowersCache, shouldRefreshTopFollowers } from "../src/top-followers.js";
+import { createTopFollowersActivityRecorder, prepareTopFollowersCache, shouldRefreshTopFollowers, topFollowersRefreshKind } from "../src/top-followers.js";
 
 test("Top Followers activity writes are hourly, per account, and preserve metadata", async () => {
   const hour = 60 * 60 * 1000;
@@ -98,4 +98,49 @@ test("daily refreshes run once per cadence and do not duplicate running scans", 
   assert.equal(shouldRefreshTopFollowers({
     snapshot: null, scan: { status: "running", startedAt: now - day * 2 }, now, refreshMs: day,
   }), false);
+});
+
+
+test("weekly full scans are the default for scheduled, explicit, and returning work", () => {
+  const day = 24 * 60 * 60 * 1000;
+  const now = 100 * day;
+  for (const age of [0, 1, 2, 6]) {
+    assert.equal(topFollowersRefreshKind({ snapshot: { completedAt: now - age * day }, now }), null);
+  }
+  assert.equal(topFollowersRefreshKind({ snapshot: { completedAt: now - 7 * day }, now }), "full");
+  assert.equal(topFollowersRefreshKind({ snapshot: { cachedAt: now - 6 * day }, now }), null);
+  assert.equal(topFollowersRefreshKind({ snapshot: { cachedAt: now - 8 * day }, now }), "full");
+  assert.equal(topFollowersRefreshKind({ now }), "full");
+  for (const days of [1, 90]) {
+    const fullScanMs = days * day;
+    assert.equal(topFollowersRefreshKind({ snapshot: { completedAt: now - fullScanMs + 1 }, now, fullScanMs }), null);
+    assert.equal(topFollowersRefreshKind({ snapshot: { completedAt: now - fullScanMs }, now, fullScanMs }), "full");
+  }
+});
+
+test("opt-in head checks follow the legacy refresh cadence without postponing full scans", () => {
+  const day = 24 * 60 * 60 * 1000;
+  const now = 100 * day;
+  const decide = (options) => topFollowersRefreshKind({ now, headCheck: true, ...options });
+  assert.equal(decide({ snapshot: { completedAt: now - day + 1 } }), null);
+  assert.equal(decide({ snapshot: { completedAt: now - day } }), "head");
+  assert.equal(decide({ snapshot: { completedAt: now - day }, refreshMs: 2 * day }), null);
+  assert.equal(decide({ snapshot: { completedAt: now - 2 * day }, refreshMs: 2 * day }), "head");
+  assert.equal(decide({ snapshot: { completedAt: now - day, fullCompletedAt: now - 7 * day, kind: "head" } }), "full");
+  assert.equal(decide({ snapshot: { completedAt: now, fullCompletedAt: now - 7 * day, kind: "head" } }), "full");
+  assert.equal(decide({ snapshot: { completedAt: now - day }, fullScanMs: day, refreshMs: 7 * day }), "full");
+  assert.equal(decide({}), "full", "initial work always builds a complete snapshot");
+});
+
+test("running scans suppress starts and failed attempts keep their retry cooldown", () => {
+  const day = 24 * 60 * 60 * 1000;
+  const now = 100 * day;
+  for (const headCheck of [false, true]) {
+    const snapshot = { completedAt: now - 8 * day };
+    const decide = (scan) => topFollowersRefreshKind({ snapshot, scan, now, headCheck });
+    assert.equal(decide({ status: "running", startedAt: now - 8 * day }), null);
+    assert.equal(decide({ status: "failed", startedAt: now - day + 1 }), null);
+    assert.equal(decide({ status: "failed", startedAt: now - day }), "full");
+    assert.equal(topFollowersRefreshKind({ scan: { status: "failed", startedAt: now - 1000 }, now, headCheck }), null);
+  }
 });
