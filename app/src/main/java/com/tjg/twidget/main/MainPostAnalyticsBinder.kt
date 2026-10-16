@@ -53,7 +53,7 @@ internal class MainPostAnalyticsBinder(
                 }
             }
             DashboardCardType.BEST_POST -> data?.best
-                ?.let { postAnalyticsCard(activity.getString(if (data.postsAnalyzed == 1) R.string.only_post else R.string.best_post), it) }
+                ?.let { postAnalyticsCard(activity.getString(if (data.postsAnalyzed == 1 && data.recentPosts.singleOrNull()?.url == it.url) R.string.only_post else R.string.best_post), it) }
                 ?: emptyPostAnalyticsCard(account, R.string.best_post)
             DashboardCardType.WORST_POST -> data?.worst
                 ?.let { postAnalyticsCard(activity.getString(R.string.worst_post), it) }

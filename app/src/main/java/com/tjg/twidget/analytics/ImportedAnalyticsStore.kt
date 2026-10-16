@@ -20,18 +20,20 @@ object ImportedAnalyticsStore {
     }
 
     fun saveVerified(context: Context, username: String, incoming: List<XAnalyticsMovement>) {
-        if (incoming.none(::hasAnalytics)) return
-        validate(context, username, incoming)
-        val merged = linkedMapOf<LocalDate, XAnalyticsMovement>()
-        (all(context, username) + incoming).sortedBy { it.date }.forEach { sample ->
-            if (hasAnalytics(sample)) {
-                merged[sample.date] = merged[sample.date]?.let { saved -> merge(saved, sample) } ?: sample
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            if (incoming.none(::hasAnalytics)) return
+            validate(context, username, incoming)
+            val merged = linkedMapOf<LocalDate, XAnalyticsMovement>()
+            (all(context, username) + incoming).sortedBy { it.date }.forEach { sample ->
+                if (hasAnalytics(sample)) {
+                    merged[sample.date] = merged[sample.date]?.let { saved -> merge(saved, sample) } ?: sample
+                }
             }
+            val retained = merged.values.toList().takeLast(MAX_DAYS)
+            com.tjg.twidget.data.AccountPreferences.open(context, PREFS).edit()
+                .putString(key(username), JSONArray(retained.map(::toJson)).toString())
+                .apply()
         }
-        val retained = merged.values.toList().takeLast(MAX_DAYS)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(key(username), JSONArray(retained.map(::toJson)).toString())
-            .apply()
     }
 
     fun recent(context: Context, username: String, days: Long = 7): List<XAnalyticsMovement> {
@@ -40,7 +42,7 @@ object ImportedAnalyticsStore {
     }
 
     fun all(context: Context, username: String): List<XAnalyticsMovement> {
-        val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encoded = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
             .getString(key(username), null) ?: return emptyList()
         return runCatching {
             val array = JSONArray(encoded)
@@ -50,7 +52,9 @@ object ImportedAnalyticsStore {
     }
 
     fun clear(context: Context, username: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key(username)).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            com.tjg.twidget.data.AccountPreferences.open(context, PREFS).edit().remove(key(username)).apply()
+        }
     }
 
     private fun hasAnalytics(sample: XAnalyticsMovement): Boolean =

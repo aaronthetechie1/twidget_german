@@ -23,6 +23,15 @@ object FxTwitterClient {
         return NetworkResponseParsers.parseFxTwitterUser(json, username)
     }
 
+    fun fetchProfileById(userId: String): ProfileStats {
+        require(userId.matches(Regex("[0-9]+")))
+        val profile = NetworkResponseParsers.parseFxTwitterUser(
+            JSONObject(read("$BASE_URL/2/profile/id:$userId")), "",
+        )
+        require(profile.userId == userId) { "X account identity could not be verified." }
+        return profile
+    }
+
     private fun read(url: String): String {
         val response = HttpTransport.get(url, userAgent = "Twidget (Android)")
         return HttpTransport.requireSuccess(response, "FxTwitter")

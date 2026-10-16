@@ -2,7 +2,6 @@ package com.tjg.twidget.settings
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import com.tjg.twidget.R
@@ -70,7 +69,7 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
 
         screen.addPreference(spacerCategory())
         val provider = BriefSettingsStore.provider(context)
-        screen.addPreference(ListPreference(context).apply {
+        screen.addPreference(SettingsListPreference(context).apply {
             key = "brief_provider_pref"
             title = getString(R.string.brief_provider)
             entries = arrayOf(

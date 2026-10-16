@@ -54,3 +54,15 @@ test("TwitterAPIs requests keep the provider key server-side and surface status"
     (error) => error instanceof TopFollowersProviderError && error.status === 402,
   );
 });
+
+
+test("provider deduplicates case-insensitive handles independently of IDs", () => {
+  const result = parseTwitterApisFollowersPage({ users: [
+    { id: "1", username: "first", followers_count: 10 },
+    { id: "2", username: "FIRST", followers_count: 20 },
+    { id: "1", username: "alias", followers_count: 10 },
+    { id: "3", username: "third", followers_count: 30 },
+  ], next_cursor: "next" });
+  assert.deepEqual(result.users.map(user => user.id), ["1", "3"]);
+  assert.equal(result.nextCursor, "next");
+});

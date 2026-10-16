@@ -39,7 +39,7 @@ internal data class TwitterApisTimelineResult(
 object AnalyticsClient {
     private const val WORST_POST_MATURITY_MS = 24 * 60 * 60 * 1000L
     private const val PREFS = "twidget_analytics"
-    private const val CACHE_VERSION = 6
+    private const val CACHE_VERSION = 7
     private const val STALE_MS = 60 * 60 * 1000L // 1 hour
     private const val TWITTERAPIS_STALE_MS = 6 * 60 * 60 * 1000L
     private const val MAX_ANALYTICS_STATUSES = 200
@@ -70,17 +70,20 @@ object AnalyticsClient {
         System.currentTimeMillis() - prefs(context).getLong("attempt:${key(context, username)}", 0L) >= 60_000L
 
     fun cacheBanger(context: Context, username: String, result: BangerResult) {
-        val existing = cached(context, username) ?: return
-        val updated = existing.copy(
-            banger = result.post ?: existing.banger,
-            bangerComplete = result.complete,
-            bangerPostsScanned = result.postsScanned,
-        )
-        prefs(context).edit().putString(key(context, username), serialize(updated).toString()).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val existing = cached(context, username) ?: return
+            val updated = existing.copy(
+                banger = result.post ?: existing.banger,
+                bangerComplete = result.complete,
+                bangerPostsScanned = result.postsScanned,
+            )
+            prefs(context).edit().putString(key(context, username), serialize(updated).toString()).apply()
+        }
     }
 
     fun refresh(context: Context, username: String): PostAnalytics {
-        val clean = username.trim().trimStart('@')
+        val clean = TwidgetStore.canonicalAccount(context, username)
+        val generation = TwidgetStore.accountGeneration(context, clean)
         prefs(context).edit().putLong("attempt:${key(context, clean)}", System.currentTimeMillis()).apply()
         val previous = cached(context, clean)
         val settings = TwidgetStore.settings(context)
@@ -111,10 +114,10 @@ object AnalyticsClient {
             bangerPostsScanned = hallOfFame?.postsScanned ?: previous?.bangerPostsScanned ?: 0,
             cachedAt = System.currentTimeMillis(),
         )
-        prefs(context).edit()
-            .putString(key(context, clean), serialize(analytics).toString())
-            .apply()
-        return analytics
+        return TwidgetStore.withAccountGeneration(context, clean, generation) {
+            prefs(context).edit().putString(key(context, clean), serialize(analytics).toString()).apply()
+            analytics
+        }
     }
 
     private fun fetchBridge(context: Context, username: String, endpoint: BridgeEndpoint): PostAnalytics {
@@ -144,6 +147,7 @@ object AnalyticsClient {
             statusesInspected = statuses.size,
             sampled = timeline.incomplete,
             posts = posts,
+            bestCandidates = statuses.mapNotNull { parseTwitterApisPost(it, username, weekAgo, now, includeReplies = true) },
             cachedAt = now,
         )
     }
@@ -204,6 +208,7 @@ object AnalyticsClient {
             statusesInspected = statuses.size,
             sampled = timeline.incomplete,
             posts = posts,
+            bestCandidates = statuses.filter { isOwnWeeklyPost(it, requested, weekAgo, now, includeReplies = true) }.map(::parseFxPost),
             cachedAt = System.currentTimeMillis(),
         )
     }
@@ -213,6 +218,7 @@ object AnalyticsClient {
         requestedUsername: String,
         weekAgo: Long,
         now: Long,
+        includeReplies: Boolean = false,
     ): PostSummary? {
         val author = tweet.optJSONObject("author") ?: tweet.optJSONObject("user") ?: JSONObject()
         val authorUsername = tweetString(author, "userName", "username", "screen_name")
@@ -225,8 +231,8 @@ object AnalyticsClient {
         val isRepost = tweetBoolean(tweet, "is_retweet", "isRetweet", "is_repost", "isRepost") ||
             tweet.has("retweeted_tweet") || tweet.has("reposted_tweet")
         val timestamp = twitterApisTimestamp(tweet)
-        if (isReply || isRepost || timestamp !in weekAgo..(now + 5 * 60_000L)) return null
-        if (conversationId.isNotBlank() && id.isNotBlank() && conversationId != id) return null
+        if ((!includeReplies && isReply) || isRepost || timestamp !in weekAgo..(now + 5 * 60_000L)) return null
+        if (!includeReplies && conversationId.isNotBlank() && id.isNotBlank() && conversationId != id) return null
 
         val url = safeWebUrl(tweetString(tweet, "url", "tweet_url", "twitterUrl")).ifBlank {
             if (id.isBlank()) "" else "https://x.com/$authorUsername/status/$id"
@@ -256,12 +262,13 @@ object AnalyticsClient {
         )
     }
 
-    private fun analyticsFromPosts(
+    internal fun analyticsFromPosts(
         username: String,
         followers: Long,
         statusesInspected: Int,
         sampled: Boolean,
         posts: List<PostSummary>,
+        bestCandidates: List<PostSummary> = posts,
         cachedAt: Long,
     ): PostAnalytics {
         val views = posts.map { it.views }
@@ -291,7 +298,7 @@ object AnalyticsClient {
                 totalEngagements.toDouble() / count / followers
             } else 0.0,
             engagementRate = if (totalViews > 0) totalEngagements.toDouble() / totalViews else 0.0,
-            best = posts.maxByOrNull { it.engagements },
+            best = bestCandidates.maxByOrNull { it.engagements },
             worst = maturePosts.minByOrNull { it.engagements }.takeIf { maturePosts.size >= 2 },
             cachedAt = cachedAt,
             medianLikes = median(likes),
@@ -301,8 +308,8 @@ object AnalyticsClient {
         )
     }
 
-    private fun isOwnWeeklyPost(status: JSONObject, username: String, weekAgo: Long, now: Long): Boolean =
-        FxPostPolicy.isOwnOriginalInWindow(
+    internal fun isOwnWeeklyPost(status: JSONObject, username: String, weekAgo: Long, now: Long, includeReplies: Boolean = false): Boolean =
+        FxPostPolicy.isOwnInWindow(
             FxStatusCandidate(
                 type = status.optString("type"),
                 authorUsername = status.optJSONObject("author")?.optString("screen_name").orEmpty(),
@@ -318,6 +325,7 @@ object AnalyticsClient {
             username,
             weekAgo,
             now,
+            includeReplies,
         )
 
     internal fun parseFxPost(status: JSONObject): PostSummary {
@@ -569,5 +577,5 @@ object AnalyticsClient {
     }
 
     private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
 }

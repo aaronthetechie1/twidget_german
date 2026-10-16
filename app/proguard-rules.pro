@@ -50,3 +50,12 @@
     android.widget.TextView mPrimaryText;
     android.widget.TextView mSecondaryText;
 }
+
+# ML Kit / Firebase-style components are discovered from manifest metadata and
+# created reflectively through their no-argument constructor. Newer R8 versions
+# no longer keep that constructor implicitly, which left ML Kit with no
+# registered components in release builds (Gemini Nano probes then threw a
+# NullPointerException because SharedPrefManager was never registered).
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    <init>();
+}

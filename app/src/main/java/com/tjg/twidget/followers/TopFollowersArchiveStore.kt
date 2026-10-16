@@ -12,105 +12,112 @@ import org.json.JSONObject
 object TopFollowersArchiveStore {
     private const val DIR = "top_followers"
 
-    @Synchronized
     fun seedFromTop(context: Context, username: String, top: List<TopFollower>) {
-        if (top.isEmpty() || count(context, username) > 0) return
-        append(context, username, top.mapIndexed { index, follower ->
-            follower.copy(scanIndex = index)
-        }, pageNumber = 1)
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            if (top.isEmpty() || count(context, username) > 0) return
+            append(context, username, top.mapIndexed { index, follower ->
+                follower.copy(scanIndex = index)
+            }, pageNumber = 1)
+        }
     }
 
-    @Synchronized
     fun clear(context: Context, username: String) {
-        archiveFile(context, username).delete()
-        replacementFile(context, username).delete()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            archiveFile(context, username).delete()
+            replacementFile(context, username).delete()
+        }
     }
 
-    @Synchronized
     fun append(context: Context, username: String, users: List<TopFollower>, pageNumber: Int) {
-        if (users.isEmpty()) return
-        val file = archiveFile(context, username)
-        file.parentFile?.mkdirs()
-        val existing = readAll(context, username)
-        val seen = existing.map { it.id.ifBlank { it.username.lowercase(Locale.US) } }.toMutableSet()
-        var nextIndex = existing.maxOfOrNull { it.scanIndex }?.plus(1) ?: 0
-        val appended = buildList {
-            users.forEach { user ->
-                val dedupeKey = user.id.ifBlank { user.username.lowercase(Locale.US) }
-                if (!seen.add(dedupeKey)) return@forEach
-                add(
-                    user.copy(
-                        scanIndex = nextIndex,
-                    ).also { nextIndex++ },
-                )
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            if (users.isEmpty()) return
+            val file = archiveFile(context, username)
+            file.parentFile?.mkdirs()
+            val existing = readAll(context, username)
+            val seen = existing.map { it.id.ifBlank { it.username.lowercase(Locale.US) } }.toMutableSet()
+            var nextIndex = existing.maxOfOrNull { it.scanIndex }?.plus(1) ?: 0
+            val appended = buildList {
+                users.forEach { user ->
+                    val dedupeKey = user.id.ifBlank { user.username.lowercase(Locale.US) }
+                    if (!seen.add(dedupeKey)) return@forEach
+                    add(
+                        user.copy(
+                            scanIndex = nextIndex,
+                        ).also { nextIndex++ },
+                    )
+                }
+            }
+            if (appended.isEmpty()) return
+            file.appendText(
+                buildString {
+                    appended.forEach { follower ->
+                        append(followerToJson(follower, pageNumber).toString())
+                        append('\n')
+                    }
+                },
+            )
+        }
+    }
+
+    fun beginReplacement(context: Context, username: String) {
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            replacementFile(context, username).apply {
+                parentFile?.mkdirs()
+                delete()
             }
         }
-        if (appended.isEmpty()) return
-        file.appendText(
-            buildString {
-                appended.forEach { follower ->
+    }
+
+    fun appendReplacement(context: Context, username: String, users: List<TopFollower>, pageNumber: Int) {
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            if (users.isEmpty()) return
+            replacementFile(context, username).appendText(buildString {
+                users.forEach { follower ->
                     append(followerToJson(follower, pageNumber).toString())
                     append('\n')
                 }
-            },
-        )
-    }
-
-    @Synchronized
-    fun beginReplacement(context: Context, username: String) {
-        replacementFile(context, username).apply {
-            parentFile?.mkdirs()
-            delete()
+            })
         }
     }
 
-    @Synchronized
-    fun appendReplacement(context: Context, username: String, users: List<TopFollower>, pageNumber: Int) {
-        if (users.isEmpty()) return
-        replacementFile(context, username).appendText(buildString {
-            users.forEach { follower ->
-                append(followerToJson(follower, pageNumber).toString())
-                append('\n')
-            }
-        })
-    }
-
-    @Synchronized
     fun commitReplacement(context: Context, username: String) {
-        val pending = replacementFile(context, username)
-        if (!pending.isFile) return
-        val target = archiveFile(context, username).toPath()
-        try {
-            Files.move(
-                pending.toPath(),
-                target,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-        } catch (_: AtomicMoveNotSupportedException) {
-            Files.move(pending.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val pending = replacementFile(context, username)
+            if (!pending.isFile) return
+            val target = archiveFile(context, username).toPath()
+            try {
+                Files.move(
+                    pending.toPath(),
+                    target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(pending.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 
-    @Synchronized
     fun abortReplacement(context: Context, username: String) {
-        replacementFile(context, username).delete()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            replacementFile(context, username).delete()
+        }
     }
 
-    @Synchronized
     fun readAll(context: Context, username: String): List<TopFollower> {
-        val file = archiveFile(context, username)
-        if (!file.isFile) return emptyList()
-        return file.useLines { lines -> lines.mapNotNull { line ->
-            runCatching { followerFromJson(JSONObject(line)) }.getOrNull()
-        }.toList() }
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val file = archiveFile(context, username)
+            if (!file.isFile) return emptyList()
+            return file.useLines { lines -> lines.mapNotNull { line ->
+                runCatching { followerFromJson(JSONObject(line)) }.getOrNull()
+            }.toList() }
+        }
     }
 
-    @Synchronized
     fun count(context: Context, username: String): Int = readAll(context, username).size
 
     private fun archiveFile(context: Context, username: String): File {
-        val clean = username.trim().trimStart('@').lowercase(Locale.US)
+        val clean = com.tjg.twidget.data.TwidgetStore.canonicalAccount(context, username).lowercase(Locale.US)
         return File(context.filesDir, "$DIR/$clean.jsonl")
     }
 

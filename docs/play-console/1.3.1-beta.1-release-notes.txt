@@ -1,0 +1,26 @@
+<en-GB>
+New in Beta 1
+• Top Followers: weekly full scans based on activity, instant cached results. Updates may be less frequent or slightly less accurate or complete. Tell us on GitHub Issues.
+• Lower running costs help keep Twidget free and open source.
+• Changed your X @handle? Keep your history, widgets and other data.
+• Setup and animations inspired by Samsung’s setup wizard.
+• About 10% smaller app.
+</en-GB>
+
+<de-DE>
+Neu in Beta 1
+• Top Follower: wöchentliche Komplettscans bei Aktivität, sofortige Cache-Ergebnisse. Updates können seltener oder etwas ungenauer oder unvollständiger sein. Gib uns Feedback auf GitHub Issues.
+• Niedrigere Kosten helfen, Twidget kostenlos und Open Source zu halten.
+• Neuer X-@Name? Deine Daten und Widgets bleiben erhalten.
+• Einrichtung und Animationen im Stil von Samsungs Einrichtungsassistenten.
+• Rund 10 % kleinere App.
+</de-DE>
+
+<fr-FR>
+Nouveautés de la bêta 1
+• Top Followers : scans complets hebdomadaires selon l’activité, résultats en cache immédiats. Les mises à jour peuvent être plus rares, les résultats un peu moins précis ou complets. Donne ton avis sur GitHub Issues.
+• Des coûts réduits pour garder Twidget gratuit et open source.
+• Nouveau @pseudo sur X ? Tu gardes tes données et widgets.
+• Configuration et animations inspirées de l’assistant de configuration Samsung.
+• App environ 10 % plus légère.
+</fr-FR>

@@ -163,7 +163,7 @@ object BriefEngine {
             slowdownCard(history, stats.followersCount, todayDelta, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.TOP_TWEET in content) {
-            postCard(analytics?.best, analytics, stats.followersCount, strings)?.let(candidates::add)
+            standoutPostCard(analytics, stats.followersCount, strings)?.let(candidates::add)
         }
         if (BriefContentCategory.WORST_TWEET in content) {
             worstPostCard(analytics, strings)?.let(candidates::add)
@@ -259,9 +259,9 @@ object BriefEngine {
         )
     }
 
-    private fun postCard(post: PostSummary?, analytics: PostAnalytics?, followers: Long, strings: BriefStrings): BriefCard? {
-        post ?: return null
-        analytics ?: return null
+    internal fun standoutPostCard(analytics: PostAnalytics?, followers: Long, strings: BriefStrings): BriefCard? {
+        // The weekly winner may be a breakout reply, even in a reply-only week.
+        val post = analytics?.best ?: return null
         val attentionByViews = post.views >= maxOf(10_000L, followers * 2)
         val attentionByLikes = post.likes >= maxOf(100L, followers / 50)
         if (!attentionByViews && !attentionByLikes) return null

@@ -23,7 +23,6 @@ object DailyStreakStore {
     private const val PREFS = "twidget_daily_streak"
     private const val DATA_VERSION = 2
 
-    @Synchronized
     fun mergeOriginalActivity(
         context: Context,
         username: String,
@@ -32,23 +31,25 @@ object DailyStreakStore {
         checkedAt: Long,
         complete: Boolean,
     ): Set<String> {
-        val accountKey = key(username)
-        val preferences = prefs(context)
-        val migrated = preferences.getInt(versionKey(accountKey), 0) == DATA_VERSION
-        val existing = if (migrated) activeDays(context, username) else emptySet()
-        val detected = timestamps.filter { it > 0L }.mapTo(mutableSetOf()) { localDayKey(it) }
-        val merged = existing + detected
-        val latestDetected = timestamps.maxOrNull() ?: 0L
-        val previousLatest = if (migrated) preferences.getLong(latestPostKey(accountKey), 0L) else 0L
-        preferences.edit()
-            .putString(accountKey, JSONArray(merged.sorted()).toString())
-            .putInt(versionKey(accountKey), DATA_VERSION)
-            .putLong(latestPostKey(accountKey), maxOf(previousLatest, latestDetected))
-            .putLong(windowStartKey(accountKey), windowStartAt)
-            .putLong(checkedAtKey(accountKey), checkedAt)
-            .putBoolean(completeKey(accountKey), complete)
-            .apply()
-        return merged
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val accountKey = key(username)
+            val preferences = prefs(context)
+            val migrated = preferences.getInt(versionKey(accountKey), 0) == DATA_VERSION
+            val existing = if (migrated) activeDays(context, username) else emptySet()
+            val detected = timestamps.filter { it > 0L }.mapTo(mutableSetOf()) { localDayKey(it) }
+            val merged = existing + detected
+            val latestDetected = timestamps.maxOrNull() ?: 0L
+            val previousLatest = if (migrated) preferences.getLong(latestPostKey(accountKey), 0L) else 0L
+            preferences.edit()
+                .putString(accountKey, JSONArray(merged.sorted()).toString())
+                .putInt(versionKey(accountKey), DATA_VERSION)
+                .putLong(latestPostKey(accountKey), maxOf(previousLatest, latestDetected))
+                .putLong(windowStartKey(accountKey), windowStartAt)
+                .putLong(checkedAtKey(accountKey), checkedAt)
+                .putBoolean(completeKey(accountKey), complete)
+                .apply()
+            return merged
+        }
     }
 
     fun snapshot(context: Context, username: String): StreakSnapshot {
@@ -132,5 +133,5 @@ object DailyStreakStore {
     private fun completeKey(accountKey: String) = "${accountKey}_complete"
 
     private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
 }

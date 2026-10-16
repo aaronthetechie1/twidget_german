@@ -9,11 +9,11 @@ class SettingsAccountPopupTest {
     fun `default account menu always includes analytics import`() {
         val actions = accountPopupActions(isDefault = true)
 
-        assertEquals(listOf(AccountPopupAction.IMPORT_ANALYTICS, AccountPopupAction.DELETE), actions)
+        assertEquals(listOf(AccountPopupAction.IMPORT_ANALYTICS, AccountPopupAction.CHANGE_HANDLE, AccountPopupAction.DELETE), actions)
     }
 
     @Test
-    fun `non-default account menu keeps all three actions`() {
+    fun `non-default account menu keeps all account actions`() {
         val actions = accountPopupActions(isDefault = false)
 
         assertEquals(AccountPopupAction.SET_DEFAULT, actions.first())

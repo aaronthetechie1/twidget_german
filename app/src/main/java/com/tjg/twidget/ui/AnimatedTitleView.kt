@@ -149,12 +149,14 @@ class AnimatedTitleView @JvmOverloads constructor(
         val measuredHeight = resolveSize(desiredHeight, heightMeasureSpec)
         setMeasuredDimension(measuredWidth, measuredHeight)
         val childWidthSpec = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
-        val childHeightSpec = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+        // Blur needs drawing room, but must not add space before the next view.
+        val layerHeight = measuredHeight + dp(TITLE_BLUR_BOTTOM_INSET_DP).toInt()
+        val childHeightSpec = MeasureSpec.makeMeasureSpec(layerHeight, MeasureSpec.EXACTLY)
         for (index in 0 until childCount) getChildAt(index).measure(childWidthSpec, childHeightSpec)
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        for (index in 0 until childCount) getChildAt(index).layout(0, 0, width, height)
+        for (index in 0 until childCount) getChildAt(index).layout(0, 0, width, height + dp(TITLE_BLUR_BOTTOM_INSET_DP).toInt())
         updateAnimationFrame()
     }
 
@@ -192,7 +194,7 @@ class AnimatedTitleView @JvmOverloads constructor(
             TitleGeometry(
                 title,
                 glyphs,
-                layout.height + dp(TITLE_BLUR_BOTTOM_INSET_DP).toInt(),
+                layout.height,
             ),
         )
     }

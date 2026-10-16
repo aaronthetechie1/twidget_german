@@ -23,6 +23,7 @@ internal object NetworkResponseParsers {
                         .orEmpty()
             )
         return ProfileStats(
+            userId = user.optString("id").takeIf { it.matches(Regex("[0-9]+")) }.orEmpty(),
             fullName = user.optString("name"),
             userName = user.optString("screen_name").trimStart('@'),
             followersCount = user.optLong("followers"),
@@ -49,6 +50,7 @@ internal object NetworkResponseParsers {
             )
         val metrics = user.optJSONObject("public_metrics") ?: JSONObject()
         return ProfileStats(
+            userId = user.optString("id").takeIf { it.matches(Regex("[0-9]+")) }.orEmpty(),
             fullName = user.optString("name").ifBlank { fallbackUsername },
             userName = user.optString("username").ifBlank { fallbackUsername }.trimStart('@'),
             followersCount = metrics.optLong("followers_count"),
@@ -79,6 +81,9 @@ internal object NetworkResponseParsers {
         }
         val user = bridgeUserObject(json)
         return ProfileStats(
+            userId = listOf("userId", "id_str", "rest_id", "id").firstNotNullOfOrNull { key ->
+                user.optString(key).takeIf { it.matches(Regex("[0-9]+")) }
+            }.orEmpty(),
             fullName = findString(user, setOf("fullName", "name", "displayName", "display_name")).orEmpty(),
             userName = findString(user, setOf("userName", "username", "screenName", "screen_name", "handle")).orEmpty().trimStart('@'),
             followersCount = findLong(user, setOf("followersCount", "followers_count", "followerCount", "follower_count")),
@@ -89,6 +94,7 @@ internal object NetworkResponseParsers {
             isVerified = findBoolean(user, setOf("isVerified", "verified", "blueVerified", "blue_verified", "is_blue_verified", "verifiedType", "verified_type")),
             isPrivate = findBoolean(user, setOf("isPrivate", "private", "protected", "isProtected", "is_protected", "protectedProfile")),
             history = parseBridgeHistory(json, user),
+            historyUserId = json.optString("historyUserId"),
             followersKnown = hasLong(user, setOf("followersCount", "followers_count", "followerCount", "follower_count")),
             followingKnown = hasLong(user, setOf("followingsCount", "followingCount", "friends_count", "following_count")),
             postsKnown = hasLong(user, setOf("statusesCount", "statusCount", "tweetCount", "tweetsCount", "statuses_count")),
@@ -168,6 +174,10 @@ internal object NetworkResponseParsers {
     }
 
     private fun parseBridgeHistory(root: JSONObject, user: JSONObject): List<HistorySample> {
+        val userId = listOf("userId", "id_str", "rest_id", "id").firstNotNullOfOrNull { key ->
+            user.optString(key).takeIf { it.matches(Regex("[0-9]+")) }
+        }.orEmpty()
+        if (userId.isBlank() || root.optString("historyUserId") != userId) return emptyList()
         val array = root.optJSONArray("history") ?: user.optJSONArray("history") ?: return emptyList()
         return parseBridgeHistoryArray(array).map { it.copy(imported = false, sharedImport = false) }
     }

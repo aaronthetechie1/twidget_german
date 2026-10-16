@@ -16,7 +16,25 @@ import java.nio.charset.StandardCharsets
 object RettiwtClient {
     fun refresh(context: Context, accountUsername: String = TwidgetStore.settings(context).username): ProfileStats {
         val generation = TwidgetStore.accountGeneration(context, accountUsername)
-        return refreshProfile(context, accountUsername).copy(accountGeneration = generation)
+        val previous = TwidgetStore.currentStats(context, accountUsername)
+        val attempt = runCatching { refreshProfile(context, accountUsername) }
+        val fetched = attempt.getOrNull()?.let { profile ->
+            if (profile.userId.isNotBlank()) profile else {
+                val identity = runCatching { FxTwitterClient.fetchProfile(profile.userName) }.getOrNull()
+                profile.copy(userId = identity?.userId.orEmpty())
+            }
+        }
+        val profile = if (previous.userId.isNotBlank() &&
+            (fetched == null || fetched.userId != previous.userId)) {
+            // Resolve the immutable ID when an old handle disappears or is recycled.
+            val resolved = FxTwitterClient.fetchProfileById(previous.userId)
+            val refreshed = refreshProfile(context, resolved.userName)
+            require(refreshed.userId.isBlank() || refreshed.userId == previous.userId) {
+                "X account identity changed during refresh. Try again."
+            }
+            refreshed.copy(userId = previous.userId)
+        } else fetched ?: attempt.getOrThrow()
+        return profile.copy(accountGeneration = generation, requestedUsername = accountUsername)
     }
 
     private fun refreshProfile(context: Context, accountUsername: String): ProfileStats {

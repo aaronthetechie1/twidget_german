@@ -14,7 +14,7 @@ internal object MilestoneGoalStore {
 
     fun readAll(context: Context, username: String): List<AccountGoalSettings> {
         val key = accountKey(username)
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
         prefs.getString("${key}_goals", null)?.let { stored ->
             return runCatching { decodeGoals(stored) }.getOrDefault(emptyList())
         }
@@ -45,38 +45,40 @@ internal object MilestoneGoalStore {
     }
 
     fun saveAll(context: Context, username: String, settings: Collection<AccountGoalSettings>) {
-        val key = accountKey(username)
-        val goals = normalize(settings)
-        val primary = goals.firstOrNull()
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val autoAdjust = primary?.autoAdjust
-            ?: prefs.getBoolean("${key}_auto_all", true)
-        prefs.edit()
-            .putString("${key}_goals", encodeGoals(goals))
-            .putBoolean("${key}_configured", primary != null)
-            .putString("${key}_metric", primary?.metric?.storageId)
-            .putString("${key}_target", primary?.target?.toString())
-            .putBoolean("${key}_auto", autoAdjust)
-            .putBoolean("${key}_auto_all", autoAdjust)
-            .apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val key = accountKey(username)
+            val goals = normalize(settings)
+            val primary = goals.firstOrNull()
+            val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
+            val autoAdjust = primary?.autoAdjust
+                ?: prefs.getBoolean("${key}_auto_all", true)
+            prefs.edit()
+                .putString("${key}_goals", encodeGoals(goals))
+                .putBoolean("${key}_configured", primary != null)
+                .putString("${key}_metric", primary?.metric?.storageId)
+                .putString("${key}_target", primary?.target?.toString())
+                .putBoolean("${key}_auto", autoAdjust)
+                .putBoolean("${key}_auto_all", autoAdjust)
+                .apply()
 
-        // Keep the old setting in sync so existing milestone consumers and the
-        // new widget implementation receive the follower goal immediately.
-        val followerGoal = goals.firstOrNull { it.metric == MilestoneMetric.FOLLOWERS }
-        TwidgetStore.saveMilestoneSettings(
-            context,
-            username,
-            MilestoneSettings(
-                target = followerGoal?.target?.toLong()?.takeIf { it > 0L },
-                labelRaw = followerGoal?.target?.toLong()?.toString().orEmpty(),
-                showPercent = true,
-            ),
-        )
+            // Keep the old setting in sync so existing milestone consumers and the
+            // new widget implementation receive the follower goal immediately.
+            val followerGoal = goals.firstOrNull { it.metric == MilestoneMetric.FOLLOWERS }
+            TwidgetStore.saveMilestoneSettings(
+                context,
+                username,
+                MilestoneSettings(
+                    target = followerGoal?.target?.toLong()?.takeIf { it > 0L },
+                    labelRaw = followerGoal?.target?.toLong()?.toString().orEmpty(),
+                    showPercent = true,
+                ),
+            )
+        }
     }
 
     fun autoAdjust(context: Context, username: String): Boolean {
         val key = accountKey(username)
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
         return if (prefs.contains("${key}_auto_all")) {
             prefs.getBoolean("${key}_auto_all", true)
         } else {
@@ -85,15 +87,17 @@ internal object MilestoneGoalStore {
     }
 
     fun setAutoAdjust(context: Context, username: String, enabled: Boolean) {
-        val key = accountKey(username)
-        val goals = readAll(context, username)
-        if (goals.isEmpty()) {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putBoolean("${key}_auto_all", enabled)
-                .putBoolean("${key}_auto", enabled)
-                .apply()
-        } else {
-            saveAll(context, username, goals.map { it.copy(autoAdjust = enabled) })
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val key = accountKey(username)
+            val goals = readAll(context, username)
+            if (goals.isEmpty()) {
+                com.tjg.twidget.data.AccountPreferences.open(context, PREFS).edit()
+                    .putBoolean("${key}_auto_all", enabled)
+                    .putBoolean("${key}_auto", enabled)
+                    .apply()
+            } else {
+                saveAll(context, username, goals.map { it.copy(autoAdjust = enabled) })
+            }
         }
     }
 

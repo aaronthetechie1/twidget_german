@@ -167,7 +167,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
     private fun data(screen: androidx.preference.PreferenceScreen) {
         val context = requireContext()
         screen.addPreference(category(R.string.analytics))
-        screen.addPreference(ListPreference(context).apply {
+        screen.addPreference(SettingsListPreference(context).apply {
             key = "data_source_pref"
             title = getString(R.string.active_source)
             dialogTitle = getString(R.string.active_source)
@@ -317,14 +317,14 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
             icon = context.getDrawable(R.drawable.avatar_twidget)
             ProfileImageLoader.loadInto(context, getIconImageView(), stats.profileImage)
             setOnClickListener {
-                if (isDefault) showAccountActions(username, true) else {
+                if (isDefault) showAccountActions(this, username, true) else {
                     save(settings.copy(username = username))
                     buildScreen()
                 }
             }
         }
         fun attachLongClick(view: View) {
-            view.setOnLongClickListener { showAccountActions(username, isDefault); true }
+            view.setOnLongClickListener { showAccountActions(row, username, isDefault); true }
             if (view is ViewGroup) for (i in 0 until view.childCount) attachLongClick(view.getChildAt(i))
         }
         attachLongClick(row)
@@ -335,52 +335,109 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         }
     }
 
-    private fun showAccountActions(username: String, isDefault: Boolean) {
+    private fun showAccountActions(anchor: View, username: String, isDefault: Boolean) {
         val actions = accountPopupActions(isDefault)
         val labels = actions.map { action -> getString(when (action) {
             AccountPopupAction.SET_DEFAULT -> R.string.set_as_default
             AccountPopupAction.IMPORT_ANALYTICS -> R.string.import_x_analytics
+            AccountPopupAction.CHANGE_HANDLE -> R.string.change_account_handle
             AccountPopupAction.DELETE -> R.string.delete
         }) }.toTypedArray()
-        AlertDialog.Builder(requireContext())
-            .setTitle(getString(R.string.account_handle, username.trimStart('@')))
-            .setItems(labels) { _, index ->
-                when (actions[index]) {
-                    AccountPopupAction.SET_DEFAULT -> {
-                        save(settings.copy(username = username))
-                        buildScreen()
-                    }
-                    AccountPopupAction.IMPORT_ANALYTICS -> beginAnalyticsImport(username)
-                    AccountPopupAction.DELETE -> {
-                        if (TwidgetStore.accounts(requireContext()).size <= 1) {
-                            Toast.makeText(requireContext(), R.string.cannot_delete_last_account, Toast.LENGTH_SHORT).show()
-                        } else {
-                            if (!accountRemovalBusy) {
-                                accountRemovalBusy = true
-                                val appContext = requireContext().applicationContext
-                                val handler = android.os.Handler(android.os.Looper.getMainLooper())
-                                com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+        showSettingsDropdown(anchor, labels.toList()) { index ->
+            when (actions[index]) {
+                AccountPopupAction.SET_DEFAULT -> {
+                    save(settings.copy(username = username))
+                    buildScreen()
+                }
+                AccountPopupAction.IMPORT_ANALYTICS -> beginAnalyticsImport(username)
+                AccountPopupAction.CHANGE_HANDLE -> changeAccountHandle(username)
+                AccountPopupAction.DELETE -> {
+                    if (TwidgetStore.accounts(requireContext()).size <= 1) {
+                        Toast.makeText(requireContext(), R.string.cannot_delete_last_account, Toast.LENGTH_SHORT).show()
+                    } else {
+                        if (!accountRemovalBusy) {
+                            accountRemovalBusy = true
+                            val appContext = requireContext().applicationContext
+                            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                            com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+                                accountRemovalBusy = false
+                                Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                            }) {
+                                val result = runCatching {
+                                    TwidgetStore.removeAccount(appContext, username)
+                                    TwidgetWidget.updateAll(appContext)
+                                    TwidgetBriefWidget.updateAll(appContext)
+                                }
+                                handler.post {
                                     accountRemovalBusy = false
-                                    Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
-                                }) {
-                                    val result = runCatching {
-                                        TwidgetStore.removeAccount(appContext, username)
-                                        TwidgetWidget.updateAll(appContext)
-                                        TwidgetBriefWidget.updateAll(appContext)
-                                    }
-                                    handler.post {
-                                        accountRemovalBusy = false
-                                        if (isAdded) {
-                                            if (result.isFailure) Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
-                                            buildScreen()
-                                        }
+                                    if (isAdded) {
+                                        if (result.isFailure) Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                                        buildScreen()
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }.setNegativeButton(android.R.string.cancel, null).show()
+            }
+        }
+    }
+
+    private fun changeAccountHandle(username: String) {
+        val context = requireContext()
+        val input = android.widget.EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setSingleLine()
+            setText(username)
+            selectAll()
+        }
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(R.string.change_account_handle)
+            .setMessage(R.string.change_account_handle_message)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val next = input.text.toString().trim().trimStart('@')
+                if (!next.matches(Regex("[A-Za-z0-9_]{1,15}"))) {
+                    input.error = getString(R.string.invalid_account_handle)
+                    return@setOnClickListener
+                }
+                if (accountRemovalBusy) return@setOnClickListener
+                accountRemovalBusy = true
+                val generation = TwidgetStore.accountGeneration(context, username)
+                val appContext = context.applicationContext
+                val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+                    accountRemovalBusy = false
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }) {
+                    val result = runCatching {
+                        val profile = com.tjg.twidget.providers.RettiwtClient.refresh(appContext, next)
+                        TwidgetStore.migrateAccount(appContext, username, profile, generation, allowLegacy = true)
+                        TwidgetWidget.updateAll(appContext)
+                        TwidgetBriefWidget.updateAll(appContext)
+                    }
+                    handler.post {
+                        accountRemovalBusy = false
+                        if (isAdded) {
+                            if (result.isSuccess) {
+                                dialog.dismiss()
+                                Toast.makeText(appContext, R.string.account_handle_changed, Toast.LENGTH_LONG).show()
+                                buildScreen()
+                            } else {
+                                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                                input.error = result.exceptionOrNull()?.message ?: getString(R.string.sync_failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun beginAnalyticsImport(username: String) {
@@ -484,7 +541,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(picker)
         screen.addPreference(followSystem)
         screen.addPreference(InsetPreferenceCategory(context))
-        screen.addPreference(object : ListPreference(context) {
+        screen.addPreference(object : SettingsListPreference(context) {
             override fun onBindViewHolder(holder: PreferenceViewHolder) {
                 super.onBindViewHolder(holder)
                 holder.findViewById(R.id.settings_font_tip_button)?.setOnClickListener(::showFontTip)
@@ -535,16 +592,12 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
             }
         }
         val openLogoPicker = {
-            AlertDialog.Builder(context)
-                .setTitle(R.string.settings_app_logo_style)
-                .setSingleChoiceItems(logoLabels, logoValues.indexOf(AppAppearance.logo(context)).coerceAtLeast(0)) { dialog, index ->
-                    logoPreference.callChangeListener(logoValues[index])
-                    dialog.dismiss()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            showSettingsDropdown(logoRow, logoLabels.toList(), logoValues.indexOf(AppAppearance.logo(context))) { index ->
+                logoPreference.callChangeListener(logoValues[index])
+            }
         }
         logoRow.setOnClickListener { openLogoPicker() }
+        logoRow.setOnLongClickListener { openLogoPicker(); true }
         logoPreference.setOnPreferenceClickListener { openLogoPicker(); true }
         screen.addPreference(logoPreference)
     }

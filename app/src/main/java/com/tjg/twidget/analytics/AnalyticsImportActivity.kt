@@ -178,19 +178,20 @@ class AnalyticsImportActivity : EdgeToEdgeActivity() {
         }) {
             val result = runCatching {
                 ImportedAnalyticsStore.validate(this, username, parsed.movements)
-                if (useBridge) {
-                    val accepted = HistoryPool.importAnalytics(
-                        this,
-                        username,
-                        parsed.movements,
-                        TwidgetStore.bridgeEndpoint(settings),
-                    )
-                    val current = TwidgetStore.currentStats(this, username)
-                    TwidgetStore.saveStats(this, current.copy(history = accepted.history))
-                } else {
-                    TwidgetStore.importFollowerHistory(this, username, parsed.samples)
+                val accepted = if (useBridge) HistoryPool.importAnalytics(
+                    this, TwidgetStore.canonicalAccount(this, username), parsed.movements,
+                    TwidgetStore.bridgeEndpoint(settings),
+                ) else null
+                synchronized(TwidgetStore) {
+                    val canonical = TwidgetStore.canonicalAccount(this, username)
+                    val current = TwidgetStore.currentStats(this, canonical)
+                    require(stats.userId.isBlank() || current.userId == stats.userId) {
+                        "The selected account changed during import. Try again."
+                    }
+                    if (accepted != null) TwidgetStore.saveStats(this, current.copy(history = accepted.history))
+                    else TwidgetStore.importFollowerHistory(this, canonical, parsed.samples)
+                    ImportedAnalyticsStore.saveVerified(this, canonical, parsed.movements)
                 }
-                ImportedAnalyticsStore.saveVerified(this, username, parsed.movements)
                 TwidgetWidget.updateAll(this)
             }
             runOnUiThread {
