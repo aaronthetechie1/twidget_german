@@ -228,6 +228,10 @@ object TwidgetStore {
             .putBoolean(KEY_SHARE_HISTORY, settings.shareHistory)
             .apply()
         if (username.isNotBlank()) addAccount(context, username)
+        if (previous.username != username || previous.shareHistory != settings.shareHistory ||
+            bridgeEndpoint(previous) != bridgeEndpoint(settings)) {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context, force = true)
+        }
         if (previous.dataSource != settings.dataSource || previous.shareHistory != settings.shareHistory) {
             accounts(context).forEach { BangerScanWorker.enqueue(context, it) }
         }
@@ -628,6 +632,7 @@ object TwidgetStore {
         }
         AccountHandleMigration.begin(context, old, next, values, removed)
         com.tjg.twidget.bridge.BridgeHandleMigrationWorker.enqueueIfPending(context)
+        com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context, force = true)
         BangerScanWorker.clear(context, old)
         androidx.work.WorkManager.getInstance(context.applicationContext)
             .cancelUniqueWork("twidget-top-followers-bridge-${old.lowercase(Locale.US)}")
@@ -905,6 +910,9 @@ object TwidgetStore {
             .putString(profileKey(username), statsToJson(stats.copy(userName = username, userId = stats.userId.ifBlank { existingStats?.userId.orEmpty() })).toString())
             .putString(historyKey(username), JSONArray(next.map { historyToJson(it) }).toString())
             .apply()
+        if (username.equals(settings(context).username, true)) {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context)
+        }
     }
 
     @Synchronized

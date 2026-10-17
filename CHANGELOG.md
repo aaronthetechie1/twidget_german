@@ -4,6 +4,12 @@ All notable changes to Twidget are documented here.
 
 ## [Unreleased]
 
+- Report the selected default public profile separately from tracked accounts
+  for installs with shared history enabled. Use a random install key, private
+  operator-only counts, durable selection-change/removal retries and 90-day
+  expiry. Existing clients remain unclassified; primary reports do not verify
+  ownership or trigger follower scans.
+
 - Correct draft-thread rewrite previews to show the selected entry and its media.
   Validate figures in review explanations and reasons against supplied evidence.
   Persist draft advice across restarts, and reuse published reviews after an
