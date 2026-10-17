@@ -155,8 +155,8 @@
     <string name="source_default_summary">Geteilter Twidget-Server</string>
     <string name="source_fxtwitter_summary">Kostenlose FxTwitter API</string>
     <string name="share_history">Zum geteilten Verlauf beitragen</string>
-    <string name="share_history_summary">Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
-    <string name="share_history_onboarding_summary">Optional: Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden.</string>
+    <string name="share_history_summary">Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden. Dein öffentliches Standardprofil wird außerdem für Nutzungsstatistiken gemeldet. Beim Ausschalten wird dieser Bericht gelöscht, sobald du online bist.</string>
+    <string name="share_history_onboarding_summary">Optional: Teile öffentliche Stats mit anderen Twidget-Benutzern für bessere Daten für alle. Top-Follower-Scans werden auf der Bridge ausgeführt und die neueste vollständige öffentliche Follower-Liste kann von anderen teilnehmenden Nutzern wiederverwendet werden. Dein öffentliches Standardprofil wird außerdem für Nutzungsstatistiken gemeldet. Beim Ausschalten wird dieser Bericht gelöscht, sobald du online bist.</string>
     <string name="source_self_hosted">Self-Hosted-Bridge</string>
     <string name="source_self_hosted_summary">Deine eigene Bridge benutzen</string>
     <string name="source_x_api_summary">Benötigt deinen eigenen bezahlten X-API-Zugriff</string>

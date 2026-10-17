@@ -26,6 +26,7 @@ class TwidgetApplication : Application(), Configuration.Provider {
         com.tjg.twidget.ui.AppAppearance.apply(this)
         AppPaletteManager.reconcile(this)
         AppExecutors.execute {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(this)
             runCatching { com.tjg.twidget.followers.TopFollowersLocalScanCleanup.run(this) }
             com.tjg.twidget.widget.WidgetPreviews.publish(this)
         }
