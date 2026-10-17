@@ -27,6 +27,15 @@ class CardValueTextView @JvmOverloads constructor(
         requestLayout()
     }
 
+    /** Intrinsic width at the preferred axes, including the fitting inset used below. */
+    internal fun preferredContentWidth(): Int {
+        val preferred = android.graphics.Paint(paint).apply {
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, preferredSizeSp, resources.displayMetrics)
+            typeface = TwidgetFonts.cardValueTypeface(context, preferredWidth)
+        }
+        return kotlin.math.ceil(preferred.measureText(text.toString()) / 0.95f).toInt() + compoundPaddingLeft + compoundPaddingRight
+    }
+
     override fun onTextChanged(text: CharSequence?, start: Int, lengthBefore: Int, lengthAfter: Int) {
         super.onTextChanged(text, start, lengthBefore, lengthAfter)
         // TextView can otherwise just invalidate when its fixed bounds do not change.

@@ -32,6 +32,7 @@ import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefStrings
+import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -425,7 +426,14 @@ internal class MainDashboardBinder(
     private fun createBriefCard(stats: ProfileStats, account: String): View {
         val root = inflateCard(R.layout.brief_dashboard_card)
         val snapshot = BriefEngine.rebuild(activity, account)
-        val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(activity))
+        val presentation = BriefStore.presentation(activity, account, snapshot)
+        val summary = presentation?.summary() ?: run {
+            BriefEditorialSummary(
+                activity.getString(R.string.brief_widget_empty_title),
+                activity.getString(R.string.brief_widget_empty_body),
+                activity.getString(R.string.brief_widget_empty_body),
+            )
+        }
         val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
             id = "empty",
             type = BriefCardType.SUMMARY,
@@ -433,7 +441,7 @@ internal class MainDashboardBinder(
             body = activity.getString(R.string.brief_categories_empty_body),
             score = 0,
         )
-        val iconRes = when (hero.type) {
+        val iconRes = when (presentation?.heroType ?: hero.type) {
             BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
             BriefCardType.STREAK -> R.drawable.ic_streak_fire
             BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community

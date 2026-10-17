@@ -7,6 +7,16 @@ import org.junit.Test
 class BriefGoalCopyTest {
     private val strings = TestBriefStrings()
 
+    @Test fun cardDetailShowsMeasuredCountTargetAndProgress() {
+        assertEquals("160 / 200 followers · 80%", BriefGoalCopy.cardDetail(MilestoneMetric.FOLLOWERS, 160.0, 200.0, strings))
+        assertEquals("1 / 1 follower · 100%", BriefGoalCopy.cardDetail(MilestoneMetric.FOLLOWERS, 1.0, 1.0, strings))
+        assertEquals("2.5% / 5% engagement rate · 50%", BriefGoalCopy.cardDetail(MilestoneMetric.ENGAGEMENT_RATE, 0.025, 0.05, strings))
+    }
+
+    @Test fun unavailableMeasurementKeepsTheTargetWithoutInventingZeroProgress() {
+        assertEquals("Your goal: 200 followers · current value unavailable", BriefGoalCopy.cardDetail(MilestoneMetric.FOLLOWERS, null, 200.0, strings))
+    }
+
     @Test
     fun followerGoalStatesTheExactRemainingDistance() {
         assertEquals(

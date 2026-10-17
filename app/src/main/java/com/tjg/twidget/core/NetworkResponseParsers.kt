@@ -4,6 +4,7 @@ import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostLink
 import com.tjg.twidget.analytics.PostMedia
 import com.tjg.twidget.analytics.PostSummary
+import com.tjg.twidget.analytics.QuotedPost
 import com.tjg.twidget.bridge.BridgeAnalyticsImport
 import com.tjg.twidget.data.HistorySample
 import com.tjg.twidget.data.ProfileStats
@@ -164,6 +165,8 @@ internal object NetworkResponseParsers {
             medianReplies = benchmarks.optDouble("medianReplies", 0.0),
             medianShares = benchmarks.optDouble("medianShares", 0.0),
             recentPosts = parseBridgePosts(json.optJSONArray("recentPosts")),
+            recentReplies = parseBridgePosts(json.optJSONArray("recentReplies"))
+                .filter { it.isReply }.take(50),
         )
     }
 
@@ -182,11 +185,16 @@ internal object NetworkResponseParsers {
         return parseBridgeHistoryArray(array).map { it.copy(imported = false, sharedImport = false) }
     }
 
-    private fun parseBridgePost(json: JSONObject?): PostSummary? {
+    internal fun parseBridgePost(json: JSONObject?): PostSummary? {
         json ?: return null
         return PostSummary(
             url = safeWebUrl(json.optString("url")),
             text = json.optString("text"),
+            fullText = json.optString("fullText").takeIf {
+                !json.isNull("fullText") && it.isNotBlank() && it.length <= 10_000
+            },
+            isReply = json.optBoolean("isReply", false),
+            viewsKnown = json.optBoolean("viewsKnown", json.has("views") && !json.isNull("views")),
             views = json.optLong("views"),
             likes = json.optLong("likes"),
             replies = json.optLong("replies"),
@@ -200,6 +208,13 @@ internal object NetworkResponseParsers {
             authorAvatar = safeWebUrl(json.optString("authorAvatar")),
             links = parseBridgeLinks(json.optJSONArray("links")),
             media = parseBridgeMedia(json.optJSONArray("media")),
+            quotedPost = json.optJSONObject("quotedPost")?.let { source ->
+                QuotedPost(safeWebUrl(source.optString("url")), source.optString("text").take(10_000),
+                    source.optString("authorName"), source.optString("authorUserName"), safeWebUrl(source.optString("authorAvatar")),
+                    parseBridgeMedia(source.optJSONArray("media")).take(4),
+                    source.optBoolean("textComplete", false) && source.optString("text").length <= 10_000, source.optLong("ts").coerceAtLeast(0))
+                    .takeIf { it.url.isNotBlank() || it.text.isNotBlank() || it.media.isNotEmpty() }
+            },
         )
     }
 

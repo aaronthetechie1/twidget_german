@@ -2,6 +2,150 @@
 
 All notable changes to Twidget are documented here.
 
+## [Unreleased]
+
+- Correct draft-thread rewrite previews to show the selected entry and its media.
+  Validate figures in review explanations and reasons against supplied evidence.
+  Persist draft advice across restarts, and reuse published reviews after an
+  automatic check finds unchanged evidence, preserving the original review date.
+  Retain draft feedback during failed refreshes, recover missing or stale analytics
+  before declaring a tweet unavailable, bind generated figures to their metric and
+  source, and include media loading and retries in the review timeout.
+
+- Organise Brief debug tools into native UI, AI and ranking pages. Add isolated
+  review-state previews, tweet/draft evidence and cache inspection, policy checks,
+  an explicit cloud-provider test and a bounded review-attempt metadata log.
+
+- Add an Open tweet button beside View review on published Brief tweet cards,
+  preferring the X app. Keep quoted tweets tappable and remove the main card’s
+  tap action. Lighten the dark Brief gradient’s lower end to distinguish card
+  surfaces, quotes and secondary buttons. Strengthen the media fade and action
+  shadows to match the mockup, with a subtle white outline on Open tweet. Keep
+  the review page’s original tweet as a single tappable card without an extra
+  Open tweet button.
+
+- Restore native SESL9 floating-button transitions in the Brief, removing custom
+  state callbacks and keeping navigation visible while scrolling. Use a native,
+  compact-only main toolbar without a title. Move the overflow gradient clear of
+  expanded review headings and restore it as the heading collapses.
+- Update the Brief streak card with a centred flame and numerical day-count group
+  and the streak status underneath, retaining its day/night and activity colours.
+
+- Keep valid review feedback when Gemini includes a rewrite for an incomplete
+  cached tweet. Suppress that optional rewrite until full source text is known,
+  while retaining strict quote and evidence validation.
+
+- Add View report to the dashboard’s all-time best, best and worst tweet cards.
+  Open the existing cached review page for the selected account and tweet. Keep
+  older all-time totals separate from weekly comparisons and preserve full text
+  and quoted-tweet context in the all-time cache. Recognize saved handle changes
+  when reviewing older tweets, and keep the compact button’s larger tap area
+  from adding blank space below the stats.
+
+- Use SESL9 floating back controls in Your Brief and its review pages, preserving
+  the custom scrolling gradient. Add native expanded headings to review pages,
+  the review library and Brief settings.
+
+- Regenerate tweet reviews when the app language changes. Keep review commentary
+  in the app language and rewrite suggestions in the original tweet's language,
+  including drafts and individual thread entries.
+
+- Restyle quoted tweets as filled insets with their own avatar, author and date.
+  Open the original tweet from the parent card and the quoted tweet from its inset,
+  keeping View review as a separate button below quoted content. Match touch
+  ripples to each card’s rounded corners in both themes.
+
+- Give main Brief review previews a relative posting age and useful invitation copy.
+  After a successful review, show its recorded performance and supported comparisons
+  in the preview description. Update descriptions in place when reviews finish or
+  the Brief reopens, preserving card order and the existing generation cache.
+
+- Keep the last successful Brief title, subtitle and compact description on the
+  widget, dashboard and Brief page while new context generates. Preserve them
+  across expiry, failed refreshes and app restarts without delaying generation;
+  keep the page’s generation screen full screen, restore saved copy with a retry
+  after failure, and replace it on success.
+
+- Place tweet and draft review previews independently in the Brief’s responsive
+  columns. Open the complete review library from an illustrated Review your recent
+  tweets card alongside the previews, matching the Figma mockup with dedicated
+  light and dark illustration palettes.
+
+- Fix local Brief generation by giving Nano only each card’s relevant evidence,
+  validating and retrying individual sentences, and accepting equivalent numeric
+  formatting. Use short text requests instead of a cloud-sized JSON contract.
+  Require Auto or Cloud mode and a Gemini API key for new reviews; keep Local
+  Brief generation on-device and continue displaying saved reviews.
+
+- Cache successful tweet reviews across restarts, refresh older reviews on an
+  age-aware schedule, and support pull-to-refresh with updated analytics. Share
+  concurrent requests and keep the previous review if a replacement fails.
+  Match the annotated review loading state with compact, gently rocking previews,
+  settled completion animations and limitations behind the footer info button.
+  Explain Local-only mode, missing keys and specific review failures with relevant
+  actions. Include attributed quoted-tweet text and media in review context,
+  keep its measurements separate, and preserve the context in saved reviews.
+  Replace square info-button highlights with subtle circular ripples in both
+  themes. Remove the AI provider note from the main Brief.
+
+- Make Brief AI copy speak directly to you and use numerical statistics. Reject
+  first-person account narration and spelled-out numbers in English responses.
+  Restore native goal-card titles and visible numerical target/progress details.
+
+- Simplify review suggestions by hiding internal source IDs and evidence-used
+  blocks, contain possible explanations in a card, and move extra tweets and
+  drafts onto a separate page without a Tweet reviews heading in Your Brief.
+
+- Open tweet and draft reviews from their cards on a dedicated page, with the
+  original post, AI loading animation, measured stat cards, evidence-linked
+  suggestions and rewrite previews. Rewrites open a separate composer session.
+  Add Tweet reviews at the top of Manage content. Show AI-selected breakdowns,
+  comparisons and trends only from real, bounded local observations.
+
+- Cache up to four recent successful Brief runs per account and quietly prepare
+  Your Brief while Twidget is open. Reuse matching results without a generation
+  screen, pause preparation in the background and back off after failures.
+
+- Add adaptive AI tweet coaching with post-specific reasoning, quoted edits,
+  optional rewrites and direct evidence/history citations. Included images and
+  video previews provide context; unseen attachments and missing details remain
+  explicit. Reviews use configured cloud AI; the main Brief can stay local.
+
+- Adapt local Brief generation to each Nano runtime’s combined token budget.
+  Negotiate rejected output sizes and use short, model-written text fields when
+  structured output is truncated. Cache successful settings per runtime, keep
+  cancellation distinct from failure, and back off on busy/quota responses.
+
+- Add a tweet assistant to Your Brief for draft feedback and reviews of
+  recent tweets and engaged replies. Separate observed evidence, possible
+  explanations, next experiments and data limits; use the user's own similar-age,
+  same-format posts and keep reply comparisons separate from originals.
+- Preserve bounded full public text and reply metadata in analytics for coaching,
+  while retaining existing previews, aggregates and streak behavior. Draft text
+  is excluded from automatic Brief card prompts; on-demand reviews require a
+  Gemini API key.
+
+- Give Brief context cards prominent Google Sans Flex figures and supporting
+  stats, with model-written descriptions above every card instead of generic
+  section headings or duplicated body text.
+- Generate the summary and every card description from supplied evidence and
+  context. Nano uses short, validated text fields; incomplete generation
+  shows a retry state instead of template prose on the page, dashboard or widget.
+
+- Make Your Brief useful on ordinary days with relative standout tweets,
+  recorded follower changes (including flat weeks), and recent-post snapshots.
+  Smaller accounts can qualify through age-matched performance instead of
+  needing viral counts; sparse histories keep their actual date boundaries.
+- Keep Brief tweet previews aligned with the selected post. Preserve measured
+  context qualifiers during AI rewriting and require a real seven-day anchor
+  before reporting weekly follower growth.
+
+- Compare post performance with other measured posts of similar age in Your
+  Brief. Quiet-post advice requires at least 24 hours of observed counts and
+  two distinct age peers; cached counts do not mature just as time passes.
+- Use age checks and median view counts for posting experiments, and describe
+  measured differences without claiming why X distributed a post.
+
 ## [1.3.1-beta.1] - 2026-10-15
 
 A bigger change to Top Followers, safer handling when an X account changes its

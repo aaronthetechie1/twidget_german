@@ -14,7 +14,6 @@ import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefEngine
-import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefStrings
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.BriefStore
@@ -116,7 +115,7 @@ class TwidgetBriefWidget : AppWidgetProvider() {
             val settings = TwidgetStore.widgetSettings(context, id)
             val localizedContext = com.tjg.twidget.core.AppLocales.wrap(context, settings.language)
             val strings = BriefStrings.from(context, settings.language)
-            val summary = snapshot?.let { BriefEditorialSummary.from(it, strings) }
+            val summary = BriefStore.presentation(context, account, snapshot, strings)?.summary()
             val dark = isDark(context, settings.colorMode)
             val backgroundColor = WidgetColors.resolve(context, settings, dark).background
             return RemoteViews(

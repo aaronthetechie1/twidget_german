@@ -73,6 +73,15 @@ class MainActivity : ScheduleQueueHostActivity() {
         }
     }
 
+    private val briefUpdateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val account = intent?.getStringExtra(com.tjg.twidget.brief.BriefStore.EXTRA_USERNAME) ?: return
+            if (!account.equals(selectedAccount, true) || isFinishing || isDestroyed ||
+                destination != MainDestination.DASHBOARD || editModeController.editMode) return
+            dashboardBinder.bindContent(refreshRemote = false)
+        }
+    }
+
     private val topFollowersUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val username = intent?.getStringExtra(TopFollowersBridgeSyncWorker.EXTRA_USERNAME) ?: return
@@ -189,6 +198,8 @@ class MainActivity : ScheduleQueueHostActivity() {
 
     override fun onStart() {
         super.onStart()
+        ContextCompat.registerReceiver(this, briefUpdateReceiver,
+            IntentFilter(com.tjg.twidget.brief.BriefStore.ACTION_PRESENTATION_UPDATED), ContextCompat.RECEIVER_NOT_EXPORTED)
         ContextCompat.registerReceiver(
             this,
             bangerUpdateReceiver,
@@ -205,6 +216,7 @@ class MainActivity : ScheduleQueueHostActivity() {
 
     override fun onStop() {
         editModeController.finishDashboardDrag(commit = false)
+        runCatching { unregisterReceiver(briefUpdateReceiver) }
         runCatching { unregisterReceiver(bangerUpdateReceiver) }
         runCatching { unregisterReceiver(topFollowersUpdateReceiver) }
         super.onStop()

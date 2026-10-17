@@ -77,7 +77,7 @@ object AnalyticsClient {
                 bangerComplete = result.complete,
                 bangerPostsScanned = result.postsScanned,
             )
-            prefs(context).edit().putString(key(context, username), serialize(updated).toString()).apply()
+            writeWithObservations(context, username, updated)
         }
     }
 
@@ -115,9 +115,26 @@ object AnalyticsClient {
             cachedAt = System.currentTimeMillis(),
         )
         return TwidgetStore.withAccountGeneration(context, clean, generation) {
-            prefs(context).edit().putString(key(context, clean), serialize(analytics).toString()).apply()
+            if (TwidgetStore.settings(context).dataSource == settings.dataSource) writeWithObservations(context, clean, analytics)
             analytics
         }
+    }
+
+    internal fun observations(context: Context, username: String, postUrl: String): List<PostObservation> {
+        val root = prefs(context).getString(key(context, username), null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        if (!root?.optString("userName").equals(username.trim().trimStart('@'), true)) return emptyList()
+        return PostObservationHistory.read(root?.optJSONArray(PostObservationHistory.FIELD), postUrl)
+    }
+
+    private fun writeWithObservations(context: Context, username: String, analytics: PostAnalytics) {
+        val cacheKey = key(context, username)
+        val previous = prefs(context).getString(cacheKey, null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val encoded = serialize(analytics).put(PostObservationHistory.FIELD,
+            PostObservationHistory.record(previous?.takeIf { it.optString("userName").equals(analytics.userName, true) }
+                ?.optJSONArray(PostObservationHistory.FIELD), analytics))
+        prefs(context).edit().putString(cacheKey, encoded.toString()).apply()
     }
 
     private fun fetchBridge(context: Context, username: String, endpoint: BridgeEndpoint): PostAnalytics {
@@ -245,6 +262,7 @@ object AnalyticsClient {
             url = url,
             text = tweetString(tweet, "text", "full_text").replace(Regex("\\s+"), " ").trim().take(180),
             views = tweetLong(tweet, "view_count", "viewCount", "views"),
+            viewsKnown = listOf("view_count", "viewCount", "views").any { tweet.has(it) && !tweet.isNull(it) },
             likes = likes,
             replies = replies,
             reposts = reposts,
@@ -259,6 +277,22 @@ object AnalyticsClient {
             ),
             links = parseTwitterApisLinks(tweet.optJSONObject("entities")?.optJSONArray("urls")),
             media = parseTwitterApisMedia(tweet),
+            fullText = tweetString(tweet, "text", "full_text").takeIf {
+                it.length <= 10_000 && !tweetBoolean(tweet, "truncated", "isTruncated")
+            },
+            isReply = isReply || (conversationId.isNotBlank() && id.isNotBlank() && conversationId != id),
+            quotedPost = (tweet.optJSONObject("quoted_tweet") ?: tweet.optJSONObject("quoted_status") ?: tweet.optJSONObject("quote"))?.let { quoted ->
+                val source = quoted.optJSONObject("author") ?: quoted.optJSONObject("user") ?: JSONObject()
+                val handle = tweetString(source, "userName", "username", "screen_name")
+                val full = tweetString(quoted, "full_text", "text")
+                QuotedPost(safeWebUrl(tweetString(quoted, "url", "tweet_url", "twitterUrl")).ifBlank {
+                    tweetString(quoted, "id", "tweet_id", "rest_id").takeIf { it.matches(Regex("\\d+")) }
+                        ?.let { "https://x.com/i/web/status/$it" }.orEmpty()
+                }, full.take(10_000), tweetString(source, "name"), handle,
+                    safeWebUrl(tweetString(source, "profilePicture", "profile_image_url_https", "profile_image_url", "avatar_url")),
+                    parseTwitterApisMedia(quoted).take(4), full.length <= 10_000 && !tweetBoolean(quoted, "truncated", "isTruncated"), twitterApisTimestamp(quoted))
+                    .takeIf { it.url.isNotBlank() || it.text.isNotBlank() || it.media.isNotEmpty() }
+            },
         )
     }
 
@@ -305,6 +339,8 @@ object AnalyticsClient {
             medianReplies = median(replies),
             medianShares = median(shares),
             recentPosts = posts.take(50),
+            recentReplies = bestCandidates.filter(PostSummary::isReply)
+                .distinctBy(PostSummary::url).sortedByDescending(PostSummary::timestamp).take(50),
         )
     }
 
@@ -337,7 +373,15 @@ object AnalyticsClient {
         return PostSummary(
             url = safeWebUrl(status.optString("url")),
             text = status.optString("text").replace(Regex("\\s+"), " ").trim().take(180),
+            fullText = status.optString("text").takeIf {
+                it.length <= 10_000 && !status.optBoolean("truncated", false)
+            },
+            isReply = hasValue(status, "replying_to") || hasValue(status, "in_reply_to_status_id") ||
+                hasValue(status, "in_reply_to_status_id_str") ||
+                (hasValue(status, "conversation_id") && hasValue(status, "id") &&
+                    status.optString("conversation_id") != status.optString("id")),
             views = status.optLong("views"),
+            viewsKnown = status.has("views") && !status.isNull("views"),
             likes = likes,
             replies = replies,
             reposts = reposts,
@@ -350,6 +394,14 @@ object AnalyticsClient {
             authorAvatar = highResolutionProfileImageUrl(author.optString("avatar_url")),
             links = parseFxLinks(status.optJSONObject("raw_text")?.optJSONArray("facets")),
             media = parseFxMedia(status.optJSONObject("media")?.optJSONArray("all")),
+            quotedPost = status.optJSONObject("quote")?.let { quoted ->
+                val source = quoted.optJSONObject("author") ?: JSONObject()
+                val full = quoted.optString("text")
+                QuotedPost(safeWebUrl(quoted.optString("url")), full.take(10_000), source.optString("name"), source.optString("screen_name"),
+                    safeWebUrl(source.optString("avatar_url")), parseFxMedia(quoted.optJSONObject("media")?.optJSONArray("all")).take(4),
+                    full.length <= 10_000 && !quoted.optBoolean("truncated"), fxTimestamp(quoted))
+                    .takeIf { it.url.isNotBlank() || it.text.isNotBlank() || it.media.isNotEmpty() }
+            },
         )
     }
 
@@ -509,13 +561,18 @@ object AnalyticsClient {
             a.worst?.let { put("worst", serializePost(it)) }
             a.banger?.let { put("banger", serializePost(it)) }
             put("recentPosts", JSONArray(a.recentPosts.map(::serializePost)))
+            put("recentReplies", JSONArray(a.recentReplies.map(::serializePost)))
             put("bangerComplete", a.bangerComplete)
             put("bangerPostsScanned", a.bangerPostsScanned)
         }
 
-    private fun serializePost(p: PostSummary): JSONObject = JSONObject()
+    internal fun serializePost(p: PostSummary): JSONObject = JSONObject()
         .put("url", p.url)
         .put("text", p.text)
+        .put("fullText", p.fullText ?: JSONObject.NULL)
+        .put("quotedPost", p.quotedPost?.let(::serializeQuotedPost) ?: JSONObject.NULL)
+        .put("isReply", p.isReply)
+        .put("viewsKnown", p.viewsKnown)
         .put("views", p.views)
         .put("likes", p.likes)
         .put("replies", p.replies)
@@ -529,6 +586,11 @@ object AnalyticsClient {
         .put("authorAvatar", p.authorAvatar)
         .put("links", JSONArray(p.links.map { serializeLink(it) }))
         .put("media", JSONArray(p.media.map { serializeMedia(it) }))
+
+    internal fun serializeQuotedPost(post: QuotedPost): JSONObject = JSONObject()
+        .put("url", post.url).put("text", post.text).put("textComplete", post.textComplete).put("ts", post.timestamp)
+        .put("authorName", post.authorName).put("authorUserName", post.authorUserName).put("authorAvatar", post.authorAvatar)
+        .put("media", JSONArray(post.media.take(4).map(::serializeMedia)))
 
     private fun serializeLink(link: PostLink): JSONObject = JSONObject()
         .put("display", link.display)

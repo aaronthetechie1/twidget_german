@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_preview_posted">Du hast diesen Tweet vor %1$s gepostet.</string>
+    <string name="review_preview_replied">Du hast vor %1$s geantwortet.</string>
+    <string name="review_preview_just_now">wenigen Augenblicken</string>
+    <string name="review_preview_invite">Sieh dir an, wie dieser Tweet abgeschnitten hat und was du als Nächstes ausprobieren kannst.</string>
+    <string name="review_preview_invite_reply">Sieh dir an, wie diese Antwort abgeschnitten hat und was du als Nächstes ausprobieren kannst.</string>
+    <string name="review_preview_counts">%1$s hatte bei der Bewertung %2$s und %3$s.</string>
+    <string name="review_preview_interactions">%1$s hatte bei der Bewertung %2$s öffentliche Interaktionen; Aufrufe waren nicht verfügbar.</string>
+    <string name="review_preview_both_higher">Der Beitrag erhielt mehr Aufrufe und Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_both_lower">Der Beitrag erhielt weniger Aufrufe und Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_more_views_fewer_interactions">Der Beitrag erhielt mehr Aufrufe, aber weniger Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_fewer_views_more_interactions">Der Beitrag erhielt weniger Aufrufe, aber mehr Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_higher_reach">Der Beitrag erhielt mehr Aufrufe als deine ähnlichen Tweets.</string>
+    <string name="review_preview_lower_reach">Der Beitrag erhielt weniger Aufrufe als deine ähnlichen Tweets.</string>
+    <string name="review_preview_more_interactions">Der Beitrag erhielt mehr Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_fewer_interactions">Der Beitrag erhielt weniger Interaktionen als deine ähnlichen Tweets.</string>
+    <string name="review_preview_typical">Die Aufrufe und Interaktionen lagen nahe an deinen ähnlichen Tweets.</string>
+    <string name="review_preview_typical_interactions">Die Interaktionen lagen nahe an deinen ähnlichen Tweets.</string>
+    <plurals name="review_preview_minutes">
+        <item quantity="one">%1$s Minute</item>
+        <item quantity="other">%1$s Minuten</item>
+    </plurals>
+    <plurals name="review_preview_hours">
+        <item quantity="one">%1$s Stunde</item>
+        <item quantity="other">%1$s Stunden</item>
+    </plurals>
+    <plurals name="review_preview_days">
+        <item quantity="one">%1$s Tag</item>
+        <item quantity="other">%1$s Tagen</item>
+    </plurals>
+    <plurals name="review_preview_weeks">
+        <item quantity="one">%1$s Woche</item>
+        <item quantity="other">%1$s Wochen</item>
+    </plurals>
+    <plurals name="review_preview_months">
+        <item quantity="one">%1$s Monat</item>
+        <item quantity="other">%1$s Monaten</item>
+    </plurals>
+    <plurals name="review_preview_years">
+        <item quantity="one">%1$s Jahr</item>
+        <item quantity="other">%1$s Jahren</item>
+    </plurals>
+    <string name="review_preview_subject_tweet">Dein Tweet</string>
+    <string name="review_preview_subject_reply">Deine Antwort</string>
+    <plurals name="review_preview_view_count">
+        <item quantity="one">%1$s Aufruf</item>
+        <item quantity="other">%1$s Aufrufe</item>
+    </plurals>
+    <plurals name="review_preview_interaction_count">
+        <item quantity="one">%1$s öffentliche Interaktion</item>
+        <item quantity="other">%1$s öffentliche Interaktionen</item>
+    </plurals>
+</resources>

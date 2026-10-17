@@ -2,13 +2,11 @@ package com.tjg.twidget.banger
 
 import android.content.Context
 import com.tjg.twidget.analytics.AnalyticsClient
-import com.tjg.twidget.analytics.PostLink
-import com.tjg.twidget.analytics.PostMedia
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.BridgeEndpoint
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.data.TwidgetSettings
-import com.tjg.twidget.core.json
+import com.tjg.twidget.core.NetworkResponseParsers
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
@@ -177,33 +175,11 @@ object BangerClient {
         capped = json.optBoolean("capped", false),
     )
 
-    private fun postFromJson(json: JSONObject) = PostSummary(
-        url = json.optString("url"), text = json.optString("text"), views = json.optLong("views"),
-        likes = json.optLong("likes"), replies = json.optLong("replies"), reposts = json.optLong("reposts"),
-        quotes = json.optLong("quotes"), engagements = json.optLong("engagements"), timestamp = json.optLong("ts"),
-        createdAt = json.optString("createdAt"), authorName = json.optString("authorName"),
-        authorUserName = json.optString("authorUserName"), authorAvatar = json.optString("authorAvatar"),
-        links = json.optJSONArray("links")?.let { array ->
-            List(array.length()) { array.optJSONObject(it) }.mapNotNull { item ->
-                item?.let { PostLink(it.optString("display"), it.optString("url")) }
-            }
-        }.orEmpty(),
-        media = json.optJSONArray("media")?.let { array ->
-            List(array.length()) { array.optJSONObject(it) }.mapNotNull { item ->
-                item?.let { PostMedia(it.optString("type"), it.optString("url"), it.optString("alt"), it.optLong("width"), it.optLong("height")) }
-            }
-        }.orEmpty(),
-    )
+    private fun postFromJson(json: JSONObject): PostSummary =
+        requireNotNull(NetworkResponseParsers.parseBridgePost(json))
 
-    private fun postToJson(post: PostSummary) = JSONObject()
-        .put("url", post.url).put("text", post.text).put("views", post.views).put("likes", post.likes)
-        .put("replies", post.replies).put("reposts", post.reposts).put("quotes", post.quotes)
-        .put("engagements", post.engagements).put("ts", post.timestamp).put("createdAt", post.createdAt)
-        .put("authorName", post.authorName).put("authorUserName", post.authorUserName).put("authorAvatar", post.authorAvatar)
-        .put("links", JSONArray(post.links.map { JSONObject().put("display", it.display).put("url", it.url) }))
-        .put("media", JSONArray(post.media.map {
-            JSONObject().put("type", it.type).put("url", it.url).put("alt", it.alt).put("width", it.width).put("height", it.height)
-        }))
+    private fun postToJson(post: PostSummary): JSONObject = AnalyticsClient.serializePost(post)
+
 }
 
 // A banger is a post that hit hard in absolute terms, so rank by weighted

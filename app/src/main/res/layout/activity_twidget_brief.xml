@@ -1,10 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/brief_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/brief_screen_background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/brief_app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/sesl_action_bar_height_with_padding"
+        android:background="@android:color/transparent"
+        android:enabled="false"
+        android:elevation="0dp"
+        android:stateListAnimator="@null"
+        app:elevation="0dp"
+        app:liftOnScroll="false">
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/brief_collapsing_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            app:contentScrim="@android:color/transparent"
+            app:statusBarScrim="@android:color/transparent"
+            app:layout_scrollFlags="snap|exitUntilCollapsed|scroll"
+            app:titleEnabled="false">
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/brief_back"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:layout_gravity="bottom"
+                android:background="@android:color/transparent"
+                app:layout_collapseMode="pin" />
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/brief_scroll"
@@ -12,7 +41,8 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:fillViewport="true"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:id="@+id/brief_content"
@@ -20,7 +50,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="10dp"
-            android:paddingTop="80dp"
+            android:paddingTop="16dp"
             android:paddingEnd="10dp"
             android:paddingBottom="32dp">
 
@@ -55,6 +85,8 @@
                     android:textColor="@color/oneui_text_primary"
                     android:textSize="14sp" />
             </LinearLayout>
+
+            <include layout="@layout/view_brief_refresh_state" />
 
             <!-- The engine owns this sequence. On large screens, cards are
                  distributed into independent columns so unequal heights tile
@@ -124,6 +156,7 @@
             android:fontFamily="sec"
             android:gravity="center"
             android:includeFontPadding="false"
+            android:id="@+id/brief_provider_required_title"
             android:text="@string/brief_provider_required_title"
             android:textColor="@color/oneui_text_primary"
             android:textSize="24sp"
@@ -135,6 +168,7 @@
             android:layout_marginTop="10dp"
             android:fontFamily="sec"
             android:gravity="center"
+            android:id="@+id/brief_provider_required_body"
             android:text="@string/brief_provider_required_body"
             android:textColor="@color/oneui_text_secondary"
             android:textSize="14sp" />
@@ -162,21 +196,11 @@
         app:lottie_rawRes="@raw/intelligence_progress_mono" />
 
     <View
+        android:id="@+id/brief_top_gradient"
         android:layout_width="match_parent"
         android:layout_height="96dp"
         android:layout_gravity="top"
         android:background="@drawable/brief_top_bar_gradient"
         android:importantForAccessibility="no" />
 
-    <ImageButton
-        android:id="@+id/brief_back"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="10dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/back"
-        android:padding="13dp"
-        android:scaleType="centerInside" />
-</FrameLayout>
+</dev.oneuiproject.oneui.widget.AdaptiveCoordinatorLayout>

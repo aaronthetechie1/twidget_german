@@ -11,6 +11,10 @@ object BriefSettingsStore {
     private const val KEY_PROVIDER = "provider"
     private const val KEY_CONTENT_PREFIX = "content_"
     private const val KEY_CONTENT_REGENERATION_PENDING = "content_regeneration_pending"
+    private const val KEY_REVIEWS_SETTINGS_SEEN = "reviews_settings_seen"
+
+    fun reviewsSettingsSeen(context: Context): Boolean = prefs(context).getBoolean(KEY_REVIEWS_SETTINGS_SEEN, false)
+    fun markReviewsSettingsSeen(context: Context) { prefs(context).edit().putBoolean(KEY_REVIEWS_SETTINGS_SEEN, true).apply() }
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
 
@@ -51,10 +55,10 @@ object BriefSettingsStore {
         enabled: Boolean,
     ) {
         if (contentEnabled(context, category) == enabled) return
-        prefs(context).edit()
-            .putBoolean(KEY_CONTENT_PREFIX + category.storageId, enabled)
-            .putBoolean(KEY_CONTENT_REGENERATION_PENDING, true)
-            .apply()
+        prefs(context).edit().putBoolean(KEY_CONTENT_PREFIX + category.storageId, enabled).apply {
+            // Review entry points do not change the automatic card prompt.
+            if (category != BriefContentCategory.TWEET_REVIEWS) putBoolean(KEY_CONTENT_REGENERATION_PENDING, true)
+        }.apply()
     }
 
     fun contentRegenerationPending(context: Context): Boolean =
@@ -67,7 +71,9 @@ object BriefSettingsStore {
     fun enabledContent(context: Context): Set<BriefContentCategory> =
         BriefContentCategory.entries.filterTo(linkedSetOf()) { contentEnabled(context, it) }
 
-    fun contentFingerprint(context: Context): String = BriefContentCategory.entries.joinToString(",") {
+    fun contentFingerprint(context: Context): String = BriefContentCategory.entries.filterNot {
+        it == BriefContentCategory.TWEET_REVIEWS
+    }.joinToString(",") {
         "${it.storageId}:${contentEnabled(context, it)}"
     }
 

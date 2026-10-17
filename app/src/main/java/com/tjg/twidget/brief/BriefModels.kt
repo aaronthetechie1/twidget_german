@@ -32,6 +32,8 @@ enum class BriefCardType {
     SCHEDULE_GUIDE,
     POST_FOLLOW_THROUGH,
     POSTING_GUIDE,
+    FOLLOWER_CONTEXT,
+    POST_CONTEXT,
 }
 
 enum class BriefCardAction {
@@ -55,6 +57,7 @@ data class BriefRankSignals(
 )
 
 enum class BriefContentCategory(val storageId: String) {
+    TWEET_REVIEWS("tweet_reviews"),
     TOP_TWEET("top_tweet"),
     WORST_TWEET("worst_tweet"),
     FOLLOWERS("followers"),
@@ -67,12 +70,14 @@ enum class BriefContentCategory(val storageId: String) {
     ACCOUNT_GOALS("account_goals");
 
     fun includes(type: BriefCardType): Boolean = when (this) {
-        TOP_TWEET -> type == BriefCardType.POST
+        TWEET_REVIEWS -> false
+        TOP_TWEET -> type in setOf(BriefCardType.POST, BriefCardType.POST_CONTEXT)
         WORST_TWEET -> type == BriefCardType.WORST_POST
         FOLLOWERS -> type in setOf(
             BriefCardType.SUMMARY,
             BriefCardType.GROWTH,
             BriefCardType.SLOWDOWN,
+            BriefCardType.FOLLOWER_CONTEXT,
         )
         TOP_FOLLOWERS -> type == BriefCardType.TOP_FOLLOWER
         TWEET_ACTIVITY -> type in setOf(BriefCardType.INACTIVITY, BriefCardType.STREAK)
@@ -95,6 +100,8 @@ enum class BriefContentCategory(val storageId: String) {
     }
 }
 
+data class BriefMetric(val label: String, val value: String)
+
 data class BriefCard(
     val id: String,
     val type: BriefCardType,
@@ -106,6 +113,8 @@ data class BriefCard(
     val sourceAttribution: String = "",
     val rankSignals: BriefRankSignals = BriefRankSignals(),
     val rankingScore: Int = -1,
+    val metrics: List<BriefMetric> = emptyList(),
+    val narrativeGenerated: Boolean = false,
 )
 
 data class BriefUpcomingTweet(
@@ -170,9 +179,12 @@ data class BriefEditorialSummary(
                     else -> R.string.brief_summary_title_default
                 },
             )
+            val hasFollowerContext = BriefCardType.FOLLOWER_CONTEXT in types
             val hasFollowerTrendCard = BriefCardType.GROWTH in types || BriefCardType.SLOWDOWN in types
             val facts = buildList {
-                if (!hasFollowerTrendCard) {
+                if (hasFollowerContext) {
+                    cards.firstOrNull { it.type == BriefCardType.FOLLOWER_CONTEXT }?.body?.let(::add)
+                } else if (!hasFollowerTrendCard) {
                     followerOverview(followersToday, followersWeek, strings)?.let(::add)
                 }
                 if (hasGoal) {
@@ -185,6 +197,9 @@ data class BriefEditorialSummary(
                             },
                         ),
                     )
+                }
+                if (BriefCardType.POST_CONTEXT in types) {
+                    add(strings.text(R.string.brief_context_posts_summary))
                 }
                 when {
                     BriefCardType.POST in types && BriefCardType.WORST_POST in types ->
@@ -336,9 +351,15 @@ data class BriefSnapshot(
     val topFollowerRanks: Map<String, Int>,
     val engineVersion: Int = 0,
     val contextFingerprint: String = "",
+    val contentSettingsFingerprint: String = "",
     val providerUsed: BriefProviderUsed = BriefProviderUsed.TEMPLATE,
     val providerMessage: String = "",
     val aiGeneratedAt: Long = 0L,
     /** BCP-47 tag of the app language the template copy was written in. */
     val language: String = "",
-)
+    val summaryGenerated: Boolean = false,
+) {
+    val hasGeneratedNarrative: Boolean
+        get() = providerUsed != BriefProviderUsed.TEMPLATE && summaryGenerated &&
+            headline.isNotBlank() && subheading.isNotBlank() && shortDescription.isNotBlank() && cards.all { it.narrativeGenerated }
+}

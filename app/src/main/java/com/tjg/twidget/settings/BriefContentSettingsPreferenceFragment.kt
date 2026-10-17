@@ -2,6 +2,11 @@ package com.tjg.twidget.settings
 
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.SuperscriptSpan
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -41,6 +46,12 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         val context = requireContext()
         val screen = preferenceManager.createPreferenceScreen(context)
 
+        screen.addPreference(explainedCategorySwitch(
+            BriefContentCategory.TWEET_REVIEWS,
+            R.string.brief_content_tweet_reviews,
+            R.string.review_content_explainer,
+        ))
+        screen.addPreference(spacerCategory())
         screen.addPreference(categorySwitch(BriefContentCategory.TOP_TWEET, R.string.brief_content_top_tweet))
         screen.addPreference(categorySwitch(BriefContentCategory.WORST_TWEET, R.string.brief_content_worst_tweet))
         screen.addPreference(explainedCategorySwitch(
@@ -110,6 +121,10 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
     ) = SeslSwitchPreferenceScreen(requireContext()).apply {
         configureCategory(this, category, titleRes)
         setOnPreferenceClickListener {
+            if (category == BriefContentCategory.TWEET_REVIEWS) {
+                BriefSettingsStore.markReviewsSettingsSeen(requireContext())
+                title = getString(titleRes)
+            }
             onOpen()
             true
         }
@@ -137,11 +152,23 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         preference.layoutResource = androidx.preference.R.layout.sesl_preference_switch_screen
         preference.key = "brief_content_${category.storageId}"
         preference.title = getString(titleRes)
+        if (category == BriefContentCategory.TWEET_REVIEWS && !BriefSettingsStore.reviewsSettingsSeen(context)) {
+            preference.title = SpannableString("${getString(titleRes)} •").apply {
+                val start = length - 1
+                setSpan(ForegroundColorSpan(context.getColor(R.color.notice_badge_orange)), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(RelativeSizeSpan(0.7f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(SuperscriptSpan(), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
         preference.isPersistent = false
         preference.isChecked = BriefSettingsStore.contentEnabled(context, category)
         preference.icon = tintedIcon(category)
         preference.isIconSpaceReserved = true
         preference.setOnPreferenceChangeListener { _, newValue ->
+            if (category == BriefContentCategory.TWEET_REVIEWS) {
+                BriefSettingsStore.markReviewsSettingsSeen(context)
+                preference.title = getString(titleRes)
+            }
             BriefSettingsStore.setContentEnabled(context, category, newValue as Boolean)
             true
         }
@@ -160,6 +187,7 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
         BriefContentCategory.TOP_TWEET -> R.color.brief_icon_top_tweet
         BriefContentCategory.WORST_TWEET -> R.color.metric_red
         BriefContentCategory.TOP_FOLLOWERS,
+        BriefContentCategory.TWEET_REVIEWS,
         BriefContentCategory.TWEET_ACTIVITY,
         BriefContentCategory.POSTING_GUIDANCE -> R.color.oneui_accent
         BriefContentCategory.ACCOUNT_GOALS -> R.color.metric_green
@@ -174,6 +202,7 @@ class BriefContentSettingsPreferenceFragment : InsetPreferenceFragment() {
     }
 
     private fun categoryIcon(category: BriefContentCategory): Int = when (category) {
+        BriefContentCategory.TWEET_REVIEWS -> R.drawable.ic_review_settings_ai
         BriefContentCategory.TOP_TWEET -> R.drawable.ic_settings_top_post
         BriefContentCategory.WORST_TWEET -> R.drawable.ic_settings_delete
         BriefContentCategory.FOLLOWERS -> R.drawable.ic_settings_community

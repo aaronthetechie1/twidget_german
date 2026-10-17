@@ -102,6 +102,7 @@ internal object AccountHandleMigration {
     }
 
     fun copyCompanionData(context: Context, oldHandle: String, newHandle: String) {
+        com.tjg.twidget.brief.BriefPublishedReviewStore.copyAccount(context, oldHandle, newHandle)
         val old = oldHandle.lowercase(Locale.US)
         val next = newHandle.lowercase(Locale.US)
         stores.forEach { name ->
@@ -146,6 +147,7 @@ internal object AccountHandleMigration {
     }
 
     fun removeSourceData(context: Context, oldHandle: String) {
+        com.tjg.twidget.brief.BriefPublishedReviewStore.removeAccount(context, oldHandle)
         val old = oldHandle.lowercase(Locale.US)
         stores.forEach { name ->
             val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)

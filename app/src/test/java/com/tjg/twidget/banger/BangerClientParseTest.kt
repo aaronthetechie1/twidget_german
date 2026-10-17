@@ -7,6 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BangerClientParseTest {
+    @Test fun resultFromJson_preservesReviewContextFromTheSharedPostFormat() {
+        val post = com.tjg.twidget.analytics.PostSummary("https://x.com/example/status/1", "A preview", 100, 3, 2, 1, 0, 6,
+            1L, "", "Example", "example", "", fullText = "The complete reply with useful context.", isReply = true,
+            quotedPost = com.tjg.twidget.analytics.QuotedPost("https://x.com/source/status/2", "The announcement", "Source", "source"))
+        val result = BangerClient.resultFromJson(JSONObject().put("post", com.tjg.twidget.analytics.AnalyticsClient.serializePost(post)))
+        assertEquals(post, result.post)
+    }
+
     @Test
     fun resultFromJson_readsCompleteScanPayload() {
         val json = JSONObject(

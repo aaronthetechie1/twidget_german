@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_preview_posted">You posted this %1$s.</string>
+    <string name="review_preview_replied">You replied %1$s.</string>
+    <string name="review_preview_just_now">just now</string>
+    <string name="review_preview_invite">Review this tweet’s performance and what to try next.</string>
+    <string name="review_preview_invite_reply">Review this reply’s performance and what to try next.</string>
+    <string name="review_preview_counts">%1$s had %2$s and %3$s when reviewed.</string>
+    <string name="review_preview_interactions">%1$s had %2$s public interactions when reviewed; views weren’t available.</string>
+    <string name="review_preview_both_higher">It received more views and interactions than your similar tweets.</string>
+    <string name="review_preview_both_lower">It received fewer views and interactions than your similar tweets.</string>
+    <string name="review_preview_more_views_fewer_interactions">It received more views, but fewer interactions than your similar tweets.</string>
+    <string name="review_preview_fewer_views_more_interactions">It received fewer views, but more interactions than your similar tweets.</string>
+    <string name="review_preview_higher_reach">It received more views than your similar tweets.</string>
+    <string name="review_preview_lower_reach">It received fewer views than your similar tweets.</string>
+    <string name="review_preview_more_interactions">It received more interactions than your similar tweets.</string>
+    <string name="review_preview_fewer_interactions">It received fewer interactions than your similar tweets.</string>
+    <string name="review_preview_typical">Its views and interactions were close to your similar tweets.</string>
+    <string name="review_preview_typical_interactions">Its interactions were close to your similar tweets.</string>
+    <plurals name="review_preview_minutes">
+        <item quantity="one">%1$s minute ago</item>
+        <item quantity="other">%1$s minutes ago</item>
+    </plurals>
+    <plurals name="review_preview_hours">
+        <item quantity="one">%1$s hour ago</item>
+        <item quantity="other">%1$s hours ago</item>
+    </plurals>
+    <plurals name="review_preview_days">
+        <item quantity="one">%1$s day ago</item>
+        <item quantity="other">%1$s days ago</item>
+    </plurals>
+    <plurals name="review_preview_weeks">
+        <item quantity="one">%1$s week ago</item>
+        <item quantity="other">%1$s weeks ago</item>
+    </plurals>
+    <plurals name="review_preview_months">
+        <item quantity="one">%1$s month ago</item>
+        <item quantity="other">%1$s months ago</item>
+    </plurals>
+    <plurals name="review_preview_years">
+        <item quantity="one">%1$s year ago</item>
+        <item quantity="other">%1$s years ago</item>
+    </plurals>
+    <string name="review_preview_subject_tweet">Your tweet</string>
+    <string name="review_preview_subject_reply">Your reply</string>
+    <plurals name="review_preview_view_count">
+        <item quantity="one">%1$s view</item>
+        <item quantity="other">%1$s views</item>
+    </plurals>
+    <plurals name="review_preview_interaction_count">
+        <item quantity="one">%1$s public interaction</item>
+        <item quantity="other">%1$s public interactions</item>
+    </plurals>
+</resources>

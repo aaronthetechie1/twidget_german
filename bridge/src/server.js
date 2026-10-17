@@ -7,6 +7,7 @@ import { Pool } from "pg";
 import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
 import { ownFxPostEligible, weeklyWinners } from "./post-ranking.js";
+import { coachingFields, coachingReplies } from "./post-coaching.js";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
 import { createTopFollowersActivityRecorder, prepareTopFollowersCache, topFollowersRefreshKind } from "./top-followers.js";
@@ -811,12 +812,13 @@ async function computeAnalytics(username) {
     // Require two posts with a full day of exposure before naming a quietest one.
     best,
     worst,
-    // Lets clients derive conservative, account-specific guidance without
-    // exposing replies or reposts (already excluded by fetchFxWeeklyPosts).
+    // Original-post guidance stays separate from reply comparisons below.
     recentPosts: posts.slice(0, 50).map((post) => ({
       ...post,
       text: post.text.slice(0, 180),
     })),
+    // Replies remain separate from all original-post aggregates and streaks.
+    recentReplies: coachingReplies(activity.bestCandidates || []),
     // Original-post timestamps let clients build streaks without counting replies.
     activityTimestamps: posts.map((post) => post.ts),
     activityComplete: activity.complete,
@@ -967,6 +969,7 @@ function normalizeFxStatus(status) {
     id: stringValue(status.id),
     url: stringValue(status.url),
     text: textParts.text,
+    ...coachingFields(status),
     links: textParts.links,
     views: numberValue(status.views),
     likes,

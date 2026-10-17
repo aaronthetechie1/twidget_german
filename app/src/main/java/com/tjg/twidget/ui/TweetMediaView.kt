@@ -16,11 +16,11 @@ internal object TweetMediaView {
     const val MAX_HEIGHT_DP = 280
     private const val STRIP_HEIGHT_DP = 218
 
-    fun create(context: Context, media: List<PostMedia>): View {
+    fun create(context: Context, media: List<PostMedia>, maximumHeightDp: Int = MAX_HEIGHT_DP): View {
         require(media.isNotEmpty())
         fun dp(value: Int) = (value * context.resources.displayMetrics.density).roundToInt()
         fun image(item: PostMedia) = MediaAspectImageView(context).apply {
-            maximumMediaHeightPx = dp(MAX_HEIGHT_DP)
+            maximumMediaHeightPx = dp(maximumHeightDp)
             contentDescription = item.alt.ifBlank { context.getString(R.string.post_media) }
             ProfileImageLoader.loadMediaInto(context, this, item.url, dp(14))
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -39,7 +39,7 @@ internal object TweetMediaView {
                 orientation = LinearLayout.HORIZONTAL
                 media.forEachIndexed { index, item ->
                     addView(image(item), LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT, dp(STRIP_HEIGHT_DP),
+                        LinearLayout.LayoutParams.WRAP_CONTENT, dp(minOf(STRIP_HEIGHT_DP, maximumHeightDp)),
                     ).apply { if (index > 0) marginStart = dp(8) })
                 }
             })

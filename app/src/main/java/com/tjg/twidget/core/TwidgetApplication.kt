@@ -24,6 +24,7 @@ class TwidgetApplication : Application(), Configuration.Provider {
         }
         AppLocales.initialize(this)
         com.tjg.twidget.ui.AppAppearance.apply(this)
+        com.tjg.twidget.brief.BriefForegroundPreparation.install(this)
         AppPaletteManager.reconcile(this)
         AppExecutors.execute {
             runCatching { com.tjg.twidget.followers.TopFollowersLocalScanCleanup.run(this) }

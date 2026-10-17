@@ -166,6 +166,15 @@ object ProfileImageLoader {
     private fun downloadMediaToCache(context: Context, url: String): Bitmap? =
         sharedBitmap(context, url, media = true, download = true)
 
+    /** A separately owned, bounded image for on-demand multimodal coaching. Call off the UI thread. */
+    internal fun coachingBitmap(context: Context, url: String): Bitmap? = downloadMediaToCache(context, url)?.let { source ->
+        val scale = minOf(1.0, 1024.0 / maxOf(source.width, source.height))
+        val width = (source.width * scale).toInt().coerceAtLeast(1)
+        val height = (source.height * scale).toInt().coerceAtLeast(1)
+        if (width == source.width && height == source.height) source.copy(Bitmap.Config.ARGB_8888, false)
+        else Bitmap.createScaledBitmap(source, width, height, true)
+    }
+
     private fun downloadFile(url: String, file: File) {
         val connection = HttpTransport.openConnection(
             url,

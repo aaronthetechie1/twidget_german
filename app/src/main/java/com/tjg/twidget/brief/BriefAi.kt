@@ -36,8 +36,8 @@ enum class BriefNanoModelMode(val storageId: String, val label: String) {
     PREVIEW_FULL("preview_full", "Preview · Full"),
     PREVIEW_FAST("preview_fast", "Preview · Fast");
 
-    internal fun probeOrder(): List<BriefNanoModelMode> = when (this) {
-        AUTO_STABLE -> listOf(STABLE_FAST, STABLE_FULL)
+    internal fun probeOrder(preferFull: Boolean = false): List<BriefNanoModelMode> = when (this) {
+        AUTO_STABLE -> if (preferFull) listOf(STABLE_FULL, STABLE_FAST) else listOf(STABLE_FAST, STABLE_FULL)
         else -> listOf(this)
     }
 
@@ -73,6 +73,16 @@ data class BriefAiDiagnostics(
 
 object BriefAiCoordinator {
     private val generationMutex = Mutex()
+    private val reviewMutex = Mutex()
+
+    internal suspend fun coach(context: Context, input: BriefCoachInput): BriefCoachGeneration =
+        withContext(Dispatchers.IO) {
+            kotlinx.coroutines.withTimeoutOrNull(90_000L) { reviewMutex.withLock {
+                BriefReviewPolicy.generate(BriefSettingsStore.provider(context), BriefSettingsStore.cloudApiKey(context).isNotBlank()) {
+                    BriefCoachAiRunner.generate(context, input, cloud = true, allowCloudFallback = false)
+                }
+            } } ?: BriefCoachGeneration.Failure(BriefReviewFailure.TIMEOUT)
+        }
 
     suspend fun enrich(
         context: Context,
@@ -82,12 +92,16 @@ object BriefAiCoordinator {
         generationMutex.withLock {
             val mode = BriefSettingsStore.provider(context)
             val strings = BriefStrings.from(context)
+            // A foreground prewarm may have completed while this caller waited
+            // for the model. Re-read measured inputs and reuse that exact run.
+            val currentSource = if (force) source else BriefEngine.rebuild(context, source.username)
             val cached = if (force) {
                 source
             } else {
-                BriefAiCachePolicy.retain(BriefStore.read(context, source.username), source, strings)
+                BriefStore.cachedRun(context, currentSource)
+                    ?: BriefAiCachePolicy.retain(BriefStore.read(context, source.username), currentSource, strings)
             }
-            if (!force && cachedProviderMatches(mode, cached.providerUsed)) {
+            if (!force && cached.hasGeneratedNarrative && cachedProviderMatches(mode, cached.providerUsed)) {
                 if (cached !== source) BriefStore.write(context, cached)
                 return@withLock BriefAiResult(
                     cached,
@@ -100,43 +114,35 @@ object BriefAiCoordinator {
             }
             val localProbe = GeminiNanoBriefProvider.probe(context)
             val localStatus = localProbe.status
-            val resultMatchesMode = when (mode) {
-                BriefProviderMode.LOCAL -> source.providerUsed == BriefProviderUsed.LOCAL
-                BriefProviderMode.CLOUD -> source.providerUsed == BriefProviderUsed.CLOUD
-                BriefProviderMode.AUTO -> when (localStatus) {
-                    BriefLocalStatus.AVAILABLE -> source.providerUsed == BriefProviderUsed.LOCAL
-                    else -> source.providerUsed == BriefProviderUsed.CLOUD
-                }
-            }
-            if (!force && resultMatchesMode) {
-                return@withLock BriefAiResult(source, localStatus)
-            }
-
             val generated = when (mode) {
                 BriefProviderMode.LOCAL -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                    GeminiNanoBriefProvider.generate(context, source, strings)?.copy(
+                    GeminiNanoBriefProvider.generate(context, currentSource, strings)?.copy(
                         providerMessage = strings.text(R.string.brief_provider_note_nano),
                     )
                 }
                 BriefProviderMode.CLOUD -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                    GeminiCloudBriefProvider.generate(context, source, strings)?.copy(
+                    GeminiCloudBriefProvider.generate(context, currentSource, strings)?.copy(
                         providerMessage = strings.text(R.string.brief_provider_note_cloud),
                     )
                 }
                 BriefProviderMode.AUTO -> {
                     BriefAiDiagnosticsStore.attempt(context, "Gemini Nano")
-                    GeminiNanoBriefProvider.generate(context, source, strings)?.copy(
+                    GeminiNanoBriefProvider.generate(context, currentSource, strings)?.copy(
                         providerMessage = strings.text(R.string.brief_provider_note_nano),
                     ) ?: run {
                         BriefAiDiagnosticsStore.attempt(context, "Gemini Cloud")
-                        GeminiCloudBriefProvider.generate(context, source, strings)?.copy(
+                        GeminiCloudBriefProvider.generate(context, currentSource, strings)?.copy(
                             providerMessage = strings.text(R.string.brief_provider_note_nano_then_cloud),
                         )
                     }
                 }
-            } ?: source.copy(providerMessage = fallbackMessage(mode, localStatus, context, strings))
+            } ?: currentSource.copy(
+                providerUsed = BriefProviderUsed.TEMPLATE,
+                summaryGenerated = false,
+                providerMessage = fallbackMessage(mode, localStatus, context, strings),
+            )
 
             BriefAiDiagnosticsStore.outcome(context, generated.providerUsed, generated.providerMessage)
             BriefStore.write(context, generated)
@@ -183,6 +189,8 @@ object BriefAiCoordinator {
                 R.string.brief_provider_note_cloud_needs_key
             mode == BriefProviderMode.AUTO && localStatus == BriefLocalStatus.DOWNLOADABLE ->
                 R.string.brief_provider_note_auto_downloadable
+            mode == BriefProviderMode.AUTO && localStatus == BriefLocalStatus.AVAILABLE &&
+                BriefSettingsStore.cloudApiKey(context).isBlank() -> R.string.brief_provider_note_nano_failed
             mode == BriefProviderMode.AUTO && BriefSettingsStore.cloudApiKey(context).isBlank() ->
                 R.string.brief_provider_note_auto_none
             else -> R.string.brief_provider_note_unreachable
@@ -200,7 +208,7 @@ object BriefAiCoordinator {
     }
 }
 
-private data class NanoProbe(
+internal data class NanoProbe(
     val status: BriefLocalStatus,
     val error: String?,
     val modelName: String? = null,
@@ -209,21 +217,26 @@ private data class NanoProbe(
     val attempts: String? = null,
 )
 
-private object GeminiNanoBriefProvider {
-    suspend fun probe(context: Context): NanoProbe {
+internal object GeminiNanoBriefProvider {
+    suspend fun probe(context: Context, preferFull: Boolean = false): NanoProbe {
         val attempts = mutableListOf<String>()
         var lastError: String? = null
-        BriefAiDiagnosticsStore.nanoModelMode(context).probeOrder().forEach { mode ->
+        var downloadable: NanoProbe? = null
+        BriefAiDiagnosticsStore.nanoModelMode(context).probeOrder(preferFull).forEach { mode ->
             val result = probe(mode)
             attempts += buildString {
                 append("${mode.label}: ${result.status}")
                 result.error?.let { append(" ($it)") }
             }
             if (result.status != BriefLocalStatus.UNAVAILABLE) {
-                return result.copy(attempts = attempts.joinToString(" · "))
+                if (!preferFull || result.status == BriefLocalStatus.AVAILABLE) {
+                    return result.copy(attempts = attempts.joinToString(" · "))
+                }
+                if (downloadable == null) downloadable = result
             }
             if (result.error != null) lastError = result.error
         }
+        downloadable?.let { return it.copy(attempts = attempts.joinToString(" · ")) }
         lastError?.let { BriefAiDiagnosticsStore.localFailure(context, it) }
         return NanoProbe(
             status = BriefLocalStatus.UNAVAILABLE,
@@ -260,64 +273,102 @@ private object GeminiNanoBriefProvider {
         NanoProbe(BriefLocalStatus.UNAVAILABLE, reason, selectedMode = mode)
     }
 
-    suspend fun generate(context: Context, source: BriefSnapshot, strings: BriefStrings): BriefSnapshot? {
+    suspend fun generate(context: Context, source: BriefSnapshot, strings: BriefStrings,
+        onResponse: (String, String) -> Unit = { _, _ -> }): BriefSnapshot? {
         val probe = probe(context)
         if (probe.status != BriefLocalStatus.AVAILABLE) {
             BriefAiDiagnosticsStore.localFailure(context, "Feature status: ${probe.status}")
             return null
         }
-        val selectedMode = probe.selectedMode ?: return null
+        val mode = probe.selectedMode ?: return null
         return runCatching {
-            val model = client(selectedMode)
+            val model = client(mode)
             try {
-                val request = generateContentRequest(
-                    TextPart("$SYSTEM_INSTRUCTION\n\n${localPromptFor(source, strings)}"),
-                ) {
-                    temperature = 0.25f
-                    topK = 3
-                    // ML Kit's Gemini Nano prompt API currently accepts at most
-                    // 256 output tokens. Larger values pass compilation but are
-                    // rejected by AICore when the request is executed.
-                    maxOutputTokens = 256
-                }
-                val inputTokens = runCatching { model.countTokens(request).totalTokens }.getOrNull()
-                val response = model.generateContent(request)
-                val candidate = response.candidates.firstOrNull()
-                if (candidate == null) {
-                    BriefAiDiagnosticsStore.localFailure(context, "Generation returned no candidate")
-                    BriefAiDiagnosticsStore.localDetail(context, "candidate=missing")
+                val totalLimit = runCatching { model.getTokenLimit() }.getOrDefault(4096).takeIf { it > 0 } ?: 4096
+                val baseName = runCatching { model.getBaseModelName() }.getOrDefault("unknown")
+                val runtimeVersion = runCatching {
+                    val info = context.packageManager.getPackageInfo("com.google.android.aicore", 0)
+                    if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                }.getOrDefault(0L)
+                val signature = "$mode|$baseName|$runtimeVersion|$totalLimit|beta6"
+                val prefs = context.getSharedPreferences("brief_nano_runtime", Context.MODE_PRIVATE)
+                val cached = prefs.getString("signature", null) == signature &&
+                    System.currentTimeMillis() - prefs.getLong("savedAt", 0L) in 0L..86_400_000L
+                var ceiling = if (cached) prefs.getInt("ceiling", 1024).coerceIn(64, 1024) else 1024
+                if (prefs.getString("busySignature", null) == signature && prefs.getLong("retryAfter", 0L) > System.currentTimeMillis()) {
+                    BriefAiDiagnosticsStore.localFailure(context, "On-device model is temporarily busy or quota-limited; waiting before retrying")
                     return@runCatching null
                 }
-                val finishReason = finishReasonName(candidate.finishReason)
-                val parsed = BriefAiCardResponse.apply(
-                    source,
-                    candidate.text,
-                    BriefProviderUsed.LOCAL,
-                    strings,
-                )
-                BriefAiDiagnosticsStore.localDetail(
-                    context,
-                    buildString {
-                        append("finish=$finishReason")
-                        inputTokens?.let { append(" · input=$it tokens") }
-                        append(" · response=${candidate.text.length} chars · cards=${parsed.appliedCards}")
-                    },
-                )
-                if (parsed.snapshot == null) {
-                    BriefAiDiagnosticsStore.localFailure(
-                        context,
-                        "${parsed.failure ?: "Response parsing failed"} (finish=$finishReason, ${candidate.text.length} chars)",
-                    )
+                fun remember() {
+                    prefs.edit().putString("signature", signature).putInt("ceiling", ceiling)
+                        .putBoolean("plainText", true).putLong("savedAt", System.currentTimeMillis()).apply()
                 }
-                parsed.snapshot
+                suspend fun request(stage: String, prompt: String, preferred: Int): String? {
+                    fun build(budget: Int) = generateContentRequest(TextPart(prompt)) {
+                        temperature = 0.25f
+                        topK = 3
+                        maxOutputTokens = budget
+                    }
+                    val input = model.countTokens(build(minOf(preferred, ceiling))).totalTokens
+                    var budget = BriefNanoPolicy.outputBudget(input, totalLimit, minOf(preferred, ceiling))
+                    if (budget == null) {
+                        BriefAiDiagnosticsStore.localDetail(context, "stage=$stage · model=$baseName · input=$input · totalLimit=$totalLimit · input-budget-exhausted")
+                        return null
+                    }
+                    while (true) {
+                        val response = try {
+                            model.generateContent(build(budget!!))
+                        } catch (error: Exception) {
+                            if (error is kotlinx.coroutines.CancellationException) throw error
+                            val code = (error as? GenAiException)?.errorCode
+                            if (code == GenAiException.ErrorCode.BUSY || code == GenAiException.ErrorCode.PER_APP_BATTERY_USE_QUOTA_EXCEEDED) {
+                                val failures = (prefs.getInt("busyFailures", 0) + 1).coerceAtMost(5)
+                                val delay = if (code == GenAiException.ErrorCode.PER_APP_BATTERY_USE_QUOTA_EXCEEDED) 900_000L else (30_000L shl (failures - 1)).coerceAtMost(300_000L)
+                                prefs.edit().putString("busySignature", signature).putInt("busyFailures", failures)
+                                    .putLong("retryAfter", System.currentTimeMillis() + delay).apply()
+                                throw error
+                            }
+                            if (code == GenAiException.ErrorCode.REQUEST_TOO_LARGE) {
+                                BriefAiDiagnosticsStore.localDetail(context, "stage=$stage · input=$input · totalLimit=$totalLimit · runtime-request-too-large")
+                                return null
+                            }
+                            val smaller = BriefNanoPolicy.lowerOutputBudget(budget!!)
+                            if (smaller == null || !BriefNanoPolicy.isOutputBudgetRejection(error.message.orEmpty())) throw error
+                            ceiling = minOf(ceiling, smaller)
+                            remember()
+                            budget = smaller
+                            continue
+                        }
+                        prefs.edit().remove("retryAfter").remove("busyFailures").apply()
+                        val candidate = response.candidates.firstOrNull() ?: return null
+                        onResponse(stage, candidate.text)
+                        val finish = finishReasonName(candidate.finishReason)
+                        BriefAiDiagnosticsStore.localDetail(context,
+                            "stage=$stage · model=$baseName · mode=$mode · totalLimit=$totalLimit · input=$input · outputLimit=$budget · finish=$finish · response=${candidate.text.length} chars")
+                        if (finish.contains("MAX_TOKENS")) return null
+                        if (finish.contains("SAFETY") || finish.contains("BLOCK")) {
+                            error("Local model did not finish: $finish")
+                        }
+                        return candidate.text.takeIf(String::isNotBlank)
+                    }
+                }
+                var validationFailure: String? = null
+                kotlinx.coroutines.withTimeoutOrNull(120_000L) {
+                    // Nano writes short fields; the app supplies structure and validates each field
+                    // before moving on. Cloud's larger JSON contract is unreliable on small models.
+                    BriefNanoTextNarrative.generate(source, strings, onInvalid = { validationFailure = it }) { stage, prompt ->
+                        request(stage, prompt, 256)
+                    }?.also { remember() }
+                }.also { result ->
+                    if (result == null) BriefAiDiagnosticsStore.localFailure(context,
+                        "Local generation incomplete: ${validationFailure ?: "see stage diagnostics"}")
+                }
             } finally {
                 model.close()
             }
         }.onFailure { error ->
-            BriefAiDiagnosticsStore.localFailure(
-                context,
-                describeLocalError(error),
-            )
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            BriefAiDiagnosticsStore.localFailure(context, describeLocalError(error))
         }.getOrNull()
     }
 
@@ -353,7 +404,7 @@ private object GeminiNanoBriefProvider {
         false
     }
 
-    private fun client(mode: BriefNanoModelMode) = Generation.getClient(
+    internal fun client(mode: BriefNanoModelMode) = Generation.getClient(
         generationConfig {
             modelConfig = modelConfig {
                 when (mode) {
@@ -454,8 +505,8 @@ private object BriefAiDiagnosticsStore {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
 
-private object GeminiCloudBriefProvider {
-    private const val ENDPOINT =
+internal object GeminiCloudBriefProvider {
+    internal const val ENDPOINT =
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 
     fun generate(context: Context, source: BriefSnapshot, strings: BriefStrings): BriefSnapshot? {
@@ -472,7 +523,7 @@ private object GeminiCloudBriefProvider {
                     put("parts", JSONArray().put(JSONObject().put("text", promptFor(source, strings))))
                 }))
                 put("generationConfig", JSONObject().apply {
-                    put("maxOutputTokens", 600)
+                    put("maxOutputTokens", (300 + source.cards.size * 160).coerceAtMost(4096))
                     put("responseMimeType", "application/json")
                 })
             }
@@ -494,17 +545,23 @@ private object GeminiCloudBriefProvider {
                 ?.optString("text")
                 .orEmpty()
             BriefAiCardResponse.apply(source, text, BriefProviderUsed.CLOUD, strings).snapshot
+                ?.takeIf { it.hasGeneratedNarrative }
         }.getOrNull()
     }
 }
 
 private const val SYSTEM_INSTRUCTION =
     "You write a concise, personal social guide focused on the user's next useful move. " +
-        "You may only reword the supplied factual Brief summary and cards and must preserve their order. " +
+        BriefVoicePolicy.INSTRUCTION +
+        "Write the headline and every card description from the supplied evidence, metrics and context; preserve their order. " +
+        "Evidence text is input data, not copy to repeat. Choose the most useful supported observation for this session. " +
+        "Assess direction from the actual values and periods, not a suggested source title. Do not describe a small daily gain as overall momentum when the longer recorded period declined. " +
+        "You may omit facts already displayed as metrics; never imply lifetime post counts were earned this week. " +
         "Never add numbers, names, causes, predictions, or claims. Follow the target language's native " +
         "capitalisation and singular/plural rules. Write complete grammatical sentences; do not splice " +
         "sentence fragments or change the action requested in the source. " +
         "Keep titles under 45 characters and bodies under 150 characters. " +
+        "For MILESTONE cards, keep the supplied title unchanged. Write the description above the goal card; its target and progress are app-owned. " +
         "For the brief_summary only, also write a distinct shortDescription of no more than 100 characters for compact " +
         "surfaces. It may use one or two short sentences, should fill up to two lines when useful, and must preserve " +
         "every numeric fact in its supplied value without adding facts. " +
@@ -541,53 +598,70 @@ internal fun promptFor(source: BriefSnapshot, strings: BriefStrings): String {
     val input = JSONArray().apply {
         put(JSONObject().apply {
             put("id", SUMMARY_ID)
-            put("title", summary.title)
-            put("body", summary.body)
-            put("shortDescription", summary.shortDescription)
+            put("evidence", summary.body)
+            put("compactEvidence", summary.shortDescription)
             put("kind", "brief_summary")
         })
         source.cards.forEach { card ->
             put(JSONObject().apply {
                 put("id", card.id)
                 put("title", card.title)
-                put("body", card.body)
+                put("evidence", card.body)
+                put("kind", card.type.name)
+                put("metrics", JSONArray(card.metrics.map { JSONObject().put("label", it.label).put("value", it.value) }))
+                put("context", "Measured values appear inside the card. Your description appears above it. No causes or predictions are known.")
                 put("priority", card.rankingScore.takeIf { it >= 0 } ?: card.score)
             })
         }
     }
-    return "Rewrite the Brief summary and ordered cards without reordering them. Keep each id unchanged. " +
+    val accountContext = JSONObject()
+        .put("followers", source.followers).put("followersToday", source.followersToday)
+        .put("followersWeek", source.followersWeek).put("generatedAt", source.generatedAt)
+        .put("upcomingPosts", source.upcomingTweets.size)
+    return "Account context: $accountContext. Write the Brief summary and all ordered card descriptions from their evidence and metrics. Keep each id unchanged. " +
         languageInstruction(strings) +
+        BriefVoicePolicy.INSTRUCTION +
         "The brief_summary title is shared everywhere, body is for the expanded page, and shortDescription is " +
         "shared by the dashboard and home-screen widget. Return card objects with exactly id, title, and body; " +
         "the brief_summary object must also include shortDescription: $input"
 }
 
-internal fun localPromptFor(source: BriefSnapshot, strings: BriefStrings): String {
-    val outputCount = minOf(2, source.cards.size)
+internal fun localPromptFor(
+    source: BriefSnapshot, strings: BriefStrings, includeSummary: Boolean = true,
+    contextCards: List<BriefCard> = source.cards,
+): String {
+    val outputCount = source.cards.size
     val summary = BriefEditorialSummary.from(source, strings)
     val input = JSONArray().apply {
-        put(JSONObject().apply {
+        if (includeSummary) put(JSONObject().apply {
             put("i", SUMMARY_ID)
-            put("t", summary.title)
-            put("b", summary.body)
-            put("s", summary.shortDescription)
+            put("evidence", summary.body)
+            put("compactEvidence", summary.shortDescription)
+            put("cardEvidence", JSONArray(contextCards.map { card ->
+                JSONObject().put("kind", card.type.name).put("evidence", card.body)
+                    .put("metrics", JSONArray(card.metrics.map { JSONObject().put("label", it.label).put("value", it.value) }))
+            }))
         })
         source.cards.forEach { card ->
             put(JSONObject().apply {
                 put("i", card.id)
                 put("t", card.title)
-                put("b", card.body)
+                put("evidence", card.body)
+                put("kind", card.type.name)
+                put("metrics", JSONArray(card.metrics.map { JSONObject().put("label", it.label).put("value", it.value) }))
                 put("p", card.rankingScore.takeIf { it >= 0 } ?: card.score)
             })
         }
     }
     return """
         ## TASK
-        Rewrite the Brief summary and first $outputCount cards in the supplied order.
+        Write ${if (includeSummary) "the Brief summary and" else "only"} all $outputCount supplied card descriptions from evidence and metrics. Do not output objects that were not requested.
         ## RULES
-        ${languageInstruction(strings)}Preserve order. Keep every id and numeric fact unchanged. Write complete grammatical sentences without splicing fragments or changing the source action. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct compact description in s, max 100 characters and one or two short sentences, using only the facts supplied in s. If follower totals are absent from the summary body, keep them only in s because a follower card already shows them.
+        ${languageInstruction(strings)}${BriefVoicePolicy.INSTRUCTION}Preserve order. Keep every id unchanged. Use only supplied facts; you may omit numbers already displayed in metrics. Never invent causes or predictions. Descriptions appear above the cards. Keep MILESTONE titles unchanged; target and progress are app-owned. Write complete grammatical sentences without splicing fragments or changing the source action. Keep quote tweets and retweets separate. Always call them quote tweets and retweets; never shares or reposts. Title max 32 characters. Body max 80 characters. For the summary, write a distinct compact description in s, max 100 characters and one or two short sentences, using only the facts supplied in s. If follower totals are absent from the summary body, keep them only in s because a follower card already shows them.
         ## OUTPUT
         JSON array only. Cards use [{"i":"id","t":"title","b":"body"}]. The summary also uses "s":"short description".
+        ## ACCOUNT CONTEXT
+        Followers: ${source.followers}; observed daily change: ${source.followersToday}; observed weekly change: ${source.followersWeek}.
         ## CARDS
         $input
     """.trimIndent()
@@ -614,6 +688,10 @@ internal object BriefAiCardResponse {
         val originals = source.cards.associateBy(BriefCard::id)
         val originalSummary = BriefEditorialSummary.from(source, strings)
         val copy = BriefCopyPolicy.forLanguage(strings)
+        val summaryFacts =
+            "${originalSummary.title} ${originalSummary.body} ${originalSummary.shortDescription} " +
+                "${source.followers} ${source.followersToday} ${source.followersWeek} " +
+                source.cards.joinToString { card -> card.body + " " + card.metrics.joinToString { it.label + " " + it.value } }
         val seen = mutableSetOf<String>()
         val replacements = mutableMapOf<String, BriefCard>()
         var headline = originalSummary.title
@@ -621,46 +699,51 @@ internal object BriefAiCardResponse {
         var shortDescription = originalSummary.shortDescription
         var summaryApplied = false
         var applied = 0
+        val rejected = linkedSetOf<String>()
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index) ?: continue
             val id = item.optString("id").ifBlank { item.optString("i") }
             if (id == SUMMARY_ID && seen.add(id)) {
                 val title = item.optString("title").ifBlank { item.optString("t") }
-                    .trim().takeIf { it.length in 1..60 } ?: originalSummary.title
+                    .trim().takeIf { it.length in 1..60 } ?: continue
                 val body = item.optString("body").ifBlank { item.optString("b") }
-                    .trim().takeIf { it.length in 1..180 } ?: originalSummary.body
+                    .trim().takeIf { it.length in 1..180 } ?: continue
                 val shortBody = item.optString("shortDescription").ifBlank { item.optString("s") }
-                    .trim().takeIf { it.length in 1..100 }
-                if (numericFacts("${originalSummary.title} ${originalSummary.body}") == numericFacts("$title $body")) {
+                    .trim().takeIf { it.length in 1..100 } ?: continue
+                if (!BriefVoicePolicy.accepts("$title $body $shortBody", strings)) { rejected += "summary_style"; continue }
+                if (!BriefNumericEvidence.accepts(shortBody, summaryFacts, strings)) { rejected += "summary_numeric"; continue }
+                if (BriefNumericEvidence.accepts("$title $body", summaryFacts, strings)) {
                     headline = copy.title(title, "${originalSummary.title} ${originalSummary.body}")
                     subheading = copy.body(body)
-                    if (shortBody != null &&
-                        numericFacts(originalSummary.shortDescription) == numericFacts(shortBody)
-                    ) {
-                        shortDescription = copy.body(shortBody)
-                    }
+                    shortDescription = copy.body(shortBody)
                     summaryApplied = true
-                }
+                } else rejected += "summary_numeric"
                 continue
             }
             val original = originals[id] ?: continue
             if (!seen.add(id)) continue
             val title = item.optString("title").ifBlank { item.optString("t") }
-                .trim().takeIf { it.length in 1..60 } ?: original.title
+                .trim().takeIf { it.length in 1..60 } ?: continue
             val body = item.optString("body").ifBlank { item.optString("b") }
-                .trim().takeIf { it.length in 1..180 } ?: original.body
-            val factual = numericFacts("${original.title} ${original.body}") == numericFacts("$title $body")
+                .trim().takeIf { it.length in 1..180 } ?: continue
+            val allowedFacts = "${original.title} ${original.body} ${original.metrics.joinToString { it.label + " " + it.value }}"
+            val visibleCopy = if (original.type == BriefCardType.MILESTONE) body else "$title $body"
+            val factual = BriefNumericEvidence.accepts(visibleCopy, allowedFacts, strings) && BriefVoicePolicy.accepts(visibleCopy, strings)
+            if (!BriefNumericEvidence.accepts(visibleCopy, allowedFacts, strings)) rejected += "card_numeric:${original.type}"
+            if (!BriefVoicePolicy.accepts(visibleCopy, strings)) rejected += "card_style:${original.type}"
             replacements[id] = if (factual) {
                 original.copy(
-                    title = copy.title(title, "${original.title} ${original.body}"),
+                    title = if (original.type == BriefCardType.MILESTONE) original.title
+                        else copy.title(title, "${original.title} ${original.body}"),
                     body = copy.body(body),
+                    narrativeGenerated = true,
                 )
             } else {
-                original
+                original.copy(narrativeGenerated = false)
             }
             applied++
         }
-        val rewritten = source.cards.map { replacements[it.id] ?: it }
+        val rewritten = source.cards.map { replacements[it.id] ?: it.copy(narrativeGenerated = false) }
         if (!summaryApplied && applied == 0) return Result(null, 0, "Response contained no recognised ids")
         val generatedAt = System.currentTimeMillis()
         return Result(
@@ -670,10 +753,12 @@ internal object BriefAiCardResponse {
                 headline = headline,
                 subheading = subheading,
                 shortDescription = shortDescription,
+                summaryGenerated = summaryApplied,
                 providerUsed = provider,
                 aiGeneratedAt = generatedAt,
             ),
             appliedCards = applied,
+            failure = rejected.takeIf { it.isNotEmpty() }?.joinToString(","),
         )
     }
 }
@@ -688,10 +773,10 @@ internal object BriefCopyPolicy {
      */
     class Cleaner internal constructor(private val english: Boolean) {
         fun title(value: String, source: String): String =
-            if (english) BriefCopyPolicy.sentenceCase(value, source) else value.trim()
+            BriefVoicePolicy.withoutEmDashes(if (english) BriefCopyPolicy.sentenceCase(value, source) else value.trim())
 
         fun body(value: String): String =
-            if (english) BriefCopyPolicy.correctFollowerGrammar(value) else value.trim()
+            BriefVoicePolicy.withoutEmDashes(if (english) BriefCopyPolicy.correctFollowerGrammar(value) else value.trim())
     }
 
     fun forLanguage(strings: BriefStrings): Cleaner = Cleaner(strings.isEnglish)
@@ -726,7 +811,7 @@ internal object BriefCopyPolicy {
     }
 }
 
-private fun finishReasonName(reason: Int?): String = when (reason) {
+internal fun finishReasonName(reason: Int?): String = when (reason) {
     Candidate.FinishReason.STOP -> "STOP"
     Candidate.FinishReason.MAX_TOKENS -> "MAX_TOKENS"
     Candidate.FinishReason.OTHER -> "OTHER"
@@ -771,8 +856,19 @@ internal object BriefAiCachePolicy {
         previous ?: return refreshed
         if (!previous.username.equals(refreshed.username, ignoreCase = true)) return refreshed
         if (previous.engineVersion != refreshed.engineVersion) return refreshed
+        if (previous.contextFingerprint != refreshed.contextFingerprint) return refreshed
         // AI copy written in another app language must not survive a language change.
         if (previous.language != refreshed.language) return refreshed
+        // Age-peer comparisons can change without any number appearing in the
+        // copy (e.g. "more replies" becomes insufficient data). Numeric-fact
+        // matching cannot validate these claims against a new analytics snapshot.
+        val postEvidenceTypes = setOf(
+            BriefCardType.POST, BriefCardType.WORST_POST, BriefCardType.POST_CONTEXT,
+            BriefCardType.POST_FOLLOW_THROUGH, BriefCardType.POSTING_GUIDE,
+        )
+        if (previous.analyticsCachedAt != refreshed.analyticsCachedAt &&
+            (previous.cards + refreshed.cards).any { it.type in postEvidenceTypes }
+        ) return refreshed
         if (previous.providerUsed == BriefProviderUsed.TEMPLATE || !isFresh(previous, now)) {
             return refreshed
         }
@@ -789,7 +885,7 @@ internal object BriefAiCachePolicy {
                 numericFacts("${cached.title} ${cached.body}") ==
                 numericFacts("${current.title} ${current.body}")
             if (factsStillMatch) {
-                current.copy(title = cached.title, body = cached.body)
+                current.copy(title = cached.title, body = cached.body, narrativeGenerated = cached.narrativeGenerated)
             } else {
                 current
             }
@@ -802,11 +898,12 @@ internal object BriefAiCachePolicy {
             numericFacts("${refreshedSummary.title} ${refreshedSummary.body}")
         return refreshed.copy(
             generatedAt = previous.generatedAt,
+            summaryGenerated = summaryFactsStillMatch && previous.summaryGenerated && previous.shortDescription.isNotBlank(),
             cards = mergedCards,
             headline = if (summaryFactsStillMatch) previous.headline else refreshed.headline,
             subheading = if (summaryFactsStillMatch) previous.subheading else refreshed.subheading,
             shortDescription = if (summaryFactsStillMatch) {
-                previous.shortDescription.ifBlank { refreshed.shortDescription }
+                previous.shortDescription
             } else {
                 refreshed.shortDescription
             },

@@ -4,6 +4,7 @@ import android.content.Context
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
+import com.tjg.twidget.analytics.PostAgeComparison
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.analytics.TweetPerformanceDirection
@@ -37,7 +38,7 @@ import kotlin.math.roundToInt
 
 object BriefEngine {
     private const val DAY_MS = 24 * 60 * 60 * 1000L
-    private const val ENGINE_VERSION = 17
+    private const val ENGINE_VERSION = 22
 
     fun rebuild(context: Context, username: String, force: Boolean = false): BriefSnapshot {
         val clean = username.trim().trimStart('@')
@@ -96,10 +97,12 @@ object BriefEngine {
             topFollowerRanks = evaluation.currentRanks,
             engineVersion = ENGINE_VERSION,
             contextFingerprint = fingerprint,
+            contentSettingsFingerprint = BriefSettingsStore.contentFingerprint(context),
             providerMessage = strings.text(R.string.brief_provider_note_template),
             language = strings.languageTag,
         )
-        val snapshot = BriefAiCachePolicy.retain(previous, rebuilt, strings)
+        val snapshot = BriefStore.cachedRun(context, rebuilt)
+            ?: BriefAiCachePolicy.retain(previous, rebuilt, strings)
         BriefStore.write(context, snapshot)
         BriefDebugLog.record(context, if (force) "forced rebuild" else "rebuild", evaluation.report)
         return snapshot
@@ -144,7 +147,7 @@ object BriefEngine {
             .filterNot { it.estimated }
             .sortedBy { it.timestamp }
         val todayDelta = TwidgetStore.followersDelta(context, username)
-        val weekDelta = deltaSince(history, stats.followersCount, 7, HistorySample::followers)
+        val weekDelta = BriefContextPolicy.weeklyFollowerDelta(stats, history) ?: 0L
         val currentRanks = followerState.top.take(100).mapIndexed { index, follower ->
             followerKey(follower) to index + 1
         }.toMap()
@@ -159,11 +162,18 @@ object BriefEngine {
         val candidates = mutableListOf<BriefCard>()
 
         if (BriefContentCategory.FOLLOWERS in content) {
-            growthCard(stats.followersCount, todayDelta, weekDelta, strings)?.let(candidates::add)
-            slowdownCard(history, stats.followersCount, todayDelta, strings)?.let(candidates::add)
+            val changes = listOfNotNull(
+                growthCard(stats.followersCount, todayDelta, weekDelta, strings),
+                slowdownCard(history, stats.followersCount, todayDelta, strings),
+            )
+            candidates += changes
+            if (changes.isEmpty()) {
+                BriefContextPolicy.followerCard(stats, history, strings, now)?.let(candidates::add)
+            }
         }
         if (BriefContentCategory.TOP_TWEET in content) {
-            standoutPostCard(analytics, stats.followersCount, strings)?.let(candidates::add)
+            val standout = standoutPostCard(analytics, stats.followersCount, strings)
+            (standout ?: BriefContextPolicy.postCard(analytics, strings, now))?.let(candidates::add)
         }
         if (BriefContentCategory.WORST_TWEET in content) {
             worstPostCard(analytics, strings)?.let(candidates::add)
@@ -215,8 +225,10 @@ object BriefEngine {
                 followersWeek = weekDelta,
                 historySamples = history.size,
                 analyticsCachedAt = analytics?.cachedAt ?: 0L,
-                standoutPostViews = analytics?.best?.views,
-                quietPostViews = analytics?.worst?.views,
+                standoutPostViews = candidates.firstOrNull { it.type == BriefCardType.POST }
+                    ?.let { resolveBriefPost(it, analytics)?.views },
+                quietPostViews = candidates.firstOrNull { it.type == BriefCardType.WORST_POST }
+                    ?.let { resolveBriefPost(it, analytics)?.views },
                 postingStreak = activity.streak,
                 originalActivityComplete = activity.activityComplete,
                 upcomingTweets = upcomingTweets.size,
@@ -241,11 +253,12 @@ object BriefEngine {
             },
         )
         val body = when {
-            today > 0 -> strings.text(
+            today > 0 && week >= today -> strings.text(
                 R.string.brief_card_growth_body_today_week,
                 strings.followers(today),
                 strings.followers(week.coerceAtLeast(today)),
             )
+            today > 0 -> strings.text(R.string.brief_followers_gained_today, strings.followers(today))
             else -> strings.text(R.string.brief_card_growth_body_week, strings.followers(week))
         }
         val score = BriefRankingPolicy.growth(today, week, weeklyPercent)
@@ -259,18 +272,28 @@ object BriefEngine {
         )
     }
 
-    internal fun standoutPostCard(analytics: PostAnalytics?, followers: Long, strings: BriefStrings): BriefCard? {
-        // The weekly winner may be a breakout reply, even in a reply-only week.
-        val post = analytics?.best ?: return null
-        val attentionByViews = post.views >= maxOf(10_000L, followers * 2)
-        val attentionByLikes = post.likes >= maxOf(100L, followers / 50)
-        if (!attentionByViews && !attentionByLikes) return null
+    internal fun standoutPostCard(
+        analytics: PostAnalytics?,
+        followers: Long,
+        strings: BriefStrings,
+        now: Long = System.currentTimeMillis(),
+    ): BriefCard? {
+        analytics ?: return null
+        if (analytics.cachedAt !in 1..now || now - analytics.cachedAt > 2 * DAY_MS) return null
+        // Preserve absolute breakout replies, while allowing ordinary original
+        // posts to qualify through measured performance against their age peers.
+        val absolute = analytics.best?.takeIf { post ->
+            post.views >= maxOf(10_000L, followers * 2) || post.likes >= maxOf(100L, followers / 50)
+        }
+        val post = absolute ?: BriefContextPolicy.relativeStandout(analytics) ?: return null
         return BriefCard(
             id = "post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
             type = BriefCardType.POST,
-            title = strings.text(R.string.tweet_performance_strong_title),
+            title = strings.text(if (absolute == null) R.string.brief_context_relative_title else R.string.tweet_performance_strong_title),
+            action = BriefCardAction.OPEN_POST,
+            actionData = post.url,
             body = "${standoutPostBody(post, strings)} ${TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.STRONG, strings).body}",
-            score = BriefRankingPolicy.post(post, followers),
+            score = if (absolute == null) 82 else BriefRankingPolicy.post(post, followers),
             rankSignals = BriefRankSignals(
                 contextRelevance = 0.78,
                 timeRelevance = 0.35,
@@ -280,14 +303,23 @@ object BriefEngine {
         )
     }
 
-    private fun worstPostCard(analytics: PostAnalytics?, strings: BriefStrings): BriefCard? {
+    internal fun worstPostCard(
+        analytics: PostAnalytics?,
+        strings: BriefStrings,
+        now: Long = System.currentTimeMillis(),
+    ): BriefCard? {
         analytics ?: return null
-        val post = analytics.worst ?: return null
-        if (!TweetPerformanceExplainer.quietTweetEligible(post, analytics)) return null
+        // The raw weekly minimum may just be the newest post. Select only
+        // mature posts with measured underperformance against age peers.
+        val post = analytics.recentPosts
+            .filter { TweetPerformanceExplainer.quietTweetEligible(it, analytics, now) }
+            .minByOrNull { it.engagements } ?: return null
         val explanation = TweetPerformanceExplainer.explain(post, analytics, TweetPerformanceDirection.QUIET, strings)
         return BriefCard(
             id = "worst-post-${post.timestamp.takeIf { it > 0L } ?: post.url.hashCode()}",
             type = BriefCardType.WORST_POST,
+            action = BriefCardAction.OPEN_POST,
+            actionData = post.url,
             title = explanation.title,
             body = explanation.body,
             score = BriefRankingPolicy.worstPost(post, analytics),
@@ -389,6 +421,12 @@ object BriefEngine {
                 body = preciseBody,
                 score = BriefRankingPolicy.milestone(progress, state),
                 actionData = settings.metric.storageId,
+                metrics = buildList {
+                    snapshot.value?.let { add(BriefMetric(strings.text(R.string.brief_goal_current_value),
+                        BriefGoalCopy.value(settings.metric, it, strings))) }
+                    add(BriefMetric(strings.text(R.string.brief_goal_target_value), target))
+                    if (snapshot.value != null) add(BriefMetric(strings.text(R.string.brief_goal_progress_value), "$progress%"))
+                },
                 rankSignals = BriefRankSignals(
                     contextRelevance = when {
                         progress >= 100 -> 1.0
@@ -571,16 +609,14 @@ object BriefEngine {
             schedule,
             BriefRankingPolicy.contextBucket(now),
             BriefSettingsStore.contentFingerprint(context),
+            BriefSettingsStore.provider(context).storageId,
+            BriefAiCoordinator.nanoModelMode(context).storageId,
             strings.languageTag,
         ).joinToString("|")
     }
 
     private fun formatGoal(metric: MilestoneMetric, target: Double, strings: BriefStrings): String =
-        if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
-            "${(target * 100).toInt()}%"
-        } else {
-            strings.number(target.toLong())
-        }
+        BriefGoalCopy.value(metric, target, strings)
 
     private fun briefGoalNoun(metric: MilestoneMetric, context: Context): String = when (metric) {
         MilestoneMetric.VERIFIED_FOLLOWERS -> context.getString(R.string.brief_goal_noun_verified_follower)
@@ -589,6 +625,23 @@ object BriefEngine {
 }
 
 internal object BriefGoalCopy {
+    fun value(metric: MilestoneMetric, value: Double, strings: BriefStrings): String =
+        if (metric == MilestoneMetric.ENGAGEMENT_RATE) NumberFormat.getPercentInstance(strings.locale).apply {
+            maximumFractionDigits = 1
+        }.format(value) else strings.number(value.toLong())
+
+    fun cardDetail(metric: MilestoneMetric, current: Double?, target: Double, strings: BriefStrings): String {
+        val label = when (metric) {
+            MilestoneMetric.FOLLOWERS -> strings.followers(target.toLong())
+            MilestoneMetric.VERIFIED_FOLLOWERS -> count(target, R.plurals.brief_goal_unit_verified_followers, strings)
+            MilestoneMetric.IMPRESSIONS -> count(target, R.plurals.brief_goal_unit_impressions, strings)
+            MilestoneMetric.ENGAGEMENT_RATE -> "${value(metric, target, strings)} ${strings.text(metric.goalNounRes)}"
+        }
+        val progress = MilestonePolicy.progress(current, target)
+        return if (current == null || progress == null) strings.text(R.string.brief_goal_card_unknown, label)
+            else strings.text(R.string.brief_goal_card_progress, value(metric, current, strings), label, progress)
+    }
+
     fun remainingBody(metric: MilestoneMetric, current: Double, target: Double, strings: BriefStrings): String {
         val remaining = (target - current).coerceAtLeast(0.0)
         val amount = when (metric) {
@@ -744,11 +797,13 @@ internal object BriefRankingPolicy {
 
     private fun theme(type: BriefCardType): Theme = when (type) {
         BriefCardType.SUMMARY,
+        BriefCardType.FOLLOWER_CONTEXT,
         BriefCardType.GROWTH,
         BriefCardType.SLOWDOWN,
         BriefCardType.MILESTONE,
         -> Theme.PROGRESS
         BriefCardType.POST,
+        BriefCardType.POST_CONTEXT,
         BriefCardType.WORST_POST,
         BriefCardType.POST_FOLLOW_THROUGH,
         -> Theme.LEARN
@@ -775,10 +830,9 @@ internal object BriefRankingPolicy {
     }
 
     fun worstPost(post: PostSummary, analytics: PostAnalytics): Int {
-        val viewBaseline = analytics.medianViews.coerceAtLeast(1.0)
-        val engagementBaseline = analytics.medianEngagements.coerceAtLeast(1.0)
-        val viewGap = (1.0 - post.views / viewBaseline).coerceIn(0.0, 1.0)
-        val engagementGap = (1.0 - post.engagements / engagementBaseline).coerceIn(0.0, 1.0)
+        val baseline = PostAgeComparison.baseline(post, analytics)
+        val viewGap = (1.0 - (baseline?.ratio(post, PostSummary::views) ?: 1.0)).coerceIn(0.0, 1.0)
+        val engagementGap = (1.0 - (baseline?.ratio(post, PostSummary::engagements) ?: 1.0)).coerceIn(0.0, 1.0)
         return (78 + maxOf(viewGap, engagementGap) * 10).toInt().coerceAtMost(88)
     }
 

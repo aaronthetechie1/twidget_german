@@ -38,6 +38,11 @@ class NowBriefSubtitleMotionView @JvmOverloads constructor(
         prepareMotion(TITLE_PROFILE)
     }
 
+    fun showStaticText(value: String) {
+        preparedText = value
+        clearMotion()
+    }
+
     private fun prepareMotion(motionProfile: MotionProfile) {
         animator?.cancel()
         profile = motionProfile
