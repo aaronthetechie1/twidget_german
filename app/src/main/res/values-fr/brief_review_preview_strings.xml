@@ -19,36 +19,44 @@
     <string name="review_preview_typical_interactions">Ses interactions étaient proches de tes tweets similaires.</string>
     <plurals name="review_preview_minutes">
         <item quantity="one">il y a %1$s minute</item>
+        <item quantity="many">il y a %1$s minutes</item>
         <item quantity="other">il y a %1$s minutes</item>
     </plurals>
     <plurals name="review_preview_hours">
         <item quantity="one">il y a %1$s heure</item>
+        <item quantity="many">il y a %1$s heures</item>
         <item quantity="other">il y a %1$s heures</item>
     </plurals>
     <plurals name="review_preview_days">
         <item quantity="one">il y a %1$s jour</item>
+        <item quantity="many">il y a %1$s jours</item>
         <item quantity="other">il y a %1$s jours</item>
     </plurals>
     <plurals name="review_preview_weeks">
         <item quantity="one">il y a %1$s semaine</item>
+        <item quantity="many">il y a %1$s semaines</item>
         <item quantity="other">il y a %1$s semaines</item>
     </plurals>
     <plurals name="review_preview_months">
         <item quantity="one">il y a %1$s mois</item>
+        <item quantity="many">il y a %1$s mois</item>
         <item quantity="other">il y a %1$s mois</item>
     </plurals>
     <plurals name="review_preview_years">
         <item quantity="one">il y a %1$s an</item>
+        <item quantity="many">il y a %1$s ans</item>
         <item quantity="other">il y a %1$s ans</item>
     </plurals>
     <string name="review_preview_subject_tweet">Ton tweet</string>
     <string name="review_preview_subject_reply">Ta réponse</string>
     <plurals name="review_preview_view_count">
         <item quantity="one">%1$s vue</item>
+        <item quantity="many">%1$s vues</item>
         <item quantity="other">%1$s vues</item>
     </plurals>
     <plurals name="review_preview_interaction_count">
         <item quantity="one">%1$s interaction publique</item>
+        <item quantity="many">%1$s interactions publiques</item>
         <item quantity="other">%1$s interactions publiques</item>
     </plurals>
 </resources>

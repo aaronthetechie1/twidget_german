@@ -362,6 +362,7 @@ open class TwidgetWidget : AppWidgetProvider() {
             return when (locale.language) {
                 "de" -> germanNumberWords(value)
                 "fr" -> frenchNumberWords(value)
+                "es" -> SpanishNumberWords.spell(value)
                 else -> numberWords(value)
             }
         }

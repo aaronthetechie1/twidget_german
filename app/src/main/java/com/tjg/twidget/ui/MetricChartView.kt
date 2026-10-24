@@ -1,5 +1,6 @@
 package com.tjg.twidget.ui
 
+import com.tjg.twidget.core.AppLocales
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -87,7 +88,7 @@ class MetricChartView @JvmOverloads constructor(
     private val plotRect = RectF()
     private val tooltipRect = RectF()
     private val barHitBounds = mutableListOf<RectF>()
-    private val numberFormat = NumberFormat.getIntegerInstance(Locale.US)
+    private val numberFormat = NumberFormat.getIntegerInstance(AppLocales.applicationLocale())
     private var labels: List<String> = emptyList()
     private var estimated: List<Boolean> = emptyList()
     private var values: List<Long> = emptyList()
@@ -474,7 +475,7 @@ internal object MetricChartScale {
         // If compacting collapses distinct gridlines into the same label
         // (175.7K == 175.7K), fall back to full grouped numbers.
         return if (compact.distinct().size < values.distinct().size) {
-            values.map { java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(it) }
+            values.map { java.text.NumberFormat.getIntegerInstance(AppLocales.applicationLocale()).format(it) }
         } else {
             compact
         }

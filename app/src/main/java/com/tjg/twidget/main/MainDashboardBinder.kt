@@ -1,5 +1,6 @@
 package com.tjg.twidget.main
 
+import com.tjg.twidget.core.AppLocales
 import android.content.ClipData
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -750,7 +751,7 @@ internal class MainDashboardBinder(
         }
 
     private fun fullCount(value: Long): String =
-        NumberFormat.getIntegerInstance(Locale.US).format(value)
+        NumberFormat.getIntegerInstance(AppLocales.applicationLocale()).format(value)
 
     private fun bindMetric(
         root: View,
@@ -902,9 +903,9 @@ internal class MainDashboardBinder(
                 InsightSpec(
                     label = activity.getString(R.string.insight_balance),
                     value = if (ratio >= 1.0) {
-                        String.format(Locale.US, "%.1f:1", ratio)
+                        String.format(AppLocales.applicationLocale(), "%.1f:1", ratio)
                     } else {
-                        String.format(Locale.US, "1:%.1f", 1.0 / ratio.coerceAtLeast(0.01))
+                        String.format(AppLocales.applicationLocale(), "1:%.1f", 1.0 / ratio.coerceAtLeast(0.01))
                     },
                     detail = "${TwidgetStore.compactNumber(stats.followersCount)} / ${TwidgetStore.compactNumber(stats.followingsCount)}",
                     accent = activity.getColor(R.color.oneui_accent),
@@ -1050,7 +1051,7 @@ internal class MainDashboardBinder(
     }
 
     private fun percent(fraction: Double): String =
-        String.format(Locale.US, "%.2f%%", fraction * 100)
+        String.format(AppLocales.applicationLocale(), "%.2f%%", fraction * 100)
 
     // Average per real elapsed day — samples can have gaps, so count days
     // between the first and last sample rather than counting samples.
@@ -1097,7 +1098,7 @@ internal class MainDashboardBinder(
             TwidgetStore.signedNumber(value.roundToLong())
         } else {
             val sign = if (value > 0) "+" else ""
-            String.format(Locale.US, "%s%.1f", sign, value)
+            String.format(AppLocales.applicationLocale(), "%s%.1f", sign, value)
         }
 
     fun moveDropPlaceholder(card: DashboardCardType, targetId: String, after: Boolean = false) {
@@ -1168,7 +1169,7 @@ internal class MainDashboardBinder(
         }
 
     private fun decimal(value: Double, suffix: String): String =
-        String.format(Locale.US, "%.1f%s", value, suffix)
+        String.format(AppLocales.applicationLocale(), "%.1f%s", value, suffix)
 
     private companion object {
         private const val EDIT_BORDER_TAG = "dashboard_edit_border"

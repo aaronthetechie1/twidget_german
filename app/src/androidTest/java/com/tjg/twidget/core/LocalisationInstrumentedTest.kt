@@ -1,0 +1,40 @@
+package com.tjg.twidget.core
+
+import android.content.Context
+import android.content.res.Configuration
+import android.os.LocaleList
+import androidx.test.platform.app.InstrumentationRegistry
+import com.tjg.twidget.R
+import java.util.Locale
+import org.junit.Assert.*
+import org.junit.Test
+
+class LocalisationInstrumentedTest {
+    private fun context(tag: String): Context {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = Configuration(base.resources.configuration).apply { setLocales(LocaleList.forLanguageTags(tag)) }
+        return base.createConfigurationContext(config)
+    }
+    @Test fun storedFailuresAndQuantityMessagesRenderWithEachContextsLanguage() {
+        for (tag in listOf("en", "de", "fr", "es")) {
+            val c = context(tag)
+            val stored = UiMessages.message(UiMessages.Key.ERROR_TEXT_LIMIT, 25000)
+            val count = AppLocales.integer(25000, Locale.forLanguageTag(tag))
+            assertEquals(c.getString(R.string.l10n_error_text_limit, count), UiMessages.resolve(c, stored))
+            for (n in listOf(1, 2, 1000000)) {
+                val wait = UiMessages.message(UiMessages.Key.ERROR_BUFFER_WAIT_HOURS, n)
+                assertEquals(c.resources.getQuantityString(R.plurals.l10n_buffer_retry_hours, n,
+                    AppLocales.integer(n.toLong(), Locale.forLanguageTag(tag))), UiMessages.resolve(c, wait))
+            }
+            assertFalse(AppLocales.dateTime(c, 1792843200000).contains(" at "))
+        }
+    }
+    @Test fun spanishArtworkAndGoalNounsHaveSingularPluralAndMillionForms() {
+        val c = context("es")
+        assertEquals("Seguidor", c.resources.getQuantityString(R.plurals.widget_count_followers, 1))
+        assertEquals("Seguidores", c.resources.getQuantityString(R.plurals.widget_count_followers, 2))
+        assertEquals("seguidor verificado", c.resources.getQuantityString(R.plurals.goal_noun_verified, 1))
+        assertEquals("seguidores verificados", c.resources.getQuantityString(R.plurals.goal_noun_verified, 2))
+        assertEquals("de seguidores", c.getString(R.string.l10n_widget_followers_of))
+    }
+}

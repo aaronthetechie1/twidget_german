@@ -1,5 +1,6 @@
 package com.tjg.twidget.analytics
 
+import com.tjg.twidget.core.UiMessages
 import com.tjg.twidget.data.HistorySample
 import java.io.Reader
 import java.time.LocalDate
@@ -63,28 +64,28 @@ object XAnalyticsCsvImporter {
     ): XAnalyticsImport {
         var detectedFollowers: Long? = null
         try {
-            require(anchorFollowers >= 0L) { "The selected account has no usable follower count yet." }
+            require(anchorFollowers >= 0L) { UiMessages.message(UiMessages.Key.ERROR_CSV_ANCHOR) }
             val records = parseCsv(reader)
-            require(records.size >= 2) { "The file does not contain any analytics rows." }
+            require(records.size >= 2) { UiMessages.message(UiMessages.Key.ERROR_CSV_EMPTY) }
 
             val header = records.first().mapIndexed { index, value ->
                 value.removePrefix("\uFEFF").trim().lowercase(Locale.US) to index
             }.toMap()
-            val dateIndex = header["date"] ?: throw IllegalArgumentException("The Date column is missing.")
+            val dateIndex = header["date"] ?: throw IllegalArgumentException(UiMessages.message(UiMessages.Key.ERROR_CSV_COLUMN, "Date"))
             val followsIndex = header["new follows"]
-                ?: throw IllegalArgumentException("The New follows column is missing.")
+                ?: throw IllegalArgumentException(UiMessages.message(UiMessages.Key.ERROR_CSV_COLUMN, "New follows"))
             val unfollowsIndex = header["unfollows"]
-                ?: throw IllegalArgumentException("The Unfollows column is missing.")
+                ?: throw IllegalArgumentException(UiMessages.message(UiMessages.Key.ERROR_CSV_COLUMN, "Unfollows"))
             val followerCountIndex = listOf("followers", "follower count", "total followers")
                 .firstNotNullOfOrNull(header::get)
             val requiredWidth = maxOf(dateIndex, followsIndex, unfollowsIndex) + 1
             val dataRecords = records.drop(1).filterNot { row -> row.all { it.isBlank() } }
             val followerTotals = mutableMapOf<LocalDate, Long>()
             val days = dataRecords.mapIndexed { offset, row ->
-                require(row.size >= requiredWidth) { "Row ${offset + 2} is incomplete." }
+                require(row.size >= requiredWidth) { UiMessages.message(UiMessages.Key.ERROR_CSV_ROW, offset + 2, "—") }
                 val movement = XAnalyticsMovement(
                     date = runCatching { LocalDate.parse(row[dateIndex].trim(), dateFormatter) }
-                        .getOrElse { throw IllegalArgumentException("Row ${offset + 2} has an invalid date.") },
+                        .getOrElse { throw IllegalArgumentException(UiMessages.message(UiMessages.Key.ERROR_CSV_ROW, offset + 2, "Date")) },
                     newFollows = unsignedLong(row[followsIndex], offset + 2, "New follows"),
                     unfollows = unsignedLong(row[unfollowsIndex], offset + 2, "Unfollows"),
                     impressions = optionalUnsignedLong(row, header, offset + 2, "Impressions"),
@@ -108,16 +109,16 @@ object XAnalyticsCsvImporter {
                 movement
             }.sortedByDescending { it.date }
 
-            require(days.isNotEmpty()) { "The file does not contain any analytics rows." }
+            require(days.isNotEmpty()) { UiMessages.message(UiMessages.Key.ERROR_CSV_EMPTY) }
             detectedFollowers = followerTotals[days.first().date]
-            require(days.size <= 366) { "The export contains more than one year of data." }
-            require(days.map { it.date }.distinct().size == days.size) { "The export contains duplicate dates." }
+            require(days.size <= 366) { UiMessages.message(UiMessages.Key.ERROR_CSV_YEAR) }
+            require(days.map { it.date }.distinct().size == days.size) { UiMessages.message(UiMessages.Key.ERROR_CSV_DUPLICATE) }
             require(days.first().date == today) {
-                "This export does not include today. Download a new export that includes today, then try again."
+                UiMessages.message(UiMessages.Key.ERROR_CSV_OLD)
             }
             days.zipWithNext().forEach { (newer, older) ->
                 require(older.date == newer.date.minusDays(1)) {
-                    "The export has a gap between ${older.date} and ${newer.date}."
+                    UiMessages.message(UiMessages.Key.ERROR_CSV_GAP, older.date, newer.date)
                 }
             }
 
@@ -179,7 +180,7 @@ object XAnalyticsCsvImporter {
             throw AnalyticsCsvException(
                 cachedFollowers = anchorFollowers,
                 detectedFollowers = detectedFollowers,
-                message = error.message ?: "The analytics file could not be read.",
+                message = error.message ?: UiMessages.message(UiMessages.Key.ERROR_CSV_INVALID),
                 cause = error,
             )
         }
@@ -200,8 +201,8 @@ object XAnalyticsCsvImporter {
 
     private fun unsignedLong(value: String, row: Int, column: String): Long {
         val clean = value.trim()
-        require(clean.matches(Regex("[0-9]+"))) { "Row $row has an invalid $column value." }
-        return clean.toLongOrNull() ?: throw IllegalArgumentException("Row $row has an invalid $column value.")
+        require(clean.matches(Regex("[0-9]+"))) { UiMessages.message(UiMessages.Key.ERROR_CSV_ROW, row, column) }
+        return clean.toLongOrNull() ?: throw IllegalArgumentException(UiMessages.message(UiMessages.Key.ERROR_CSV_ROW, row, column))
     }
 
     private fun optionalUnsignedLong(
@@ -211,7 +212,7 @@ object XAnalyticsCsvImporter {
         column: String,
     ): Long? {
         val index = header[column.lowercase(Locale.US)] ?: return null
-        require(index < row.size) { "Row $rowNumber is missing its $column value." }
+        require(index < row.size) { UiMessages.message(UiMessages.Key.ERROR_CSV_ROW, rowNumber, column) }
         return unsignedLong(row[index], rowNumber, column)
     }
 
@@ -225,7 +226,7 @@ object XAnalyticsCsvImporter {
             movement.reposts,
         ).sumOf { it ?: 0L }
         require(engagements >= visibleEngagements) {
-            "Row $rowNumber reports $engagements engagements, fewer than its $visibleEngagements visible interaction actions."
+            UiMessages.message(UiMessages.Key.ERROR_CSV_INCONSISTENT, rowNumber, engagements, visibleEngagements)
         }
     }
 
@@ -239,7 +240,7 @@ object XAnalyticsCsvImporter {
             while (true) {
                 val count = reader.read(buffer)
                 if (count < 0) break
-                require(length + count <= MAX_CSV_CHARS) { "The analytics file is too large." }
+                require(length + count <= MAX_CSV_CHARS) { UiMessages.message(UiMessages.Key.ERROR_CSV_SIZE, MAX_CSV_CHARS) }
                 append(buffer, 0, count)
             }
         }
@@ -267,7 +268,7 @@ object XAnalyticsCsvImporter {
             }
             index++
         }
-        require(!quoted) { "The file contains an unterminated quoted value." }
+        require(!quoted) { UiMessages.message(UiMessages.Key.ERROR_CSV_QUOTES) }
         if (field.isNotEmpty() || row.isNotEmpty()) {
             row += field.toString()
             if (row.any { it.isNotEmpty() }) rows += row.toList()
@@ -285,7 +286,7 @@ object XAnalyticsImportPolicy {
         trusted: List<HistorySample>,
         currentFollowers: Long,
     ): Int {
-        require(imported.isNotEmpty()) { "The import contains no follower history." }
+        require(imported.isNotEmpty()) { UiMessages.message(UiMessages.Key.ERROR_CSV_EMPTY) }
         val newest = imported.maxBy { it.timestamp }
         if (abs(newest.followers - currentFollowers) > importTolerance(0, currentFollowers)) {
             throw AnalyticsValidationException(

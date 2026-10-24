@@ -36,6 +36,14 @@ enum class BriefNanoModelMode(val storageId: String, val label: String) {
     PREVIEW_FULL("preview_full", "Preview · Full"),
     PREVIEW_FAST("preview_fast", "Preview · Fast");
 
+    fun localizedLabel(context: Context): String = context.getString(when (this) {
+        AUTO_STABLE -> com.tjg.twidget.R.string.l10n_nano_auto
+        STABLE_FULL -> com.tjg.twidget.R.string.l10n_nano_full
+        STABLE_FAST -> com.tjg.twidget.R.string.l10n_nano_fast
+        PREVIEW_FULL -> com.tjg.twidget.R.string.l10n_nano_preview_full
+        PREVIEW_FAST -> com.tjg.twidget.R.string.l10n_nano_preview_fast
+    })
+
     internal fun probeOrder(preferFull: Boolean = false): List<BriefNanoModelMode> = when (this) {
         AUTO_STABLE -> if (preferFull) listOf(STABLE_FULL, STABLE_FAST) else listOf(STABLE_FAST, STABLE_FULL)
         else -> listOf(this)

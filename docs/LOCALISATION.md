@@ -140,15 +140,14 @@ from resources too. Their names start with `brief_summary_`, `brief_short_`,
 
 ### What the resource files do not cover
 
-A little text is still generated in Kotlin without access to resources, so it
-stays English in every language. Translators are not expected to fix this;
-it is tracked as maintainer work. Known areas:
+Validation and failure messages are stored as language-independent message keys
+and rendered in the current UI language. Add new message resources to every
+locale and pass codes/arguments from data code instead of storing translated
+sentences. Unknown provider exceptions use a translated UI fallback.
 
-- **Validation and failure messages** raised from data code, such as the
-  scheduling checks in `schedule/ScheduleModels.kt`, analytics import checks
-  in `data/TwidgetStore.kt`, and reminder scheduling failures in
-  `schedule/ScheduleCoordinator.kt`.
-- **Debug-only text** in Brief diagnostics and the bridge log viewer.
+Human-readable Brief diagnostic labels are translated too. Raw protocol fields,
+model identifiers, exception class names and copied JSON remain technical data.
+Source tweets, CSV column names and provider payloads retain their original text.
 
 Everything else, including screens, dialogs, notifications, widgets, and the
 Brief, should come from the resource files. If you see English elsewhere

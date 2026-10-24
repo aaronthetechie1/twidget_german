@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="l10n_error_unknown">Etwas ist schiefgegangen. Versuche es erneut.</string>
+    <string name="l10n_error_empty_thread">Ein Thread muss mindestens einen Beitrag enthalten.</string>
+    <string name="l10n_error_empty_item">Ein Beitrag muss Text oder Medien enthalten.</string>
+    <string name="l10n_error_text_limit">Der Text darf höchstens %1$s Zeichen enthalten.</string>
+    <string name="l10n_error_media_limit">Ein Beitrag darf höchstens %1$s Medien enthalten.</string>
+    <string name="l10n_error_future_time">Der geplante Zeitpunkt muss in der Zukunft liegen.</string>
+    <string name="l10n_error_schedule_failed">Die Planung ist fehlgeschlagen. Versuche es erneut.</string>
+    <string name="l10n_error_reminder_failed">Die Erinnerung konnte nicht geplant werden. Prüfe die Alarmberechtigung.</string>
+    <string name="l10n_error_buffer_request">Buffer konnte die Anfrage nicht abschließen. Versuche es erneut.</string>
+    <string name="l10n_error_buffer_channel">Wähle einen X-Kanal in Buffer.</string>
+    <string name="l10n_error_buffer_time">Ein geplanter Zeitpunkt ist erforderlich.</string>
+    <string name="l10n_error_buffer_connect">Verbinde Buffer in den Planungseinstellungen.</string>
+    <string name="l10n_error_buffer_login">Die Anmeldung bei Buffer ist fehlgeschlagen. Versuche es erneut.</string>
+    <string name="l10n_error_buffer_verify">Die Buffer-Anmeldung konnte nicht bestätigt werden. Versuche es erneut.</string>
+    <string name="l10n_error_buffer_config">Die Buffer-Anmeldung ist für diese Version nicht eingerichtet.</string>
+    <string name="l10n_error_buffer_limit">Das Buffer-Anfragelimit wurde erreicht. Versuche es später erneut.</string>
+    <string name="l10n_error_cloudinary_config">Füge in den Buffer-Einstellungen deinen Cloudinary-Cloud-Namen und die Upload-Voreinstellung hinzu, um Medien vom Gerät anzuhängen.</string>
+    <string name="l10n_error_upload">Medien konnten nicht zu Cloudinary hochgeladen werden. Prüfe Verbindung und Upload-Einstellungen.</string>
+    <string name="l10n_error_read_media">Die ausgewählten Medien konnten nicht gelesen werden.</string>
+    <string name="l10n_error_media_large">Die Mediendatei ist zu groß.</string>
+    <string name="l10n_error_save_media">Die Medien konnten nicht gespeichert werden. Prüfe den Speicherzugriff und versuche es erneut.</string>
+    <string name="l10n_error_download_media">Die Medien konnten nicht heruntergeladen werden. Prüfe deine Verbindung.</string>
+    <string name="l10n_error_csv_anchor">Für das ausgewählte Konto ist noch keine nutzbare Followerzahl verfügbar.</string>
+    <string name="l10n_error_csv_empty">Die Datei enthält keine Statistikzeilen.</string>
+    <string name="l10n_error_csv_column">Die Spalte %1$s fehlt.</string>
+    <string name="l10n_error_csv_row">Zeile %1$s ist unvollständig oder enthält einen ungültigen Wert in %2$s.</string>
+    <string name="l10n_error_csv_year">Der Export enthält Daten aus mehr als einem Jahr.</string>
+    <string name="l10n_error_csv_duplicate">Der Export enthält doppelte Datumsangaben.</string>
+    <string name="l10n_error_csv_invalid">Die Statistikdatei konnte nicht gelesen werden. Prüfe Spalten und Werte.</string>
+    <string name="l10n_error_account_changed">Das gespeicherte Konto hat sich geändert. Versuche es erneut.</string>
+    <string name="l10n_error_account_identity">Der neue Nutzername gehört zu einem anderen X-Konto.</string>
+    <string name="l10n_error_account_stale">Die Profilabfrage ist älter als deine gespeicherten Daten. Versuche es erneut.</string>
+    <string name="l10n_error_account_exists">Für diesen Nutzernamen sind bereits Daten gespeichert. Deine vorhandenen Konten bleiben erhalten.</string>
+    <string name="l10n_error_account_invalid">Gib einen gültigen X-Nutzernamen ein.</string>
+    <string name="l10n_error_account_save">Die Kontodaten konnten nicht gespeichert werden. Starte die App zur sicheren Wiederherstellung neu.</string>
+    <string name="l10n_buffer_connected_message">Buffer verbunden</string>
+    <string name="l10n_buffer_retry_wait">Das Buffer-Anfragelimit wurde erreicht. Versuche es in %1$s erneut.</string>
+    <string name="l10n_widget_followers_of">Follower</string>
+    <string name="l10n_import_localized_range">%1$s bis %2$s</string>
+    <string name="l10n_error_csv_inconsistent">Zeile %1$s meldet %2$s Interaktionen, weniger als ihre %3$s sichtbaren Interaktionsaktionen.</string>
+    <string name="l10n_error_csv_gap">Der Export enthält eine Lücke zwischen %1$s und %2$s.</string>
+    <string name="l10n_error_csv_size">Die Statistikdatei ist zu groß. Das Limit beträgt %1$s Zeichen.</string>
+    <string name="l10n_error_csv_quotes">Die Datei enthält einen nicht abgeschlossenen Wert in Anführungszeichen.</string>
+</resources>

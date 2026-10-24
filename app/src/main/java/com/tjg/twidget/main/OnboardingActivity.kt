@@ -1,5 +1,6 @@
 package com.tjg.twidget.main
 
+import com.tjg.twidget.core.UiMessages
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.Manifest
@@ -227,6 +228,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
         }
         findViewById<AppCompatButton>(R.id.secondary_button).setOnClickListener {
             when (step) {
+                STEP_PERMISSIONS -> goToStep(STEP_PROFILE)
                 STEP_SCHEDULING -> {
                     ScheduleSettingsStore.setDefaultProvider(this, ScheduleProvider.LOCAL_REMINDER)
                     goToStep(STEP_WIDGETS)
@@ -499,7 +501,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
             STEP_WIDGETS -> !startedOnWidgetStep
             else -> false
         }
-        val showSecondary = step == STEP_SCHEDULING || step == STEP_WIDGETS
+        val showSecondary = step == STEP_PERMISSIONS || step == STEP_SCHEDULING || step == STEP_WIDGETS
         findViewById<AppCompatButton>(R.id.primary_button).apply {
             text = when {
                 isStarting && step == STEP_PROFILE -> getString(R.string.onboarding_checking_account)
@@ -772,7 +774,7 @@ class OnboardingActivity : EdgeToEdgeActivity() {
                 if (channels.isEmpty()) {
                     Toast.makeText(
                         this,
-                        result.errors.firstOrNull()?.message ?: getString(R.string.onboarding_buffer_no_x_account),
+                        UiMessages.resolve(this, result.errors.firstOrNull()?.message, R.string.onboarding_buffer_no_x_account),
                         Toast.LENGTH_LONG,
                     ).show()
                 } else {

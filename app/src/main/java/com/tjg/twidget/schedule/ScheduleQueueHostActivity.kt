@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -416,7 +417,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                         showFeedback(
                             getString(
                                 R.string.schedule_sync_failed,
-                                result.errors.firstOrNull() ?: getString(R.string.schedule_unknown_error),
+                                UiMessages.resolve(this@ScheduleQueueHostActivity, result.errors.firstOrNull(), R.string.schedule_unknown_error),
                             ),
                         ) { syncBufferQueue(userInitiated = true) }
                     }
@@ -809,7 +810,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             }
         }
         post.errorMessage?.takeIf(String::isNotBlank)?.let {
-            addView(metaText(getString(R.string.schedule_error_detail, it)).apply {
+            addView(metaText(getString(R.string.schedule_error_detail, UiMessages.resolve(this@ScheduleQueueHostActivity, it, R.string.schedule_unknown_error))).apply {
                 setTextColor(ContextCompat.getColor(context, R.color.metric_red))
                 setPadding(0, scheduleDp(12), 0, 0)
             })
@@ -1249,26 +1250,8 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     }
 
     private fun queueDateTitle(value: Long?): String = value?.let {
-        val locale = AppLocales.applicationLocale()
-        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
-        if (locale.language == "de") {
-            date.format(DateTimeFormatter.ofPattern("EEE, d. MMMM yyyy 'um' HH:mm", locale))
-        } else if (locale.language == "fr") {
-            date.format(DateTimeFormatter.ofPattern("EEE d MMMM yyyy 'à' HH:mm", locale))
-        } else {
-            val weekdayAndMonth = date.format(DateTimeFormatter.ofPattern("EEE, MMMM", locale))
-            val time = date.format(DateTimeFormatter.ofPattern("h:mm a", locale))
-            "$weekdayAndMonth ${date.dayOfMonth}${ordinalSuffix(date.dayOfMonth)}, ${date.year} at $time"
-        }
+        AppLocales.dateTime(this, it)
     } ?: getString(R.string.schedule_no_time)
-
-    private fun ordinalSuffix(day: Int): String = when {
-        day % 100 in 11..13 -> "th"
-        day % 10 == 1 -> "st"
-        day % 10 == 2 -> "nd"
-        day % 10 == 3 -> "rd"
-        else -> "th"
-    }
 
     private fun duplicate(post: ScheduledPost) {
         val duplicate = createDuplicate(post)
@@ -1601,11 +1584,11 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 if (outcome.detail.isNullOrBlank()) {
                     getString(R.string.schedule_media_saved, outcome.savedCount)
                 } else {
-                    getString(R.string.schedule_media_saved_partial, outcome.savedCount, outcome.detail)
+                    getString(R.string.schedule_media_saved_partial, outcome.savedCount, UiMessages.resolve(this@ScheduleQueueHostActivity, outcome.detail, R.string.schedule_media_save_failed))
                 }
             }
             ScheduleMediaExportResult.NOTHING_TO_SAVE -> getString(R.string.schedule_media_nothing_to_save)
-            ScheduleMediaExportResult.FAILED -> outcome.detail ?: getString(R.string.schedule_media_save_failed)
+            ScheduleMediaExportResult.FAILED -> UiMessages.resolve(this@ScheduleQueueHostActivity, outcome.detail, R.string.schedule_media_save_failed)
         }
         // Retrying partial success would save already-downloaded files again.
         showFeedback(message, retry.takeIf { outcome.result == ScheduleMediaExportResult.FAILED })
@@ -1628,7 +1611,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private fun showErrors(errors: List<String>) {
         AlertDialog.Builder(this)
             .setTitle(R.string.schedule_error_title)
-            .setMessage(errors.filter(String::isNotBlank).joinToString("\n"))
+            .setMessage(errors.filter(String::isNotBlank).joinToString("\n") { UiMessages.resolve(this@ScheduleQueueHostActivity, it, R.string.schedule_unknown_error) })
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }

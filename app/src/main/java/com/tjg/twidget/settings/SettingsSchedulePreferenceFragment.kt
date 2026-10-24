@@ -1,5 +1,6 @@
 package com.tjg.twidget.settings
 
+import com.tjg.twidget.core.UiMessages
 import android.os.Bundle
 import android.text.InputType
 import android.text.SpannableString
@@ -43,7 +44,7 @@ class SettingsSchedulePreferenceFragment : InsetPreferenceFragment() {
                         Toast.makeText(context, R.string.schedule_buffer_oauth_unavailable, Toast.LENGTH_LONG).show()
                     } else {
                         runCatching { startActivity(BufferOAuth.authorizationIntent(context)) }
-                            .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
+                            .onFailure { Toast.makeText(context, UiMessages.resolve(requireContext(), it.message, R.string.l10n_error_buffer_login), Toast.LENGTH_LONG).show() }
                     }
                     true
                 }
@@ -131,7 +132,7 @@ class SettingsSchedulePreferenceFragment : InsetPreferenceFragment() {
                 if (channels.isEmpty()) {
                     Toast.makeText(
                         requireContext(),
-                        result.errors.firstOrNull()?.message ?: getString(R.string.schedule_library_empty),
+                        UiMessages.resolve(requireContext(), result.errors.firstOrNull()?.message, R.string.schedule_library_empty),
                         Toast.LENGTH_LONG,
                     ).show()
                     return@runOnUiThread

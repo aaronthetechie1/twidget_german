@@ -1,5 +1,6 @@
 package com.tjg.twidget.main
 
+import com.tjg.twidget.core.AppLocales
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -107,7 +108,7 @@ internal object MilestoneEditDialog {
                 activity,
                 activity.getString(
                     R.string.milestone_target_below_followers,
-                    NumberFormat.getIntegerInstance(Locale.US).format(followersCount),
+                    NumberFormat.getIntegerInstance(AppLocales.applicationLocale()).format(followersCount),
                 ),
                 Toast.LENGTH_SHORT,
             ).show()

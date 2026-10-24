@@ -47,7 +47,7 @@ data class BriefEngineReport(
         appendLine(context.getString(R.string.brief_debug_report_standout_post_views, standoutPostViews?.let(::number) ?: context.getString(R.string.brief_debug_report_none)))
         appendLine(context.getString(R.string.brief_debug_report_quiet_post_views, quietPostViews?.let(::number) ?: context.getString(R.string.brief_debug_report_none)))
         appendLine(context.getString(R.string.brief_debug_report_posting_streak, postingStreak))
-        appendLine(context.getString(R.string.brief_debug_report_original_activity_complete, originalActivityComplete))
+        appendLine(context.getString(R.string.brief_debug_report_original_activity_complete, context.getString(if (originalActivityComplete) R.string.l10n_debug_yes else R.string.l10n_debug_no)))
         appendLine(context.getString(R.string.brief_debug_report_upcoming_tweets, upcomingTweets))
         appendLine(context.getString(R.string.brief_debug_report_follower_scan_completed_at, dateOrMissing(followerScanCompletedAt, context)))
         appendLine(context.getString(R.string.brief_debug_report_followers_scanned, followersScanned))

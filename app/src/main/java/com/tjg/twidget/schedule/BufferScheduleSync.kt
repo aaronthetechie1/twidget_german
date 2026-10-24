@@ -1,6 +1,7 @@
 package com.tjg.twidget.schedule
 
 import com.tjg.twidget.data.TwidgetStore
+import com.tjg.twidget.core.UiMessages
 
 data class BufferSyncResult(
     val imported: Int = 0,
@@ -103,7 +104,7 @@ class BufferScheduleSync(
                     thread = mergeBufferThread(current, bufferPost),
                     remotePostId = bufferPost.id,
                     remoteSubmissionId = null,
-                    errorMessage = if (status == ScheduleStatus.NEEDS_ACTION) "Buffer could not publish this post" else null,
+                    errorMessage = if (status == ScheduleStatus.NEEDS_ACTION) UiMessages.message(UiMessages.Key.ERROR_BUFFER_PUBLISH) else null,
                     createdAt = current?.createdAt ?: bufferPost.createdAt ?: now,
                     updatedAt = now,
                     publishedAt = when (status) {

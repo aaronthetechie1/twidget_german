@@ -1,6 +1,8 @@
 package com.tjg.twidget.brief
 
 import android.content.Context
+import com.tjg.twidget.R
+import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.analytics.AnalyticsClient
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.schedule.ScheduleStore
@@ -15,10 +17,10 @@ internal object BriefReviewDebug {
         val analytics = AnalyticsClient.cached(context, username)
         val posts = (BriefPostCoach.reviewTargets(analytics, username, System.currentTimeMillis()) + listOfNotNull(analytics?.banger) +
             BriefPublishedReviewStore.posts(context, username, 100)).distinctBy { BriefPublishedReviewStore.postId(it.url) }
-        return posts.map { Choice("${if (it.isReply) "Reply" else "Tweet"} · ${it.text.replace('\n', ' ').take(80)}",
+        return posts.map { Choice(context.getString(if (it.isReply) R.string.coach_reply_choice else R.string.coach_post_choice, it.text.replace('\n', ' ').take(80)),
             BriefReviewTarget(username, postUrl = it.url, fromDashboard = true)) } +
             BriefPostCoach.readyDrafts(ScheduleStore(context).listForAccount(username), username).map {
-                Choice("Draft · ${it.thread.firstOrNull()?.text.orEmpty().replace('\n', ' ').take(80)}", BriefReviewTarget(username, draftId = it.id))
+                Choice(context.getString(R.string.review_draft) + " · " + it.thread.firstOrNull()?.text.orEmpty().replace('\n', ' ').take(80), BriefReviewTarget(username, draftId = it.id))
             }
     }
 
@@ -28,57 +30,58 @@ internal object BriefReviewDebug {
         }
 
     fun evidence(context: Context, target: BriefReviewTarget): String {
-        val subject = subject(context, target) ?: return "Source unavailable. Check account, content eligibility and cached analytics."
+        val subject = subject(context, target) ?: return context.getString(R.string.l10n_debug_source_unavailable)
         val input = subject.input
         return buildString {
-            appendLine("Kind: ${input.kind} · language: ${input.language}")
-            appendLine("Complete source text: ${input.complete} · rewrite allowed: ${input.packet().canRewrite}")
-            appendLine("History examples: ${input.history.size} · media: ${input.media.size}")
-            appendLine("Quoted tweet: ${input.quotedPost != null} · observations: ${input.reviewEvidence?.observations?.size ?: 0}")
-            appendLine("Available panels: ${input.reviewEvidence?.panelIds.orEmpty().joinToString()}")
-            appendLine("No media has been sent to a model by this inspection.\n")
+            appendLine(context.getString(R.string.l10n_debug_kind_language, input.kind, input.language))
+            appendLine(context.getString(R.string.l10n_debug_source_complete, yes(context, input.complete), yes(context, input.packet().canRewrite)))
+            appendLine(context.getString(R.string.l10n_debug_history_media, AppLocales.integer(input.history.size.toLong()), AppLocales.integer(input.media.size.toLong())))
+            appendLine(context.getString(R.string.l10n_debug_quote_observations, yes(context, input.quotedPost != null), AppLocales.integer(input.reviewEvidence?.observations?.size?.toLong() ?: 0)))
+            appendLine(context.getString(R.string.l10n_debug_panels, input.reviewEvidence?.panelIds.orEmpty().joinToString()))
+            appendLine(context.getString(R.string.l10n_debug_no_send) + "\n")
             append(input.packet().data.toString(2))
         }
     }
 
     fun cache(context: Context, target: BriefReviewTarget, now: Long = System.currentTimeMillis()): String {
         if (target.draftId != null) {
-            val current = subject(context, target) ?: return "Draft unavailable."
+            val current = subject(context, target) ?: return context.getString(R.string.l10n_debug_draft_unavailable)
             val key = BriefReviewResults.key(current, BriefProviderMode.CLOUD, BriefNanoModelMode.AUTO_STABLE)
             val saved = BriefPublishedReviewStore.readDraft(context, current, key, now)
-            return "Draft reviews use a private, durable cache keyed by revision, evidence and language. " +
-                "Advice is retained for up to 7 days, at most 32 drafts per account. " +
-                (saved?.let { "Matching review saved at: ${java.util.Date(it.savedAt)}" } ?: "No matching saved review.")
+            return context.getString(R.string.l10n_debug_draft_cache) + "\n" +
+                (saved?.let { context.getString(R.string.l10n_debug_cache_match, AppLocales.dateTime(context, it.savedAt)) } ?: context.getString(R.string.l10n_debug_cache_none))
         }
-        val saved = BriefPublishedReviewStore.read(context, target) ?: return "No saved review for this tweet."
+        val saved = BriefPublishedReviewStore.read(context, target) ?: return context.getString(R.string.l10n_debug_cache_post_none)
         val language = BriefStrings.from(context).languageTag
         val lifetime = BriefReviewFreshness.lifetime(saved.subject.post?.timestamp ?: 0L, saved.checkedAt)
         return buildString {
-            appendLine("Saved at: ${java.util.Date(saved.savedAt)}")
-            appendLine("Evidence last checked: ${java.util.Date(saved.checkedAt)}")
-            appendLine("Age: ${((now - saved.savedAt) / 60_000L).coerceAtLeast(0)} min · lifetime: ${lifetime / 3_600_000} h")
-            appendLine("Saved language: ${saved.subject.input.language} · app: $language")
-            appendLine("Language matches: ${BriefReviewFreshness.matchesLanguage(saved, language)}")
-            appendLine("Fresh: ${BriefReviewFreshness.isFresh(saved, now)} · reusable: ${BriefReviewFreshness.canReuse(saved, language, now)}")
-            appendLine("Cloud: ${saved.result.cloud} · inspected media: ${saved.result.inspectedMediaIds.size}")
-            appendLine("Suggestions: ${saved.result.feedback.suggestions.size} · panels: ${saved.result.feedback.panelIds.joinToString()}")
-            append("A failed refresh keeps the last successful review.")
+            appendLine(context.getString(R.string.l10n_debug_saved_at, AppLocales.dateTime(context, saved.savedAt)))
+            appendLine(context.getString(R.string.l10n_debug_checked_at, AppLocales.dateTime(context, saved.checkedAt)))
+            appendLine(context.getString(R.string.l10n_debug_cache_age, AppLocales.integer(((now - saved.savedAt) / 60_000L).coerceAtLeast(0)), AppLocales.integer(lifetime / 3_600_000)))
+            appendLine(context.getString(R.string.l10n_debug_cache_language, saved.subject.input.language, language))
+            appendLine(context.getString(R.string.l10n_debug_language_matches, yes(context, BriefReviewFreshness.matchesLanguage(saved, language))))
+            appendLine(context.getString(R.string.l10n_debug_fresh_reuse, yes(context, BriefReviewFreshness.isFresh(saved, now)), yes(context, BriefReviewFreshness.canReuse(saved, language, now))))
+            appendLine(context.getString(R.string.l10n_debug_cloud_media, yes(context, saved.result.cloud), AppLocales.integer(saved.result.inspectedMediaIds.size.toLong())))
+            appendLine(context.getString(R.string.l10n_debug_suggestions_panels, AppLocales.integer(saved.result.feedback.suggestions.size.toLong()), saved.result.feedback.panelIds.joinToString()))
+            append(context.getString(R.string.l10n_debug_failed_refresh))
         }
     }
 
-    fun checks(): String {
+    private fun yes(context: Context, value: Boolean) = context.getString(if (value) R.string.l10n_debug_yes else R.string.l10n_debug_no)
+
+    fun checks(context: Context): String {
         val checks = linkedMapOf(
-            "Local-only blocks cloud, even with a key" to (BriefReviewPolicy.blocked(BriefProviderMode.LOCAL, true) == BriefReviewFailure.LOCAL_ONLY),
-            "Auto requires a key" to (BriefReviewPolicy.blocked(BriefProviderMode.AUTO, false) == BriefReviewFailure.MISSING_KEY),
-            "Cloud requires a key" to (BriefReviewPolicy.blocked(BriefProviderMode.CLOUD, false) == BriefReviewFailure.MISSING_KEY),
-            "Configured Auto permits a review" to (BriefReviewPolicy.blocked(BriefProviderMode.AUTO, true) == null),
-            "Configured Cloud permits a review" to (BriefReviewPolicy.blocked(BriefProviderMode.CLOUD, true) == null),
-            "First-day reviews expire after 4 h" to (BriefReviewFreshness.lifetime(1, 3_600_001) == 4 * 3_600_000L),
-            "Week-old activity uses a 12 h refresh window" to (BriefReviewFreshness.lifetime(1, 48 * 3_600_000L) == 12 * 3_600_000L),
-            "Older tweets use a 48 h refresh window" to (BriefReviewFreshness.lifetime(1, 8 * 24 * 3_600_000L) == 48 * 3_600_000L),
+            context.getString(R.string.l10n_debug_check_local) to (BriefReviewPolicy.blocked(BriefProviderMode.LOCAL, true) == BriefReviewFailure.LOCAL_ONLY),
+            context.getString(R.string.l10n_debug_check_auto) to (BriefReviewPolicy.blocked(BriefProviderMode.AUTO, false) == BriefReviewFailure.MISSING_KEY),
+            context.getString(R.string.l10n_debug_check_cloud) to (BriefReviewPolicy.blocked(BriefProviderMode.CLOUD, false) == BriefReviewFailure.MISSING_KEY),
+            context.getString(R.string.l10n_debug_check_auto_ready) to (BriefReviewPolicy.blocked(BriefProviderMode.AUTO, true) == null),
+            context.getString(R.string.l10n_debug_check_cloud_ready) to (BriefReviewPolicy.blocked(BriefProviderMode.CLOUD, true) == null),
+            context.getString(R.string.l10n_debug_check_first) to (BriefReviewFreshness.lifetime(1, 3_600_001) == 4 * 3_600_000L),
+            context.getString(R.string.l10n_debug_check_week) to (BriefReviewFreshness.lifetime(1, 48 * 3_600_000L) == 12 * 3_600_000L),
+            context.getString(R.string.l10n_debug_check_old) to (BriefReviewFreshness.lifetime(1, 8 * 24 * 3_600_000L) == 48 * 3_600_000L),
         )
-        return checks.entries.joinToString("\n") { "${if (it.value) "PASS" else "FAIL"} · ${it.key}" } +
-            "\n\nNo model calls, settings changes or saved-review changes."
+        return checks.entries.joinToString("\n") { "${context.getString(if (it.value) R.string.l10n_debug_pass else R.string.l10n_debug_fail)} · ${it.key}" } +
+            "\n\n" + context.getString(R.string.l10n_debug_checks_note)
     }
 }
 

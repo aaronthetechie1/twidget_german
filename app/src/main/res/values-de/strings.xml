@@ -379,7 +379,7 @@
     <string name="skip">Überspringen</string>
     <string name="onboarding_overview_summary">Twidget synchronisiert deine Abonnenten, aktuelle Änderungen und One UI-Widgets über ein Profil.</string>
     <string name="onboarding_permissions_title">Berechtigungen</string>
-    <string name="onboarding_required_permissions">Erforderliche Berechtigungen</string>
+    <string name="onboarding_required_permissions">Optionale Berechtigungen</string>
     <string name="onboarding_permission_notifications_title">Benachrichtigungen</string>
     <string name="onboarding_permission_notifications_summary">Fortschrittsanzeige für Scans, Veröffentlichungen und geplante Posts.</string>
     <string name="onboarding_permission_alarms_title">Wecker \u0026 Erinnerungen</string>
@@ -554,7 +554,7 @@
     <string name="brief_debug_report_standout_post_views">AufrufeHervorgehobenerPost=%1$s</string>
     <string name="brief_debug_report_quiet_post_views">AufrufeRuhigsterPost=%1$s</string>
     <string name="brief_debug_report_posting_streak">PostingStreak=%1$d</string>
-    <string name="brief_debug_report_original_activity_complete">EigeneAktivitaetVollstaendig=%1$b</string>
+    <string name="brief_debug_report_original_activity_complete">EigeneAktivitaetVollstaendig=%1$s</string>
     <string name="brief_debug_report_upcoming_tweets">AnstehendeTweets=%1$d</string>
     <string name="brief_debug_report_follower_scan_completed_at">FollowerScanAbgeschlossenAm=%1$s</string>
     <string name="brief_debug_report_followers_scanned">GescannteFollower=%1$d</string>

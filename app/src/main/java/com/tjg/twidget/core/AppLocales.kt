@@ -65,6 +65,16 @@ object AppLocales {
     fun integer(value: Long, locale: Locale = applicationLocale()): String =
         NumberFormat.getIntegerInstance(locale).format(value)
 
+    fun date(value: java.time.LocalDate, locale: Locale = applicationLocale()): String =
+        value.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+
+    fun dateTime(context: Context, timestamp: Long): String {
+        val locale = supportedLocale(context.resources.configuration.locales[0])
+        val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, locale).format(Date(timestamp))
+        val time = android.text.format.DateFormat.getTimeFormat(context).format(Date(timestamp))
+        return "$date · $time"
+    }
+
     fun formatDate(
         timestamp: Long,
         germanPattern: String,
@@ -75,8 +85,23 @@ object AppLocales {
         val pattern = when (locale.language) {
             "de" -> germanPattern
             "fr" -> frenchPattern
+            "es" -> englishPattern.replace("MMM d", "d MMM").replace("h:mm a", "HH:mm")
             else -> englishPattern
         }
-        return SimpleDateFormat(pattern, locale).format(Date(timestamp))
+        val context = appContext
+        val actualPattern = if (context != null) {
+            val skeleton = buildString {
+                if ('E' in pattern) append("EEE")
+                if ('y' in pattern) append("y")
+                append(if ("MMM" in pattern) "MMM" else "M")
+                append("d")
+                if ('H' in pattern || 'h' in pattern) {
+                    append(if (android.text.format.DateFormat.is24HourFormat(context)) "Hm" else "hm")
+                    if ('s' in pattern) append("s")
+                }
+            }
+            android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
+        } else pattern
+        return SimpleDateFormat(actualPattern, locale).format(Date(timestamp))
     }
 }
