@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="top_followers_browser_title">Top followers</string>
-    <string name="top_followers_browser_search">Search followers</string>
-    <string name="top_followers_browser_search_hint">Search</string>
-    <string name="top_followers_browser_refresh">Refresh full list</string>
-    <string name="top_followers_browser_refreshed">%1$d followers synced</string>
-    <string name="top_followers_browser_refresh_failed">Couldn’t refresh the full follower list. Try again.</string>
-    <string name="top_followers_browser_empty">No follower ranking is available yet.</string>
-    <string name="top_followers_browser_no_results">No followers match your search.</string>
+    <string name="top_followers_browser_title">Mejores seguidores</string>
+    <string name="top_followers_browser_search">Buscar seguidores</string>
+    <string name="top_followers_browser_search_hint">Buscar</string>
+    <string name="top_followers_browser_refresh">Actualizar lista completa</string>
+    <string name="top_followers_browser_refreshed">%1$d seguidores sincronizados</string>
+    <string name="top_followers_browser_refresh_failed">No se pudo actualizar la lista completa de seguidores. Inténtalo de nuevo.</string>
+    <string name="top_followers_browser_empty">Aún no hay ninguna clasificación de seguidores disponible.</string>
+    <string name="top_followers_browser_no_results">Ningún seguidor coincide con tu búsqueda.</string>
 </resources>
