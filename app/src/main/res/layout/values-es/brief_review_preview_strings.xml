@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_preview_posted">Publicaste esto %1$s.</string>
+    <string name="review_preview_replied">Respondiste %1$s.</string>
+    <string name="review_preview_just_now">ahora mismo</string>
+    <string name="review_preview_invite">Analiza el rendimiento de este tuit y qué probar después.</string>
+    <string name="review_preview_invite_reply">Analiza el rendimiento de esta respuesta y qué probar después.</string>
+    <string name="review_preview_counts">%1$s tenía %2$s y %3$s al analizarlo.</string>
+    <string name="review_preview_interactions">%1$s tenía %2$s interacciones públicas al analizarlo; las visualizaciones no estaban disponibles.</string>
+    <string name="review_preview_both_higher">Recibió más visualizaciones e interacciones que tus tuits similares.</string>
+    <string name="review_preview_both_lower">Recibió menos visualizaciones e interacciones que tus tuits similares.</string>
+    <string name="review_preview_more_views_fewer_interactions">Recibió más visualizaciones, pero menos interacciones que tus tuits similares.</string>
+    <string name="review_preview_fewer_views_more_interactions">Recibió menos visualizaciones, pero más interacciones que tus tuits similares.</string>
+    <string name="review_preview_higher_reach">Recibió más visualizaciones que tus tuits similares.</string>
+    <string name="review_preview_lower_reach">Recibió menos visualizaciones que tus tuits similares.</string>
+    <string name="review_preview_more_interactions">Recibió más interacciones que tus tuits similares.</string>
+    <string name="review_preview_fewer_interactions">Recibió menos interacciones que tus tuits similares.</string>
+    <string name="review_preview_typical">Sus visualizaciones e interacciones fueron parecidas a las de tus tuits similares.</string>
+    <string name="review_preview_typical_interactions">Sus interacciones fueron parecidas a las de tus tuits similares.</string>
+    <plurals name="review_preview_minutes">
+        <item quantity="one">hace %1$s minuto</item>
+        <item quantity="other">hace %1$s minutos</item>
+    </plurals>
+    <plurals name="review_preview_hours">
+        <item quantity="one">hace %1$s hora</item>
+        <item quantity="other">hace %1$s horas</item>
+    </plurals>
+    <plurals name="review_preview_days">
+        <item quantity="one">hace %1$s día</item>
+        <item quantity="other">hace %1$s días</item>
+    </plurals>
+    <plurals name="review_preview_weeks">
+        <item quantity="one">hace %1$s semana</item>
+        <item quantity="other">hace %1$s semanas</item>
+    </plurals>
+    <plurals name="review_preview_months">
+        <item quantity="one">hace %1$s mes</item>
+        <item quantity="other">hace %1$s meses</item>
+    </plurals>
+    <plurals name="review_preview_years">
+        <item quantity="one">hace %1$s año</item>z
+        <item quantity="other">hace %1$s años</item>
+    </plurals>
+    <string name="review_preview_subject_tweet">Tu tuit</string>
+    <string name="review_preview_subject_reply">Tu respuesta</string>
+    <plurals name="review_preview_view_count">
+        <item quantity="one">%1$s visualización</item>
+        <item quantity="other">%1$s visualizaciones</item>
+    </plurals>
+    <plurals name="review_preview_interaction_count">
+        <item quantity="one">%1$s interacción pública</item>
+        <item quantity="other">%1$s interacciones públicas</item>
+    </plurals>
+</resources>

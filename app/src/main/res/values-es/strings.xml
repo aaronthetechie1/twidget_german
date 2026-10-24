@@ -308,13 +308,13 @@
     <string name="add_widget_requested">Elige un lugar en tu pantalla de inicio para colocarlo.</string>
     <string name="add_widget_not_supported">Este lanzador no admite añadir widgets desde la aplicación.</string>
     <string name="about">Acerca de</string>
-    <string name="about_summary">Widget de Twitter. Literalmente es el nombre. Ingenioso, ¿verdad?</string>
+    <string name="about_summary">Widget de Twitter. Literalmente ese es el nombre. Ingenioso, ¿verdad?</string>
     <string name="about_developer_section">Creado por</string>
     <string name="about_credits_section">Gracias a</string>
     <string name="about_projects_section">Proyectos de código abierto</string>
-    <string name="about_tjg_summary">Creador de Twidget. Demasiados Red Bulls consumidos en el proceso.</string>
+    <string name="about_tjg_summary">Creador de Twidget. Se tomó demaiados Red Bulls durante el proceso.</string>
     <string name="about_kingowen_summary">Colaborador, motivador y generador de ideas.</string>
-    <string name="about_aaron_summary">Traducido al alemán</string>
+    <string name="about_aaron_summary">Traductor al alemán.</string>
     <string name="about_fxtwitter_summary">Fuente de datos predeterminada. Perfil público, estado, contenido multimedia y datos de estadísticas de publicaciones recientes</string>
     <string name="about_oneui_summary">Bifurcación de Tribalfs - SESL 9.0</string>
     <string name="about_legal_section">Cuestiones legales</string>
@@ -1106,7 +1106,7 @@
     <string name="debug_haptics_stop">Detener reproducción</string>
     <string name="debug_haptics_force_waveforms">Forzar formas de onda</string>
     <string name="debug_haptics_force_waveforms_summary">Usar aproximaciones de formas de onda para efectos primitivos en toda la app. Los comentarios de acción de la plataforma se mantienen sin cambios.</string>
-    <string name="about_evowizz_summary">Sabe lo que hace!; traducido al francés</string>
+    <string name="about_evowizz_summary">Sabe lo que hace! Traductor al francés.</string>
 
     <!-- Copy added since the 1.3.0 translation source. -->
     <string name="settings_widgets">Widgets</string>
