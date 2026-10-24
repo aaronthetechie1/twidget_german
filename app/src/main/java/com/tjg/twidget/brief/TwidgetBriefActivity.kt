@@ -391,6 +391,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             loadingContainer.animate()
                 .alpha(0f)
                 .translationY(-offset)
+                .setStartDelay(140L)
                 .setDuration(320L)
                 .setInterpolator(loadingStatusDisappearInterpolator)
                 .withEndAction {
@@ -402,6 +403,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             scroll.animate()
                 .alpha(1f)
                 .translationY(0f)
+                .setStartDelay(140L)
                 .setDuration(380L)
                 .setInterpolator(loadingStatusAppearInterpolator)
                 .start()
