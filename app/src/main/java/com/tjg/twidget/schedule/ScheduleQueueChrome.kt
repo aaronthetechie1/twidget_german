@@ -84,7 +84,7 @@ internal class ScheduleQueueChrome(
     fun updateSelectionCount(count: Int) {
         toolbar.findViewById<TextView>(DesignR.id.toolbar_layout_action_mode_title)?.apply {
             contentDescription = text
-            text = java.text.NumberFormat.getIntegerInstance().format(count)
+            text = java.text.NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(count)
         }
     }
 

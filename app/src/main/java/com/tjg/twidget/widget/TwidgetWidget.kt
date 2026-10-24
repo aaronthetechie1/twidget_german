@@ -1,5 +1,6 @@
 package com.tjg.twidget.widget
 
+import com.tjg.twidget.core.AppLocales
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -342,7 +343,7 @@ open class TwidgetWidget : AppWidgetProvider() {
         private fun isDark(context: Context, settings: TwidgetWidgetSettings): Boolean =
             widgetUsesDarkTheme(settings.colorMode)
 
-        private fun fullNumber(value: Long, locale: Locale = Locale.US): String =
+        private fun fullNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String =
             java.text.NumberFormat.getIntegerInstance(locale).format(value)
 
         private fun dp(context: Context, value: Int): Int =

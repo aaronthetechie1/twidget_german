@@ -84,7 +84,7 @@ object UiMessages {
     }
 
     fun resolve(context: Context, value: String?, fallback: Int = R.string.l10n_error_unknown): String =
-        render(value.orEmpty(), AppLocales.supportedLocale(context.resources.configuration.locales[0]), context.getString(fallback)) { key, quantity, args ->
+        render(value.orEmpty(), AppLocales.formattingLocale(context), context.getString(fallback)) { key, quantity, args ->
             if (key.plural) context.resources.getQuantityString(key.resource, quantity, *args)
             else context.getString(key.resource, *args)
         }

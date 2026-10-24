@@ -26,9 +26,7 @@ import com.tjg.twidget.widget.TwidgetBriefWidget
 import com.tjg.twidget.widget.TwidgetWidget
 import dev.oneuiproject.oneui.preference.ColorPickerPreference
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 /**
@@ -192,7 +190,7 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
                 key = "debug_dummy_followers"
                 title = getString(R.string.dummy_follower_count)
                 text = followers.toString()
-                summary = NumberFormat.getIntegerInstance(Locale.US).format(followers)
+                summary = NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(followers)
                 setOnBindEditTextListener {
                     it.inputType = InputType.TYPE_CLASS_NUMBER
                     it.setSelectAllOnFocus(true)
@@ -200,7 +198,7 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
                 setOnPreferenceChangeListener { pref, value ->
                     val count = (value as String).toLongOrNull()?.coerceIn(0, 999_999_999) ?: followers
                     saveDummyProfile(count)
-                    pref.summary = NumberFormat.getIntegerInstance(Locale.US).format(count)
+                    pref.summary = NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(count)
                     true
                 }
             })
@@ -317,7 +315,7 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
     }
 
     private fun dummyHistory(followers: Long): List<HistorySample> {
-        val formatter = SimpleDateFormat("MMM d", Locale.US)
+
         val today = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -329,7 +327,7 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
             val timestamp = today - daysAgo * DAY_MILLIS
             val dayFollowers = (followers - daysAgo * dailyGain).coerceAtLeast(0)
             HistorySample(
-                dayLabel = formatter.format(Date(timestamp)),
+                dayLabel = com.tjg.twidget.core.AppLocales.formatDate(timestamp),
                 followers = dayFollowers,
                 following = (dayFollowers / 12).coerceAtLeast(1),
                 posts = (dayFollowers / 4).coerceAtLeast(1),

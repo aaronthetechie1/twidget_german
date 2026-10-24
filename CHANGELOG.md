@@ -4,6 +4,10 @@ All notable changes to Twidget are documented here.
 
 ## [Unreleased]
 
+- Preserve regional number and date conventions when choosing an app or widget
+  language, including local compact counts, date order and calendar weekdays.
+  Let translated Brief and onboarding buttons wrap and grow to fit their labels.
+
 - Let users skip optional notification and alarm permissions during onboarding.
 
 - Complete localisation of follower artwork, goals, dates, number formatting,

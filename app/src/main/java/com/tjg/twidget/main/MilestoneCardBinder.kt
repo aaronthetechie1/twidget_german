@@ -111,7 +111,7 @@ internal class MilestoneCardBinder(
         if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "${(target * 100).toInt()}%"
         } else {
-            NumberFormat.getIntegerInstance(Locale.getDefault()).format(target.toLong())
+            NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(target.toLong())
         }
 
     private companion object {

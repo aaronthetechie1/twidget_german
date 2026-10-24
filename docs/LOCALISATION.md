@@ -66,6 +66,22 @@ Prefer a plain language code unless regional differences are significant
 enough that speakers of the other variant would object; a plain code serves
 every region of that language.
 
+Translation resources and formatting regions are separate. A language-only app
+or widget choice inherits the device country (for example, Spanish on a Mexican
+device uses `es-MX`); an explicit regional locale keeps its country. Unsupported
+UI languages fall back to English while preserving the device country.
+
+Use `AppLocales.integer`, `compact`, `percent`, `date` and `formatDate` for
+visible values. Compact counts use Android ICU/CLDR units, spacing, precision
+and separators, rather than fixed K/M suffixes. Date skeletons describe the
+fields to display; Android chooses their regional order and punctuation and
+honours the user's 12/24-hour setting. Calendar headers use the regional first
+weekday. Keep protocol dates, CSV parsing formats and stored identifiers stable.
+
+Translated buttons must allow multiple lines and grow vertically. Use
+`Twidget.WrappingButton` for contained actions; avoid fixed heights or
+single-line limits. Check narrow widths and larger font sizes.
+
 The script needs Bash (macOS, Linux, Git Bash, or WSL on Windows). Without
 it, copy these files by hand and delete every line containing
 `translatable="false"`.

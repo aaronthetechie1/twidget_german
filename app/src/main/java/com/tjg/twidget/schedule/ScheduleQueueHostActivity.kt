@@ -60,7 +60,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Date
@@ -592,7 +591,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             changeCalendarMonth(-1)
         }.apply { contentDescription = getString(R.string.schedule_previous_month) })
         addView(TextView(this@ScheduleQueueHostActivity).apply {
-            text = calendarMonth.format(DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())).uppercase(Locale.getDefault())
+            text = calendarMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, AppLocales.applicationLocale()).uppercase(AppLocales.applicationLocale())
             gravity = Gravity.CENTER
             textSize = 18f
             typeface = TwidgetFonts.forApp(context, 700)
@@ -607,7 +606,8 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         columnCount = 7
         setPadding(scheduleDp(8), scheduleDp(4), scheduleDp(8), scheduleDp(12))
         val firstDay = calendarMonth.atDay(1)
-        val leadingDays = (firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
+        val weekStart = AppLocales.firstDayOfWeek()
+        val leadingDays = (firstDay.dayOfWeek.value - weekStart.value + 7) % 7
         val rowCount = (leadingDays + calendarMonth.lengthOfMonth() + 6) / 7
         val viewportHeight = (scroll.height - scroll.paddingBottom).takeIf { it > 0 }
             ?: (resources.displayMetrics.heightPixels - scheduleDp(220))
@@ -622,9 +622,9 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             gridPadding + weekHeaderHeight + rowMargins + dayHeight * rowCount,
         )
-        DayOfWeek.entries.forEachIndexed { column, day ->
+        List(7) { weekStart.plus(it.toLong()) }.forEachIndexed { column, day ->
             addView(TextView(this@ScheduleQueueHostActivity).apply {
-                text = day.getDisplayName(TextStyle.NARROW, Locale.getDefault())
+                text = day.getDisplayName(TextStyle.NARROW, AppLocales.applicationLocale())
                 gravity = Gravity.CENTER
                 textSize = 12f
                 typeface = TwidgetFonts.forApp(context, 700)
@@ -655,7 +655,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         bindCalendarCellGestures(this, date, posts)
         if (date == null) return@apply
         addView(TextView(this@ScheduleQueueHostActivity).apply {
-            text = date.dayOfMonth.toString()
+            text = AppLocales.integer(date.dayOfMonth.toLong())
             textSize = 14f
             typeface = TwidgetFonts.forApp(context, if (date == LocalDate.now()) 700 else 600)
             setTextColor(ContextCompat.getColor(

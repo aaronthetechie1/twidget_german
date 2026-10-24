@@ -178,7 +178,7 @@ internal object BriefReviewTweetCard {
                 addView(BriefReviewViews.text(context, (post?.authorName?.ifBlank { stats.fullName }
                     ?: stats.fullName).ifBlank { "@$username" }, bold = true))
                 val time = post?.timestamp ?: draft?.updatedAt ?: 0L
-                val date = if (time > 0) AppLocales.formatDate(time, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm") else ""
+                val date = if (time > 0) AppLocales.formatDate(time, "MMMdjm") else ""
                 val source = if (draft != null) context.getString(R.string.review_draft) else date
                 addView(BriefReviewViews.text(context, listOf("@$username", source, sourceAttribution).filter(String::isNotBlank).joinToString(" · "), 12f, secondary = true))
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -289,7 +289,7 @@ internal object BriefReviewTweetCard {
                         maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
                     })
                     val date = source.timestamp.takeIf { it > 0 }?.let {
-                        AppLocales.formatDate(it, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm")
+                        AppLocales.formatDate(it, "MMMdjm")
                     }
                     val attribution = listOfNotNull(source.authorUserName.takeIf(String::isNotBlank)?.let { "@$it" }, date).joinToString(" · ")
                     if (attribution.isNotBlank()) addView(BriefReviewViews.text(context, attribution, 10f, secondary = true).apply {

@@ -175,9 +175,9 @@
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/brief_provider_required_action"
-            style="@style/OneUI.ContainedButton"
-            android:layout_width="180dp"
-            android:layout_height="48dp"
+            style="@style/Twidget.WrappingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="@string/brief_provider_required_action"
             android:textAllCaps="false"

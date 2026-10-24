@@ -1051,7 +1051,7 @@ internal class MainDashboardBinder(
     }
 
     private fun percent(fraction: Double): String =
-        String.format(AppLocales.applicationLocale(), "%.2f%%", fraction * 100)
+        AppLocales.percent(fraction, 2)
 
     // Average per real elapsed day — samples can have gaps, so count days
     // between the first and last sample rather than counting samples.
