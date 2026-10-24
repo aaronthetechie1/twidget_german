@@ -17,6 +17,15 @@ class BriefReviewMeasurementsTest {
         BriefCoachFeedback(explanation, listOf(BriefCoachSuggestion("Name the feature.", reason, post.text, null, false,
             input().packet().citations.filter { it.id in ids })), null)
 
+    @Test fun catalanMeasurementsCannotBypassValidation() {
+        val strict = input("ca-ES").packet(cloud = true)
+        for (claim in listOf("999 visualització", "999 interacció pública", "999 resposta", "999 visualitzacions", "999 seguidors", "999 respostes", "999 interaccions públiques",
+            "999 m’agrada", "999 retuits", "999 tuits citats", "999 hores", "999 impressions")) {
+            assertFalse(claim, BriefReviewNumbers.accepts(feedback(claim), strict))
+        }
+        assertTrue(BriefReviewNumbers.accepts(feedback("{{stat:performance:views}}"), strict))
+    }
+
     @Test fun newResponsesUseTypedFactsInsteadOfSwappableLiteralCounts() {
         val packet = input().packet(cloud = true)
         assertTrue(BriefReviewNumbers.accepts(feedback("You received {{stat:performance:views}} and {{stat:performance:likes}}."), packet))

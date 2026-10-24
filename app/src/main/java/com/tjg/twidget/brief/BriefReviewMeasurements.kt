@@ -20,10 +20,10 @@ internal object BriefReviewMeasurements {
         "Do not put measurement tokens in action, rewrite or question. Product names and version numbers visible in media are ordinary context, not performance measurements. "
     private val token = Regex("\\{\\{(?:stat:([a-z0-9_]+):([a-z_]+)|observation:(e\\d+))\\}\\}")
     private val number = "[+-]?\\d+(?:[.,]\\d+)*(?:[ \\u00a0\\u202f]\\d{3}(?!\\d))*"
-    private val units = "interacci(?:ón|ones) públicas?|interacci(?:ón|ones)|visualizaci(?:ón|ones)|vistas?|seguidor(?:es)?|respuestas?|me gusta|retuits?|republicaci(?:ón|ones)|tuits? citados?|citas?|horas?|impresi(?:ón|ones)|public interactions|interactions publiques|öffentliche[n]? interaktionen|quote tweets?|tweets? cités?|zitat-tweets?|" +
+    private val units = "interacci(?:ó|ons) públi(?:ca|ques)|interacci(?:ó|ons)|visualitzaci(?:ó|ons)|seguidors?|respost(?:a|es)|m[’']agrada|tuits? citats?|hores?|impressi(?:ó|ons)|interacci(?:ón|ones) públicas?|interacci(?:ón|ones)|visualizaci(?:ón|ones)|vistas?|seguidor(?:es)?|respuestas?|me gusta|retuits?|republicaci(?:ón|ones)|tuits? citados?|citas?|horas?|impresi(?:ón|ones)|public interactions|interactions publiques|öffentliche[n]? interaktionen|quote tweets?|tweets? cités?|zitat-tweets?|" +
         "engagements?|interactions?|interaktionen|impressions?|views?|vues?|aufrufe[n]?|likes?|j[’']aime|replies|reply|réponses?|antworten?|" +
         "retweets?|reposts?|hours?|heures?|stunden?|followers?|abonnés?|follower"
-    private val after = Regex("($number)[ \\u00a0\\u202f-]+($units)\\b", RegexOption.IGNORE_CASE)
+    private val after = Regex("($number)[ \\u00a0\\u202f-]+($units)(?![\\p{L}\\p{M}\\p{N}_])", RegexOption.IGNORE_CASE)
     private val before = Regex("\\b($units)\\s*[:=]\\s*($number)", RegexOption.IGNORE_CASE)
     private val percentage = Regex("($number)[ \\u00a0\\u202f]*%")
 
@@ -51,12 +51,12 @@ internal object BriefReviewMeasurements {
     }
 
     private fun metric(unit: String): String = when {
-        Regex("view|vue|aufruf|impression|visualizaci|vista|impresi").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "views"
-        Regex("quote|cité|zitat|citado|cita").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "quotes"
+        Regex("view|vue|aufruf|impression|visualitz|impressi|visualizaci|vista|impresi").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "views"
+        Regex("quote|cité|zitat|citado|citats|cita").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "quotes"
         Regex("retweet|repost|retuit|republicaci").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "retweets"
-        Regex("like|aime|me gusta").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "likes"
-        Regex("repl|réponse|antwort|respuesta").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "replies"
-        Regex("hour|heure|stunde|hora").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "age_hours"
+        Regex("like|aime|me gusta|agrada").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "likes"
+        Regex("repl|réponse|antwort|respuesta|respost").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "replies"
+        Regex("hour|heure|stunde|hora|hores").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "age_hours"
         Regex("follower|abonné|seguidor").containsMatchIn(unit.lowercase(Locale.ROOT)) -> "followers"
         else -> "interactions"
     }
@@ -88,7 +88,7 @@ internal object BriefReviewMeasurements {
             if (!packet.allowLegacyMeasurements) return false
             val source = when {
                 Regex("median|médian|mediana", RegexOption.IGNORE_CASE).containsMatchIn(bare) -> "history_comparison"
-                Regex("previous|earlier|similar|historique|précédent|ähnlich|früher|anterior|previ[oa]|históric", RegexOption.IGNORE_CASE).containsMatchIn(bare) ->
+                Regex("previous|earlier|similar|historique|précédent|ähnlich|früher|anterior|previ[oa]|hist[óò]ric", RegexOption.IGNORE_CASE).containsMatchIn(bare) ->
                     citations.filter { it.id.matches(Regex("p\\d+")) }.singleOrNull()?.id ?: return false
                 else -> "performance"
             }

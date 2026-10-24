@@ -6,6 +6,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetFollowerWordsTest {
+    @Test fun spellsCatalanFollowerCounts() {
+        val ca = Locale.forLanguageTag("ca-ES")
+        for ((value, words) in listOf(0L to "Zero", 1L to "Un", 21L to "Vint-i-un", 31L to "Trenta-un",
+            100L to "Cent", 101L to "Cent un", 200L to "Dos-cents", 1234L to "Mil dos-cents trenta-quatre",
+            1_000_000L to "Un milió", 2_000_000L to "Dos milions", 1_000_000_000L to "Mil milions",
+            1_000_000_000_000L to "Un bilió")) assertEquals(words, TwidgetWidget.followersInWords(value, ca))
+        assertTrue(TwidgetWidget.followersInWords(Long.MAX_VALUE, ca).isNotBlank())
+    }
+
     @Test
     fun spellsFollowerCountsBeyondOneMillion() {
         assertEquals("Zero", TwidgetWidget.followersInWords(0L))

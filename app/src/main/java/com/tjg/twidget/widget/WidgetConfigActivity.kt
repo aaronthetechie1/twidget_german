@@ -712,9 +712,10 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         val cornerRadiusDp: Float,
     )
     private fun pickLanguage(anchor: View) {
-        val values = arrayOf("DEFAULT", "de", "en", "es", "fr")
+        val values = arrayOf("DEFAULT", "ca", "de", "en", "es", "fr")
         val labels = listOf(
             getString(R.string.widget_language_default),
+            getString(R.string.widget_language_ca),
             getString(R.string.widget_language_de),
             getString(R.string.widget_language_en),
             getString(R.string.widget_language_es),
@@ -727,6 +728,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     }
 
     private fun languageLabel(lang: String): String = when (lang) {
+        "ca" -> getString(R.string.widget_language_ca)
         "de" -> getString(R.string.widget_language_de)
         "en" -> getString(R.string.widget_language_en)
         "es" -> getString(R.string.widget_language_es)

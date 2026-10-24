@@ -1221,4 +1221,6 @@
     <string name="review_fact_age">%1$s après publication</string>
     <string name="review_fact_history">%1$s sur votre tweet du %2$s</string>
     <string name="review_fact_median">%1$s de médiane pour %2$s tweets similaires</string>
+    <string name="widget_language_ca">Catalan (Català)</string>
+    <string name="language_catalan">Catalan (Català)</string>
 </resources>

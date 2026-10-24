@@ -34,7 +34,7 @@ class LocalisationResourcesTest {
             for ((key, original) in expected) {
                 assertEquals("$lang/$key arguments", format.findAll(original.textContent).map { it.value }.toSet(),
                     format.findAll(actual.getValue(key).textContent).map { it.value }.toSet())
-                if (original.tagName == "plurals" && lang in setOf("es", "fr")) {
+                if (original.tagName == "plurals" && lang in setOf("ca", "es", "fr")) {
                     val items = actual.getValue(key).getElementsByTagName("item")
                     val quantities = (0 until items.length).map { (items.item(it) as Element).getAttribute("quantity") }
                     assertTrue("$lang/$key requires many and other", quantities.containsAll(listOf("many", "other")))

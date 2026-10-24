@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <plurals name="goal_noun_followers" tools:ignore="ImpliedQuantity">
+        <item quantity="one">seguidor</item>
+        <item quantity="many">seguidors</item>
+        <item quantity="other">seguidors</item>
+    </plurals>
+    <plurals name="goal_noun_verified" tools:ignore="ImpliedQuantity">
+        <item quantity="one">seguidor verificat</item>
+        <item quantity="many">seguidors verificats</item>
+        <item quantity="other">seguidors verificats</item>
+    </plurals>
+    <plurals name="goal_noun_impressions" tools:ignore="ImpliedQuantity">
+        <item quantity="one">impressió</item>
+        <item quantity="many">impressions</item>
+        <item quantity="other">impressions</item>
+    </plurals>
+    <plurals name="goal_noun_engagement" tools:ignore="ImpliedQuantity">
+        <item quantity="one">taxa d\'interacció</item>
+        <item quantity="many">taxa d\'interacció</item>
+        <item quantity="other">taxa d\'interacció</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_minutes">
+        <item quantity="one">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s minut.</item>
+        <item quantity="many">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s minuts.</item>
+        <item quantity="other">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s minuts.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_hours">
+        <item quantity="one">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s hora.</item>
+        <item quantity="many">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s hores.</item>
+        <item quantity="other">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s hores.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_days">
+        <item quantity="one">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s dia.</item>
+        <item quantity="many">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s dies.</item>
+        <item quantity="other">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s dies.</item>
+    </plurals>
+    <plurals name="widget_count_followers" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Seguidor</item>
+        <item quantity="many">Seguidors</item>
+        <item quantity="other">Seguidors</item>
+    </plurals>
+</resources>

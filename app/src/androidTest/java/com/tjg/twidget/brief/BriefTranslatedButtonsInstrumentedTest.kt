@@ -15,7 +15,7 @@ class BriefTranslatedButtonsInstrumentedTest {
     @Test fun translatedActionsWrapAtNarrowWidthsAndLargeFontSizes() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {
-            for (tag in listOf("es-ES", "de-DE", "fr-FR")) for (scale in listOf(1f, 1.5f)) {
+            for (tag in listOf("ca-ES", "es-ES", "de-DE", "fr-FR")) for (scale in listOf(1f, 1.5f)) {
                 val config = Configuration(instrumentation.targetContext.resources.configuration).apply {
                     setLocale(Locale.forLanguageTag(tag)); fontScale = scale
                 }

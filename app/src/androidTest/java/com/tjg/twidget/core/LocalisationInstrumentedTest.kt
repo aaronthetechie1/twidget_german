@@ -16,7 +16,7 @@ class LocalisationInstrumentedTest {
         return base.createConfigurationContext(config)
     }
     @Test fun storedFailuresAndQuantityMessagesRenderWithEachContextsLanguage() {
-        for (tag in listOf("en", "de", "fr", "es")) {
+        for (tag in listOf("ca", "en", "de", "fr", "es")) {
             val c = context(tag)
             val stored = UiMessages.message(UiMessages.Key.ERROR_TEXT_LIMIT, 25000)
             val count = AppLocales.integer(25000, AppLocales.formattingLocale(c))
@@ -29,6 +29,18 @@ class LocalisationInstrumentedTest {
             assertFalse(AppLocales.dateTime(c, 1792843200000).contains(" at "))
         }
     }
+    @Test fun catalanResourcesAndBriefUseTheRegisteredLocale() {
+        val c = AppLocales.wrap(context("ca-ES"), "ca-ES")
+        assertEquals("Català", c.getString(R.string.language_catalan))
+        assertEquals("Objectius del compte", c.getString(R.string.milestone_account_goals))
+        assertEquals("Seguidor", c.resources.getQuantityString(R.plurals.widget_count_followers, 1))
+        assertEquals("Seguidors", c.resources.getQuantityString(R.plurals.widget_count_followers, 2))
+        assertEquals("de seguidors", c.getString(R.string.l10n_widget_followers_of))
+        val strings = com.tjg.twidget.brief.BriefStrings.from(c, "ca-ES")
+        assertEquals("ca-ES", strings.languageTag)
+        assertEquals("Valor actual", strings.text(R.string.brief_goal_current_value))
+    }
+
     @Test fun spanishArtworkAndGoalNounsHaveSingularPluralAndMillionForms() {
         val c = context("es")
         assertEquals("Seguidor", c.resources.getQuantityString(R.plurals.widget_count_followers, 1))

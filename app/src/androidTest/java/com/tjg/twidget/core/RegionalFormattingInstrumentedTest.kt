@@ -28,7 +28,7 @@ class RegionalFormattingInstrumentedTest {
         assertTrue(TwidgetStore.compactNumber(1250000, Locale.GERMANY).contains("Mio"))
         assertNotEquals(TwidgetStore.compactNumber(125000, Locale.US), TwidgetStore.compactNumber(125000, Locale.forLanguageTag("en-IN")))
         assertNotEquals(TwidgetStore.compactNumber(1250000, Locale.US), TwidgetStore.compactNumber(1250000, Locale.FRANCE))
-        for (tag in listOf("es-ES", "es-MX", "en-US", "en-GB", "fr-FR", "fr-CA", "de-DE", "de-CH")) {
+        for (tag in listOf("ca-ES", "es-ES", "es-MX", "en-US", "en-GB", "fr-FR", "fr-CA", "de-DE", "de-CH")) {
             val locale = Locale.forLanguageTag(tag)
             assertEquals(locale, AppLocales.formattingLocale(context(tag)))
             assertEquals("+" + AppLocales.compact(12500, locale), TwidgetStore.signedNumber(12500, locale))
@@ -46,7 +46,7 @@ class RegionalFormattingInstrumentedTest {
         val uk = AppLocales.formatDate(timestamp, "MMMd", Locale.UK, context("en-GB"))
         assertTrue(us, us.indexOf("Oct") < us.indexOf("24"))
         assertTrue(uk, uk.indexOf("24") < uk.indexOf("Oct"))
-        for (tag in listOf("es-ES", "es-MX", "en-US", "en-GB", "fr-FR", "fr-CA", "de-DE", "de-CH")) {
+        for (tag in listOf("ca-ES", "es-ES", "es-MX", "en-US", "en-GB", "fr-FR", "fr-CA", "de-DE", "de-CH")) {
             val c = context(tag)
             val locale = Locale.forLanguageTag(tag)
             val time = AppLocales.formatDate(timestamp, "jm", locale, c)
