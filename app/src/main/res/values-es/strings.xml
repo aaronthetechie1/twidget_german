@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Twidget</string>
     <string name="widget_description">Rastreador de seguidores de X/Twitter con widgets difuminados para la pantalla de inicio</string>
     <string name="widget_label">Seguidores de Twidget</string>
     <string name="widget_language">Idioma</string>
@@ -8,9 +7,9 @@
     <string name="widget_language_de">Alemán (Deutsch)</string>
     <string name="widget_language_en">Inglés (English)</string>
     <string name="widget_language_fr">Francés (Français)</string>
+    <string name="widget_language_es">Español</string>
     <string name="lockscreen_follower_1x1_label">Seguidores 1x1</string>
     <string name="lockscreen_follower_2x1_label">Seguidores 2x1</string>
-    <string name="dashboard_title" translatable="false">That Josh Guy</string>
     <string name="last_synced">Última sincronización: %1$s</string>
     <string name="not_synced_yet">Aún no sincronizado</string>
     <string name="time_unavailable">Hora no disponible</string>
@@ -66,11 +65,7 @@
     <string name="finding_banger">Buscando el mayor éxito histórico</string>
     <string name="banger_scanning">Escaneando todo el historial de tuits…</string>
     <string name="banger_scanning_progress">Escaneando todo el historial de tuits… %1$s tuits aptos comprobados</string>
-    <string name="tweet_handle_and_date" translatable="false">\@%1$s · %2$s</string>
-    <string name="account_handle" translatable="false">\@%1$s</string>
     <string name="preview_follower_count">7,671</string>
-    <string name="preview_follower_delta" translatable="false">+21</string>
-    <string name="preview_account_handle" translatable="false">\@thatjoshguy69</string>
     <string name="preview_followers_large">Siete Mil Seiscientos\nSetenta y Un\nSeguidores</string>
     <string name="preview_followers_square">Siete Mil,\nSeiscientos Setenta\ny Un Seguidores</string>
     <string name="tweet_metrics">%1$s visualizaciones · %2$s respuestas · %3$s me gusta</string>
@@ -121,6 +116,7 @@
     <string name="language_german">Alemán (Deutsch)</string>
     <string name="language_english">Inglés</string>
     <string name="language_french">Francés (Français)</string>
+    <string name="language_spanish">Español</string>
     <string name="milestone_use_auto">Usar hito automático</string>
     <string name="milestone_edit_button">Editar</string>
     <string name="milestone_show_percent">Mostrar porcentaje de progreso</string>
@@ -153,21 +149,18 @@
     <string name="open_settings">Abrir ajustes</string>
     <string name="refresh_stats">Actualizar estadísticas</string>
     <string name="profile_username">Nombre de usuario del perfil</string>
-    <string name="profile_username_hint" translatable="false">thatjoshguy69</string>
     <string name="data_source">Fuente de datos</string>
     <string name="analytics">Estadísticas</string>
     <string name="refresh">Actualizar</string>
     <string name="active_source">Fuente activa</string>
     <string name="source_default">Puente de Twidget</string>
     <string name="source_default_summary">Servidor compartido de Twidget</string>
-    <string name="source_fxtwitter" translatable="false">FxTwitter</string>
     <string name="source_fxtwitter_summary">API pública y gratuita de FxTwitter</string>
     <string name="share_history">Contribuir al historial compartido</string>
     <string name="share_history_summary">Comparte las estadísticas de cuentas públicas con otros usuarios de Twidget para mejorar los datos de todos. Los escaneos de mejores seguidores se ejecutan en el puente y la última lista de seguidores públicos completada puede ser reutilizada por otros usuarios inscritos.</string>
     <string name="share_history_onboarding_summary">Opcional: comparte estadísticas de cuentas públicas con otros usuarios de Twidget para mejorar los datos de todos. Los escaneos de mejores seguidores se ejecutan en el puente y la última lista de seguidores públicos completada puede ser reutilizada por otros usuarios inscritos.</string>
     <string name="source_self_hosted">Puente autohospedado</string>
     <string name="source_self_hosted_summary">Usa tu propio puente</string>
-    <string name="source_x_api" translatable="false">API de X</string>
     <string name="source_x_api_summary">Requiere tu propio acceso de pago a la API de X</string>
     <string name="advanced_options">Opciones avanzadas</string>
     <string name="advanced_options_summary">Configurar fuentes autohospedadas y de la API de X</string>
@@ -190,7 +183,6 @@
     <string name="status_connected_detail">Conectado (%1$s)</string>
     <string name="status_not_configured">No configurado</string>
     <string name="status_failed">Error: %1$s</string>
-    <string name="status_http_error" translatable="false">HTTP %1$d</string>
     <string name="status_unexpected_response">Respuesta inesperada</string>
     <string name="status_x_client_forbidden">El acceso a la API de X no está activo para este proyecto. El acceso gratuito ya no incluye este endpoint v2.</string>
     <string name="self_hosted_rettiwt">URL del puente</string>
@@ -276,7 +268,6 @@
     <string name="import_failure_private_help">Usa el historial local sin un puente para importar estadísticas de una cuenta privada.</string>
     <string name="import_failure_file_help">Elige un archivo CSV de resumen de cuenta de X Analytics. Incluye el día de hoy en el intervalo de fechas.</string>
     <string name="import_try_another_file">Elegir CSV</string>
-    <string name="analytics_url" translatable="false">https://analytics.x.com/</string>
     <string name="import_no_browser">No hay ningún navegador web disponible.</string>
     <string name="import_action">Importar</string>
     <string name="analytics_import_sync_first">Sincroniza esta cuenta primero para que Twidget pueda anclar la importación a su recuento de seguidores actual.</string>
@@ -305,13 +296,9 @@
     <string name="widget_tint_dark">Oscuro</string>
     <string name="widget_tint_system">Coincidir con el sistema</string>
     <string name="widget_logo_style">Estilo de logotipo</string>
-    <string name="widget_logo_x" translatable="false">X</string>
-    <string name="widget_logo_twitter" translatable="false">Twitter</string>
     <string name="widget_show_delta">Mostrar variación de seguidores</string>
     <string name="widget_font">Fuente</string>
     <string name="widget_font_system">Predeterminada del sistema</string>
-    <string name="widget_font_one_ui" translatable="false">One UI Sans</string>
-    <string name="widget_font_google" translatable="false">Google Sans Flex</string>
     <string name="clear_cache">Borrar datos en caché</string>
     <string name="about_twidget">Acerca de Twidget</string>
     <string name="save">Guardar</string>
@@ -325,14 +312,9 @@
     <string name="about_developer_section">Creado por</string>
     <string name="about_credits_section">Gracias a</string>
     <string name="about_projects_section">Proyectos de código abierto</string>
-    <string name="about_tjg_title" translatable="false">That Josh Guy</string>
     <string name="about_tjg_summary">Creador de Twidget. Demasiados Red Bulls consumidos en el proceso.</string>
-    <string name="about_kingowen_title" translatable="false">KingOwenFYI</string>
     <string name="about_kingowen_summary">Colaborador, motivador y generador de ideas.</string>
-    <string name="about_aaron_title" translatable="false">Aaron the Techie</string>
     <string name="about_aaron_summary">Traducido al alemán</string>
-    <string name="link_aaron" translatable="false">https://x.com/aaronthetechie</string>
-    <string name="about_fxtwitter_title" translatable="false">FxTwitter / FxEmbed</string>
     <string name="about_fxtwitter_summary">Fuente de datos predeterminada. Perfil público, estado, contenido multimedia y datos de estadísticas de publicaciones recientes</string>
     <string name="about_oneui_summary">Bifurcación de Tribalfs - SESL 9.0</string>
     <string name="about_legal_section">Cuestiones legales</string>
@@ -387,22 +369,12 @@
     <string name="update_notification_channel_description">Notificaciones cuando hay una nueva versión de Twidget disponible</string>
     <string name="update_remind_later">Recordármelo más tarde</string>
     <string name="update_install_now">Instalar ahora</string>
-    <string name="oneui_project" translatable="false">One UI Project</string>
-    <string name="link_tjg" translatable="false">https://tjg.gg</string>
-    <string name="link_kingowen" translatable="false">https://x.com/KingOwenFYI</string>
-    <string name="link_fxtwitter" translatable="false">https://github.com/FxEmbed/FxEmbed</string>
-    <string name="link_oneui_project" translatable="false">https://github.com/tribalfs/oneui-design</string>
-    <string name="link_rettiwt" translatable="false">https://github.com/Rishikant181/Rettiwt-API</string>
-    <string name="link_app_repo" translatable="false">https://github.com/thatjoshguy67/twidget</string>
-    <string name="link_privacy_policy" translatable="false">https://tjg.gg/blog/twidget-privacy-policy</string>
     <string name="sync_failed">Error al sincronizar; mostrando estadísticas en caché.</string>
-    <string name="onboarding_title" translatable="false">Twidget</string>
     <string name="onboarding_overview_title">Bienvenido a Twidget</string>
     <string name="onboarding_welcome_terms">Al usar Twidget, aceptas la Política de privacidad de Twidget, así como los términos y condiciones de cada plataforma.</string>
     <string name="onboarding_privacy_link">Política de privacidad de Twidget</string>
     <string name="onboarding_done_title">¡Todo listo!</string>
     <string name="onboarding_done_summary">Las estadísticas se capturan diariamente, así que dale una semana para que se complete por completo.</string>
-    <string name="onboarding_handle_hint" translatable="false">\@</string>
     <string name="get_started">Empezar</string>
     <string name="add_to_home_screen">Añadir a la pantalla de inicio</string>
     <string name="skip">Omitir</string>
@@ -660,7 +632,6 @@
     <string name="schedule_buffer_status_channel_name">Publicación en Buffer</string>
     <string name="schedule_buffer_status_channel_description">Informa sobre los intentos de publicación en Buffer correctos y fallidos</string>
     <string name="schedule_queue_local_account">\@%1$s · Borradores locales</string>
-    <string name="schedule_queue_buffer_account" translatable="false">\@%1$s · Buffer</string>
     <string name="schedule_queue_buffer_pending">Canal de X en Buffer</string>
     <string name="schedule_more_actions">Más acciones</string>
     <string name="schedule_more">Más</string>
@@ -669,7 +640,6 @@
     <string name="schedule_character_limit_over">Límite de caracteres excedido · %1$d de más</string>
     <string name="schedule_standard_character_limit_over">Límite de caracteres normal excedido · %1$d de más</string>
     <string name="schedule_character_limit_error">Acorta el texto resaltado antes de guardar</string>
-    <string name="schedule_compose_time_set" translatable="false">%1$s · %2$s</string>
     <string name="schedule_drafts">Borradores</string>
     <string name="schedule_discard_title">¿Descartar borrador?</string>
     <string name="schedule_discard_message">Se perderán tus cambios.</string>
@@ -684,9 +654,7 @@
     <string name="schedule_account_description">Cuenta para este tuit programado</string>
     <string name="schedule_provider_description">Proveedor de programación</string>
     <string name="schedule_provider_local">Recordatorio local</string>
-    <string name="schedule_provider_buffer" translatable="false">Buffer</string>
     <string name="schedule_thread_item_number">Elemento del hilo %1$d</string>
-    <string name="schedule_character_count" translatable="false">%1$d / %2$d</string>
     <string name="schedule_post_hint">¿Qué está pasando?</string>
     <string name="schedule_thread_item_description">Texto para el elemento del hilo %1$d</string>
     <string name="schedule_add_local_media">Añadir contenido multimedia local</string>
@@ -710,7 +678,6 @@
     <string name="schedule_remove_item">Eliminar</string>
     <string name="schedule_remove_thread">Eliminar tuit del hilo</string>
     <string name="schedule_remove_media">Eliminar contenido multimedia adjunto</string>
-    <string name="schedule_public_url_hint" translatable="false">https://example.com/image.jpg</string>
     <string name="schedule_add">Añadir</string>
     <string name="schedule_invalid_public_url">Introduce una URL pública HTTP o HTTPS válida.</string>
     <string name="schedule_busy">La programación está ocupada. Inténtalo de nuevo en breve.</string>
@@ -775,7 +742,6 @@
     <string name="schedule_buffer_account">Canal de X en Buffer</string>
     <string name="schedule_buffer_mapping_required">Asocia primero \@%1$s a un canal de X de Buffer conectado en los Ajustes.</string>
     <string name="schedule_buffer_mapping_selected">Canal de X en Buffer seleccionado</string>
-    <string name="schedule_mapping_value" translatable="false">\@%1$s → \@%2$s</string>
     <string name="schedule_mapping_unset">\@%1$s → Sin asignar</string>
     <string name="schedule_mapping_clear">Borrar asignación</string>
     <string name="schedule_notifications_status">Permisos de recordatorios</string>
@@ -800,7 +766,6 @@
     <string name="twitterapis_explainer">Añade tu propia clave para obtener estadísticas de perfil opcionales y análisis de publicaciones limitados a siete días guardados en caché durante seis horas. Tu clave se cifra en este dispositivo y se envía únicamente a TwitterAPIs. Mejores seguidores utiliza el puente de historial compartido. Abrir Ajustes no realiza ninguna llamada de prueba de pago.</string>
     <string name="twitterapis_personal_key_active">Clave personal activa · %1$s</string>
     <string name="twitterapis_no_key_available">Añade tu propia clave para ver estadísticas del perfil y análisis de publicaciones</string>
-    <string name="source_twitterapis" translatable="false">TwitterAPIs</string>
     <string name="twitterapis_status">Estado de TwitterAPIs</string>
     <string name="scan_again">Escanear de nuevo</string>
     <string name="compact_followers">%1$s seguidores</string>
@@ -809,7 +774,7 @@
     <string name="top_followers_notifications_description">Notifica cuando aparece un nuevo seguidor de alta clasificación</string>
     <string name="top_followers_new_high_ranking_title">Nuevo seguidor principal para \@%1$s</string>
     <string name="top_followers_new_high_ranking_detail">\@%1$s te siguió y ahora es tu seguidor principal n.º %2$d</string>
-    <string name="top_followers_last_scan">Último escaneo %1$s · %2$s seguidores en %3$d páginas</string>
+    <string name="top_followers_last_scan">Último escaneo %1$s · %2$d seguidores en %3$d páginas</string>
     <string name="top_followers_view_all">Ver más</string>
     <string name="top_followers_browse_title">Todos los seguidores</string>
     <string name="top_followers_browse_empty">Aún no hay seguidores guardados. Ejecuta un escaneo primero.</string>
@@ -959,7 +924,7 @@
     <string name="brief_summary_streak_active">Tu ritmo de publicación está activo.</string>
     <string name="brief_summary_schedule_step">Tu programación tiene un siguiente paso útil esperando.</string>
     <string name="brief_summary_follow_through">Un tuit programado recientemente ofrece una lección para tu próxima publicación.</string>
-    <string name="brief_summary_posting_guidance">Tus tuits recientes apuntan a un próximo paso práctico.</string>
+    <string name="brief_summary_posting_guide">Tus tuits recientes apuntan a un próximo paso práctico.</string>
     <string name="brief_summary_body_trend">Comprueba cómo cambió tu audiencia durante la última semana.</string>
     <string name="brief_summary_body_watching">Twidget está atento a tu próxima actualización de cuenta significativa.</string>
     <string name="brief_short_post_both">Los tuits recientes trajeron un éxito y una lección.</string>
@@ -972,7 +937,7 @@
     <string name="brief_short_top_followers">Tus mejores seguidores han cambiado.</string>
     <string name="brief_short_schedule_step">Tu programación tiene un paso útil siguiente.</string>
     <string name="brief_short_follow_through">Tu último tuit ofrece una lección útil.</string>
-    <string name="brief_short_posting_guidance">Tus tuits recientes sugieren un siguiente paso.</string>
+    <string name="brief_short_posting_guide">Tus tuits recientes sugieren un siguiente paso.</string>
     <string name="brief_short_watching">Atento a tu próxima actualización significativa.</string>
     <string name="brief_followers_gained_today_week">Ganaste %1$s hoy y %2$s esta semana.</string>
     <string name="brief_followers_gained_today">Ganaste %1$s hoy.</string>
@@ -1141,7 +1106,5 @@
     <string name="debug_haptics_stop">Detener reproducción</string>
     <string name="debug_haptics_force_waveforms">Forzar formas de onda</string>
     <string name="debug_haptics_force_waveforms_summary">Usar aproximaciones de formas de onda para efectos primitivos en toda la app. Los comentarios de acción de la plataforma se mantienen sin cambios.</string>
-    <string name="about_evowizz_title" translatable="false">Dy (evowizz)</string>
     <string name="about_evowizz_summary">Sabe lo que hace!; traducido al francés</string>
-    <string name="link_evowizz" translatable="false">https://evowizz.dev/</string>
 </resources>

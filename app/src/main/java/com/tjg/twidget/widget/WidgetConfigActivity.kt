@@ -545,11 +545,12 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         val cornerRadiusDp: Float,
     )
     private fun pickLanguage(anchor: View) {
-        val values = arrayOf("DEFAULT", "de", "en", "fr")
+        val values = arrayOf("DEFAULT", "de", "en", "es", "fr")
         val labels = listOf(
             getString(R.string.widget_language_default),
             getString(R.string.widget_language_de),
             getString(R.string.widget_language_en),
+            getString(R.string.widget_language_es),
             getString(R.string.widget_language_fr)
         )
         showDropDown(anchor, labels, values.indexOf(language).coerceAtLeast(0)) { which ->
@@ -561,6 +562,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private fun languageLabel(lang: String): String = when (lang) {
         "de" -> getString(R.string.widget_language_de)
         "en" -> getString(R.string.widget_language_en)
+        "es" -> getString(R.string.widget_language_es)
         "fr" -> getString(R.string.widget_language_fr)
         else -> getString(R.string.widget_language_default)
     }
