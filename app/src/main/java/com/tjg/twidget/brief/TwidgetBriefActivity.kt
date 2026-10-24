@@ -355,16 +355,56 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun setLoading(loading: Boolean) {
         val remembered = visiblePresentation != null
-        findViewById<View>(R.id.brief_scroll).visibility =
-            if (!loading && (remembered || !providerSetupRequired)) View.VISIBLE else View.GONE
+        val showBrief = !loading && (remembered || !providerSetupRequired)
+        val scroll = findViewById<View>(R.id.brief_scroll)
+        val loadingContainer = findViewById<View>(R.id.brief_loading_container)
+        val loadingAnimation = findViewById<LottieAnimationView>(R.id.brief_loading)
         findViewById<View>(R.id.brief_provider_required).visibility =
             if (!remembered && !loading && providerSetupRequired) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.brief_loading_container).visibility =
-            if (loading) View.VISIBLE else View.GONE
-        findViewById<LottieAnimationView>(R.id.brief_loading).apply {
-            if (loading && ValueAnimator.areAnimatorsEnabled()) playAnimation() else { cancelAnimation(); progress = 0.5f }
+        if (loading) {
+            scroll.animate().cancel()
+            scroll.alpha = 1f
+            scroll.translationY = 0f
+            scroll.visibility = View.GONE
+            loadingContainer.animate().cancel()
+            loadingContainer.alpha = 1f
+            loadingContainer.translationY = 0f
+            loadingContainer.visibility = View.VISIBLE
+            if (ValueAnimator.areAnimatorsEnabled()) loadingAnimation.playAnimation() else {
+                loadingAnimation.cancelAnimation()
+                loadingAnimation.progress = 0.5f
+            }
+            startLoadingStatusRotation()
+        } else if (showBrief && loadingContainer.visibility == View.VISIBLE && ValueAnimator.areAnimatorsEnabled()) {
+            val offset = 12f * resources.displayMetrics.density
+            scroll.visibility = View.VISIBLE
+            scroll.alpha = 0f
+            scroll.translationY = offset
+            stopLoadingStatusRotation(resetView = false)
+            loadingAnimation.cancelAnimation()
+            loadingContainer.animate()
+                .alpha(0f)
+                .translationY(-offset)
+                .setDuration(240L)
+                .setInterpolator(loadingStatusDisappearInterpolator)
+                .withEndAction {
+                    loadingContainer.visibility = View.GONE
+                    loadingContainer.alpha = 1f
+                    loadingContainer.translationY = 0f
+                }
+                .start()
+            scroll.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(380L)
+                .setInterpolator(loadingStatusAppearInterpolator)
+                .start()
+        } else {
+            scroll.visibility = if (showBrief) View.VISIBLE else View.GONE
+            loadingContainer.visibility = View.GONE
+            loadingAnimation.cancelAnimation()
+            stopLoadingStatusRotation()
         }
-        if (loading) startLoadingStatusRotation() else stopLoadingStatusRotation()
         findViewById<View>(R.id.brief_refresh_state).visibility =
             if (remembered && !loading && providerSetupRequired) View.VISIBLE else View.GONE
         findViewById<LottieAnimationView>(R.id.brief_refresh_loading).apply {
@@ -439,13 +479,15 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         runnable.run()
     }
 
-    private fun stopLoadingStatusRotation() {
+    private fun stopLoadingStatusRotation(resetView: Boolean = true) {
         val statusView = findViewById<TextView>(R.id.brief_loading_status)
         loadingStatusRunnable?.let(statusView::removeCallbacks)
         loadingStatusRunnable = null
         statusView.animate().cancel()
-        statusView.alpha = 0f
-        statusView.translationY = 0f
+        if (resetView) {
+            statusView.alpha = 0f
+            statusView.translationY = 0f
+        }
     }
 
     private fun bindChrome() {
