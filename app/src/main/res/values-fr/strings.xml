@@ -381,7 +381,7 @@
     <string name="skip">Ignorer</string>
     <string name="onboarding_overview_summary">Twidget synchronise ton nombre d\'abonnés, ses variations récentes et les widgets One UI de l\'écran d\'accueil à partir d\'un seul profil.</string>
     <string name="onboarding_permissions_title">Autorisations</string>
-    <string name="onboarding_required_permissions">Autorisations requises</string>
+    <string name="onboarding_required_permissions">Autorisations facultatives</string>
     <string name="onboarding_permission_notifications_title">Notifications</string>
     <string name="onboarding_permission_notifications_summary">Affiche la progression des analyses, les résultats de publication et les rappels de posts programmés.</string>
     <string name="onboarding_permission_alarms_title">Alarmes et rappels</string>
@@ -547,21 +547,21 @@
     <string name="brief_debug_report_selected">SÉLECTIONNÉS</string>
     <string name="brief_debug_report_omitted">OMIS</string>
     <string name="brief_debug_report_none">aucun</string>
-    <string name="brief_debug_report_followers">followers=%1$s</string>
-    <string name="brief_debug_report_following">following=%1$s</string>
-    <string name="brief_debug_report_posts">posts=%1$s</string>
-    <string name="brief_debug_report_followers_today">followersToday=%1$s</string>
-    <string name="brief_debug_report_followers_week">followersWeek=%1$s</string>
-    <string name="brief_debug_report_history_samples">historySamples=%1$d</string>
-    <string name="brief_debug_report_analytics_cached_at">analyticsCachedAt=%1$s</string>
-    <string name="brief_debug_report_standout_post_views">standoutPostViews=%1$s</string>
-    <string name="brief_debug_report_quiet_post_views">quietPostViews=%1$s</string>
-    <string name="brief_debug_report_posting_streak">postingStreak=%1$d</string>
-    <string name="brief_debug_report_original_activity_complete">originalActivityComplete=%1$b</string>
-    <string name="brief_debug_report_upcoming_tweets">upcomingTweets=%1$d</string>
-    <string name="brief_debug_report_follower_scan_completed_at">followerScanCompletedAt=%1$s</string>
-    <string name="brief_debug_report_followers_scanned">followersScanned=%1$d</string>
-    <string name="brief_debug_report_candidate">%1$d. rank=%2$d base=%3$d type=%4$s %5$s id=%6$s</string>
+    <string name="brief_debug_report_followers">Abonnés : %1$s</string>
+    <string name="brief_debug_report_following">Abonnements : %1$s</string>
+    <string name="brief_debug_report_posts">Publications : %1$s</string>
+    <string name="brief_debug_report_followers_today">Abonnés aujourd’hui : %1$s</string>
+    <string name="brief_debug_report_followers_week">Abonnés cette semaine : %1$s</string>
+    <string name="brief_debug_report_history_samples">Relevés historiques : %1$d</string>
+    <string name="brief_debug_report_analytics_cached_at">Statistiques en cache le : %1$s</string>
+    <string name="brief_debug_report_standout_post_views">Vues du meilleur tweet : %1$s</string>
+    <string name="brief_debug_report_quiet_post_views">Vues du tweet le moins vu : %1$s</string>
+    <string name="brief_debug_report_posting_streak">Série de publications : %1$d</string>
+    <string name="brief_debug_report_original_activity_complete">Activité originale complète : %1$s</string>
+    <string name="brief_debug_report_upcoming_tweets">Tweets à venir : %1$d</string>
+    <string name="brief_debug_report_follower_scan_completed_at">Analyse des abonnés terminée le : %1$s</string>
+    <string name="brief_debug_report_followers_scanned">Abonnés analysés : %1$d</string>
+    <string name="brief_debug_report_candidate">%1$d. rang=%2$d base=%3$d type=%4$s %5$s id=%6$s</string>
     <string name="brief_debug_report_candidate_title">   %1$s</string>
     <string name="brief_debug_report_candidate_body">   %1$s</string>
     <string name="schedule_title">Tweets programmés</string>
@@ -1207,11 +1207,16 @@
     <string name="review_rewrite_fill_intro">Voici une suggestion de reformulation. Complétez les informations manquantes avant de publier.</string>
 
     <!-- Typed, source-attributed figures in AI review commentary. -->
-    <plurals name="review_fact_likes"><item quantity="one">%1$s mention J’aime</item><item quantity="other">%1$s mentions J’aime</item></plurals>
-    <plurals name="review_fact_replies"><item quantity="one">%1$s réponse</item><item quantity="other">%1$s réponses</item></plurals>
-    <plurals name="review_fact_retweets"><item quantity="one">%1$s republication</item><item quantity="other">%1$s republications</item></plurals>
-    <plurals name="review_fact_quotes"><item quantity="one">%1$s citation</item><item quantity="other">%1$s citations</item></plurals>
-    <plurals name="review_fact_hours"><item quantity="one">%1$s heure</item><item quantity="other">%1$s heures</item></plurals>
+    <plurals name="review_fact_likes"><item quantity="one">%1$s mention J’aime</item><item quantity="many">%1$s mentions J’aime</item>
+        <item quantity="other">%1$s mentions J’aime</item></plurals>
+    <plurals name="review_fact_replies"><item quantity="one">%1$s réponse</item><item quantity="many">%1$s réponses</item>
+        <item quantity="other">%1$s réponses</item></plurals>
+    <plurals name="review_fact_retweets"><item quantity="one">%1$s republication</item><item quantity="many">%1$s republications</item>
+        <item quantity="other">%1$s republications</item></plurals>
+    <plurals name="review_fact_quotes"><item quantity="one">%1$s citation</item><item quantity="many">%1$s citations</item>
+        <item quantity="other">%1$s citations</item></plurals>
+    <plurals name="review_fact_hours"><item quantity="one">%1$s heure</item><item quantity="many">%1$s heures</item>
+        <item quantity="other">%1$s heures</item></plurals>
     <string name="review_fact_rate">%1$s de taux d’engagement</string>
     <string name="review_fact_age">%1$s après publication</string>
     <string name="review_fact_history">%1$s sur votre tweet du %2$s</string>

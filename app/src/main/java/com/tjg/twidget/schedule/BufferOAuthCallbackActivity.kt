@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.app.Activity
 import android.os.Bundle
 import android.widget.Toast
@@ -19,8 +20,8 @@ class BufferOAuthCallbackActivity : Activity() {
                 Toast.makeText(
                     this,
                     result.fold(
-                        onSuccess = { "Buffer connected" },
-                        onFailure = { it.message ?: "Buffer sign-in failed" },
+                        onSuccess = { getString(com.tjg.twidget.R.string.l10n_buffer_connected_message) },
+                        onFailure = { UiMessages.resolve(this, it.message, com.tjg.twidget.R.string.l10n_error_buffer_login) },
                     ),
                     Toast.LENGTH_LONG,
                 ).show()

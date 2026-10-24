@@ -74,4 +74,18 @@ class BriefReviewMeasurementsTest {
             assertFalse(BriefReviewMeasurements.render("{{stat:history_comparison:views}}", input, TestBriefStrings(Locale.forLanguageTag(language))).contains("{{"))
         }
     }
+    @Test fun spanishClaimsCannotBypassMeasurementOrSourceValidation() {
+        val strict = input("es-ES").packet(cloud = true)
+        for (claim in listOf("999 visualizaciones", "999 seguidores", "999 respuestas", "999 interacciones públicas",
+            "999 me gusta", "999 retuits", "999 tuits citados", "999 horas", "visualizaciones: 999",
+            "1 visualización", "1 seguidor", "1 respuesta", "1 interacción pública", "1 republicación", "1 cita", "1 impresión")) {
+            assertFalse(claim, BriefReviewNumbers.accepts(feedback("Recibiste $claim."), strict))
+        }
+        assertTrue(BriefReviewNumbers.accepts(feedback("Recibiste {{stat:performance:views}}."), strict))
+        val legacy = strict.copy(allowLegacyMeasurements = true)
+        assertTrue(BriefReviewNumbers.accepts(feedback("Recibiste 1.200 visualizaciones y 12 me gusta."), legacy))
+        assertFalse(BriefReviewNumbers.accepts(feedback("Recibiste 12 visualizaciones y 1.200 me gusta."), legacy))
+        assertFalse(BriefReviewNumbers.accepts(feedback("Tu tuit anterior recibió 1.200 visualizaciones.", ids = listOf("subject", "p0")), legacy))
+        assertTrue(BriefReviewNumbers.accepts(feedback("Tu tuit anterior recibió 6.000 visualizaciones.", ids = listOf("subject", "p0")), legacy))
+    }
 }

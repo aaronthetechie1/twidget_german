@@ -21,7 +21,7 @@ class OnboardingAccountValidationTest {
     }
 
     @Test
-    fun onboardingCannotPassPermissionStepUntilEveryRequiredGrantIsReady() {
+    fun permissionReadinessRequiresBothGrants() {
         assertTrue(OnboardingPermissionState(true, true).allGranted)
         assertFalse(OnboardingPermissionState(false, true).allGranted)
         assertFalse(OnboardingPermissionState(true, false).allGranted)

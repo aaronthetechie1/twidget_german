@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -18,7 +19,7 @@ class LocalReminderScheduler(private val context: Context) {
     fun schedule(post: ScheduledPost): ReminderSchedulePrecision {
         require(post.provider == ScheduleProvider.LOCAL_REMINDER) { "Only local reminders use AlarmManager" }
         val triggerAt = requireNotNull(post.scheduledAt) { "A reminder requires a scheduled time" }
-        require(triggerAt > System.currentTimeMillis()) { "A reminder must be scheduled in the future" }
+        require(triggerAt > System.currentTimeMillis()) { UiMessages.message(UiMessages.Key.ERROR_FUTURE_TIME) }
         val operation = pendingIntent(post.id)
 
         if (canUseExactAlarms()) {

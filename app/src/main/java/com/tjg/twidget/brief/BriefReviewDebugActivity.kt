@@ -69,9 +69,15 @@ class BriefReviewDebugActivity : FoldablePopOverActivity() {
 }
 
 internal object BriefReviewDebugFixtures {
-    val scenarios: List<Pair<String, String>> = listOf("complete" to "Complete · tweet", "quoted" to "Complete · media and quote",
-        "draft" to "Complete · draft", "loading" to "Loading source", "generating" to "Generating", "refreshing" to "Refreshing · keep previous review",
-        "stale" to "Draft changed", "missing" to "Source unavailable") + BriefReviewFailure.entries.map { "error_${it.name}" to "Error · ${it.name}" }
+    fun scenarios(context: Context): List<Pair<String, String>> = listOf(
+        "complete" to R.string.l10n_preview_complete, "quoted" to R.string.l10n_preview_quote,
+        "draft" to R.string.l10n_preview_draft, "loading" to R.string.l10n_preview_loading,
+        "generating" to R.string.l10n_preview_generating, "refreshing" to R.string.l10n_preview_refreshing,
+        "stale" to R.string.l10n_preview_stale, "missing" to R.string.l10n_preview_missing,
+    ).map { it.first to context.getString(it.second) } + BriefReviewFailure.entries.map {
+        "error_${it.name}" to context.getString(R.string.l10n_preview_error, it.name)
+    }
+
 
     fun state(context: Context, scenario: String, now: Long = System.currentTimeMillis()): BriefReviewState {
         val username = "sample"

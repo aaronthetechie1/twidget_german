@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.Manifest
 import android.app.AlarmManager
 import android.content.Intent
@@ -346,7 +347,7 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
                 file.outputStream().use { output ->
                     ScheduleMediaImportPolicy.copyLimited(input, output)
                 }
-            } ?: error("Unable to read selected media")
+            } ?: error(UiMessages.message(UiMessages.Key.ERROR_READ_MEDIA))
             val ownedUri = FileProvider.getUriForFile(this, "$packageName.update_files", file)
             ImportedMedia(
                 source = LocalUriMedia(
@@ -386,10 +387,10 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
                     ScheduleMediaExportResult.SAVED -> if (outcome.detail.isNullOrBlank()) {
                         getString(R.string.schedule_media_saved, outcome.savedCount)
                     } else {
-                        getString(R.string.schedule_media_saved_partial, outcome.savedCount, outcome.detail)
+                        getString(R.string.schedule_media_saved_partial, outcome.savedCount, UiMessages.resolve(this@ScheduleComposeActivity, outcome.detail, R.string.schedule_media_save_failed))
                     }
                     ScheduleMediaExportResult.NOTHING_TO_SAVE -> getString(R.string.schedule_media_nothing_to_save)
-                    ScheduleMediaExportResult.FAILED -> outcome.detail ?: getString(R.string.schedule_media_save_failed)
+                    ScheduleMediaExportResult.FAILED -> UiMessages.resolve(this@ScheduleComposeActivity, outcome.detail, R.string.schedule_media_save_failed)
                 }
                 val retry = outcome.result == ScheduleMediaExportResult.FAILED
                 feedback.show(message, findViewById(R.id.schedule_compose_bottom_bar),
@@ -446,19 +447,7 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
     }
     internal fun composeIsBusy(): Boolean = busy
     internal fun composeAvatarUsername(): String = requestedUsername().ifBlank { editorAccount }
-    internal fun composeTimeSummaryText(): String {
-        val formatted = AppLocales.formatDate(
-            editorTime.timeInMillis,
-            "d. MMM · HH:mm",
-            "MMM d · h:mm a",
-            "d MMM · HH:mm",
-        )
-        return if (AppLocales.applicationLocale().language == "de") {
-            formatted
-        } else {
-            formatted.replace("AM", "am").replace("PM", "pm")
-        }
-    }
+    internal fun composeTimeSummaryText(): String = AppLocales.dateTime(this, editorTime.timeInMillis)
     internal fun composeDp(value: Int): Int = dp(value)
 
     private fun showPublicUrlDialog() {
@@ -686,7 +675,7 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         if (hasWindowFocus()) TwidgetHaptics.reject(window.decorView)
         AlertDialog.Builder(this)
             .setTitle(R.string.schedule_error_title)
-            .setMessage(errors.filter(String::isNotBlank).joinToString("\n"))
+            .setMessage(errors.filter(String::isNotBlank).joinToString("\n") { UiMessages.resolve(this@ScheduleComposeActivity, it, R.string.schedule_unknown_error) })
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }
@@ -743,7 +732,7 @@ internal object ScheduleMediaImportPolicy {
             val read = input.read(buffer)
             if (read < 0) return total
             total += read
-            if (total > maxBytes) error("Selected media is too large")
+            if (total > maxBytes) error(UiMessages.message(UiMessages.Key.ERROR_MEDIA_LARGE))
             output.write(buffer, 0, read)
         }
     }

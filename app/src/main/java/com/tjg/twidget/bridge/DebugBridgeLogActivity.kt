@@ -16,8 +16,6 @@ import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import dev.oneuiproject.oneui.layout.ToolbarLayout
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 /** Debug view of the requests and responses exchanged with the bridge. */
@@ -94,7 +92,7 @@ class DebugBridgeLogFragment : InsetPreferenceFragment() {
     }
 
     private fun entrySummary(entry: BridgeLog.Entry): String {
-        val time = SimpleDateFormat("MMM d, HH:mm:ss", Locale.US).format(Date(entry.timestamp))
+        val time = com.tjg.twidget.core.AppLocales.formatDate(entry.timestamp, "MMMdjms")
         val outcome = when {
             entry.error != null -> getString(R.string.status_failed, entry.error.take(60))
             else -> "HTTP ${entry.code}"

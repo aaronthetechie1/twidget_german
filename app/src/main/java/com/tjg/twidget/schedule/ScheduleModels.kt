@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import java.util.UUID
 
 enum class ScheduleProvider {
@@ -258,7 +259,7 @@ object SchedulePolicy {
         if (thread.isEmpty()) {
             issues += ScheduleValidationIssue(
                 ScheduleValidationCode.EMPTY_THREAD,
-                message = "At least one thread item is required.",
+                message = UiMessages.message(UiMessages.Key.ERROR_EMPTY_THREAD),
             )
         }
         thread.forEachIndexed { index, item ->
@@ -266,28 +267,28 @@ object SchedulePolicy {
                 issues += ScheduleValidationIssue(
                     ScheduleValidationCode.EMPTY_ITEM,
                     index,
-                    "A thread item must contain text or media.",
+                    UiMessages.message(UiMessages.Key.ERROR_EMPTY_ITEM),
                 )
             }
             if (textLength(item.text) > maxTextLength) {
                 issues += ScheduleValidationIssue(
                     ScheduleValidationCode.TEXT_TOO_LONG,
                     index,
-                    "Text must be $maxTextLength characters or fewer.",
+                    UiMessages.message(UiMessages.Key.ERROR_TEXT_LIMIT, maxTextLength),
                 )
             }
             if (item.media.size > MAX_MEDIA_PER_ITEM) {
                 issues += ScheduleValidationIssue(
                     ScheduleValidationCode.TOO_MANY_MEDIA,
                     index,
-                    "An item can contain at most $MAX_MEDIA_PER_ITEM media attachments.",
+                    UiMessages.message(UiMessages.Key.ERROR_MEDIA_LIMIT, MAX_MEDIA_PER_ITEM),
                 )
             }
         }
         if (scheduledAt == null || scheduledAt <= nowMillis) {
             issues += ScheduleValidationIssue(
                 ScheduleValidationCode.NOT_IN_FUTURE,
-                message = "The scheduled time must be in the future.",
+                message = UiMessages.message(UiMessages.Key.ERROR_FUTURE_TIME),
             )
         }
         return issues

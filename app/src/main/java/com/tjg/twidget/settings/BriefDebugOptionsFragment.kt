@@ -20,6 +20,7 @@ import androidx.preference.PreferenceScreen
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.*
 import com.tjg.twidget.data.TwidgetStore
+import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import com.tjg.twidget.ui.TwidgetFonts
 import com.tjg.twidget.ui.startSettingsSubActivity
@@ -106,8 +107,7 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
         row(screen, "review_log", R.string.debug_review_log) { open(BriefDebugPage.REVIEW_LOG) }
         group(screen, R.string.debug_engine)
         val report = BriefEngine.inspect(context, username)
-        row(screen, "inputs", "@$username", "Followers ${report.followers} · today ${report.followersToday} · week ${report.followersWeek}\n" +
-            "Posts ${report.posts} · history ${report.historySamples} samples\nFollower scan ${report.followersScanned} accounts") {
+        row(screen, "inputs", "@$username", getString(R.string.l10n_debug_inputs, AppLocales.integer(report.followers), AppLocales.integer(report.followersToday), AppLocales.integer(report.followersWeek), AppLocales.integer(report.posts), AppLocales.integer(report.historySamples.toLong()), AppLocales.integer(report.followersScanned.toLong()))) {
             show(getString(R.string.brief_debug_full_report), report.asText(context))
         }
         gap(screen)
@@ -128,9 +128,9 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
         screen.addPreference(ListPreference(context).apply {
             key = "nano_config"; title = getString(R.string.debug_nano_config); isPersistent = false
             isEnabled = !busy
-            entries = BriefNanoModelMode.entries.map { it.label }.toTypedArray()
+            entries = BriefNanoModelMode.entries.map { it.localizedLabel(context) }.toTypedArray()
             entryValues = BriefNanoModelMode.entries.map { it.storageId }.toTypedArray()
-            value = mode.storageId; summary = mode.label
+            value = mode.storageId; summary = mode.localizedLabel(context)
             setOnPreferenceChangeListener { _, value ->
                 BriefAiCoordinator.setNanoModelMode(context, BriefNanoModelMode.fromStorageId(value as String)); diagnostics = null
                 refreshNano(); true
@@ -140,10 +140,10 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
         row(screen, "cloud_config", R.string.debug_cloud_config, cloudConfig()) { show(getString(R.string.debug_cloud_config), cloudConfig()) }
         row(screen, "refresh_cloud", R.string.debug_refresh_cloud) { buildScreen() }
         gap(screen)
-        val state = diagnostics?.let { "Status: ${it.localStatus} · mode: ${it.mode}\nModel: ${it.localModelName ?: "unknown"} · context: ${it.localTokenLimit ?: "unknown"} tokens" }
+        val state = diagnostics?.let { getString(R.string.l10n_debug_nano_state, it.localStatus, it.mode, it.localModelName ?: getString(R.string.coach_ai_unknown), it.localTokenLimit?.let { n -> AppLocales.integer(n.toLong()) } ?: getString(R.string.coach_ai_unknown)) }
             ?: getString(R.string.brief_debug_nano_checking_summary)
         row(screen, "nano_state", R.string.debug_nano_state, state, copy = true) { show(getString(R.string.debug_nano_state), diagnostics.toString()) }
-        val attempt = diagnostics?.let { "${date(it.lastAttemptAt)}\nResult: ${it.lastOutcome ?: "No attempt"}" } ?: getString(R.string.brief_debug_nano_no_attempt)
+        val attempt = diagnostics?.let { getString(R.string.l10n_debug_attempt, date(it.lastAttemptAt), it.lastOutcome ?: getString(R.string.brief_debug_nano_no_attempt)) } ?: getString(R.string.brief_debug_nano_no_attempt)
         row(screen, "last_attempt", R.string.debug_last_attempt, attempt, copy = true) { show(getString(R.string.debug_last_attempt), diagnostics.toString()) }
         gap(screen)
         row(screen, "test_provider", R.string.brief_debug_nano_test, getString(R.string.brief_debug_nano_test_summary), enabled = username.isNotBlank()) {
@@ -162,13 +162,13 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
             gap(screen)
             val rank = card.rankingScore.takeIf { it >= 0 } ?: card.score
             row(screen, "rank_${card.id}", "$rank · ${card.type}", "${card.title}\n${card.body}") {
-                show(card.title, "rank=$rank · base=${card.score}\nselected=${card.id in report.selectedIds}\nid=${card.id}\n\n${card.body}")
+                show(card.title, getString(R.string.l10n_debug_rank_detail, AppLocales.integer(rank.toLong()), AppLocales.integer(card.score.toLong()), yes(card.id in report.selectedIds), card.id, card.body))
             }.apply { icon = RankDrawable(requireContext(), index + 1); isIconSpaceReserved = true }
         }
     }
 
     private fun reviewUi(screen: PreferenceScreen) {
-        val choices = BriefReviewDebugFixtures.scenarios
+        val choices = BriefReviewDebugFixtures.scenarios(requireContext())
         screen.addPreference(ListPreference(requireContext()).apply {
             key = KEY_REVIEW_SCENARIO; title = getString(R.string.debug_review_state)
             entries = choices.map { it.second }.toTypedArray(); entryValues = choices.map { it.first }.toTypedArray()
@@ -206,15 +206,14 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
         row(screen, "review_cache", R.string.debug_review_cache, enabled = target != null) {
             target?.let { show(getString(R.string.debug_review_cache), BriefReviewDebug.cache(requireContext(), it)) }
         }
-        row(screen, "review_checks", R.string.debug_review_checks, getString(R.string.debug_review_checks_summary)) { show(getString(R.string.debug_review_checks), BriefReviewDebug.checks()) }
+        row(screen, "review_checks", R.string.debug_review_checks, getString(R.string.debug_review_checks_summary)) { show(getString(R.string.debug_review_checks), BriefReviewDebug.checks(requireContext())) }
         gap(screen)
         row(screen, "open_review", R.string.review_view, enabled = target != null) { target?.let { openReview(it, false) } }
         row(screen, "regenerate_review", R.string.debug_regenerate_review, getString(R.string.debug_regenerate_review_summary), enabled = target != null) { target?.let { openReview(it, true) } }
     }
 
     private fun reviewAi(screen: PreferenceScreen) {
-        row(screen, "review_provider", R.string.debug_review_route, cloudConfig() + "\nMode: ${BriefSettingsStore.provider(requireContext())}\n" +
-            "Review policy: ${BriefReviewPolicy.blocked(BriefSettingsStore.provider(requireContext()), BriefSettingsStore.cloudApiKey(requireContext()).isNotBlank()) ?: "Ready · cloud only"}") {
+        row(screen, "review_provider", R.string.debug_review_route, getString(R.string.l10n_debug_review_policy, cloudConfig(), BriefSettingsStore.provider(requireContext()), BriefReviewPolicy.blocked(BriefSettingsStore.provider(requireContext()), BriefSettingsStore.cloudApiKey(requireContext()).isNotBlank()) ?: getString(R.string.l10n_debug_ready_cloud))) {
             requireActivity().startSettingsSubActivity(Intent(requireContext(), BriefSettingsActivity::class.java))
         }
         gap(screen)
@@ -223,13 +222,13 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
             val context = requireContext()
             work {
                 val subject = target?.let { withContext(Dispatchers.IO) { BriefReviewDebug.subject(context, it) } }
-                if (subject == null) { testResult = "Source unavailable"; return@work }
+                if (subject == null) { testResult = getString(R.string.l10n_debug_source_unavailable); return@work }
                 val started = SystemClock.elapsedRealtime()
                 val result = BriefAiCoordinator.coach(context, subject.input)
                 testResult = "${SystemClock.elapsedRealtime() - started} ms\n" + when (result) {
-                    is BriefCoachGeneration.Success -> "Success · cloud=${result.cloud}\nSuggestions: ${result.feedback.suggestions.size}\nMedia inspected: ${result.inspectedMediaIds.size}/${subject.input.media.size}\nComplete text: ${result.completeText}"
-                    is BriefCoachGeneration.Failure -> "Failure: ${result.reason}"
-                    else -> "No usable response"
+                    is BriefCoachGeneration.Success -> getString(R.string.l10n_debug_test_success, yes(result.cloud), AppLocales.integer(result.feedback.suggestions.size.toLong()), AppLocales.integer(result.inspectedMediaIds.size.toLong()), AppLocales.integer(subject.input.media.size.toLong()), yes(result.completeText))
+                    is BriefCoachGeneration.Failure -> getString(R.string.l10n_debug_failure, result.reason)
+                    else -> getString(R.string.l10n_debug_no_response)
                 }
                 BriefReviewDebugLog.record(context, "PROVIDER_TEST", JSONObject().put("outcome", testResult))
                 show(getString(R.string.debug_review_test_result), testResult.orEmpty())
@@ -262,10 +261,12 @@ open class BriefDebugOptionsFragment : InsetPreferenceFragment() {
     private fun open(page: BriefDebugPage) = requireActivity().startSettingsSubActivity(
         Intent(requireContext(), BriefDebugActivity::class.java).putExtra(BriefDebugPage.EXTRA, page.name))
     private fun refreshNano() = work { diagnostics = BriefAiCoordinator.diagnostics(requireContext(), username) }
-    private fun cloudConfig() = "Model: ${GeminiCloudBriefProvider.ENDPOINT.substringAfter("/models/").substringBefore(':')}\n" +
-        "API key: ${if (BriefSettingsStore.cloudApiKey(requireContext()).isNotBlank()) "Present" else "Missing"}\nConfiguration only · not a connectivity test"
+    private fun yes(value: Boolean) = getString(if (value) R.string.l10n_debug_yes else R.string.l10n_debug_no)
+    private fun cloudConfig() = getString(R.string.l10n_debug_cloud_config,
+        GeminiCloudBriefProvider.ENDPOINT.substringAfter("/models/").substringBefore(':'),
+        getString(if (BriefSettingsStore.cloudApiKey(requireContext()).isNotBlank()) R.string.l10n_debug_key_present else R.string.l10n_debug_key_missing))
     private fun show(title: String, body: String) = showDebugText(requireContext(), title, body, copyable = true)
-    private fun date(at: Long) = if (at > 0) java.text.DateFormat.getDateTimeInstance().format(java.util.Date(at)) else "No attempt recorded"
+    private fun date(at: Long) = if (at > 0) java.text.DateFormat.getDateTimeInstance().format(java.util.Date(at)) else getString(R.string.brief_debug_nano_no_attempt)
     private fun copy(value: String) {
         (requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Twidget debug", value))
         Toast.makeText(requireContext(), R.string.copied, Toast.LENGTH_SHORT).show()

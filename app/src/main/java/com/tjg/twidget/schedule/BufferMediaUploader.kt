@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import com.tjg.twidget.core.json
 
 import android.content.Context
@@ -38,8 +39,7 @@ internal class BufferMediaUploader(context: Context) {
         if (cloudName == null || uploadPreset == null) {
             return BufferMediaUploadResult(
                 errors = listOf(
-                    "Add your Cloudinary cloud name and upload preset in Buffer settings " +
-                        "to attach device media to Buffer posts",
+                    UiMessages.message(UiMessages.Key.ERROR_CLOUDINARY_CONFIG),
                 ),
             )
         }
@@ -48,7 +48,7 @@ internal class BufferMediaUploader(context: Context) {
             val outcome = runCatching { upload(cloudName, uploadPreset, media) }
             uploads[media.uri] = outcome.getOrElse {
                 return BufferMediaUploadResult(
-                    errors = listOf(it.message ?: "Unable to upload media to Cloudinary"),
+                    errors = listOf(it.message ?: UiMessages.message(UiMessages.Key.ERROR_UPLOAD)),
                 )
             }
         }
@@ -91,11 +91,11 @@ internal class BufferMediaUploader(context: Context) {
                 val message = runCatching {
                     JSONObject(body).getJSONObject("error").getString("message")
                 }.getOrNull()
-                error("Cloudinary upload: ${message ?: "HTTP $code"}")
+                error(UiMessages.message(UiMessages.Key.ERROR_UPLOAD))
             }
             val payload = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
             val url = payload.optString("secure_url").ifBlank { payload.optString("url") }
-            if (url.isBlank()) error("Cloudinary upload: no media URL returned")
+            if (url.isBlank()) error(UiMessages.message(UiMessages.Key.ERROR_UPLOAD))
             return PublicUrlMedia(url = url, mimeType = mimeType)
         } finally {
             connection.disconnect()
@@ -119,7 +119,7 @@ internal class BufferMediaUploader(context: Context) {
         writeText("Content-Disposition: form-data; name=\"file\"; filename=\"$safeName\"\r\n")
         writeText("Content-Type: $mimeType\r\n\r\n")
         appContext.contentResolver.openInputStream(uri)?.use { input -> input.copyTo(output) }
-            ?: error("Unable to read the selected media")
+            ?: error(UiMessages.message(UiMessages.Key.ERROR_READ_MEDIA))
         writeText("\r\n--$boundary--\r\n")
     }
 }

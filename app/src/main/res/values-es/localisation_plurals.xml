@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="goal_noun_followers">
+        <item quantity="one">seguidor</item>
+        <item quantity="many">seguidores</item>
+        <item quantity="other">seguidores</item>
+    </plurals>
+    <plurals name="goal_noun_verified">
+        <item quantity="one">seguidor verificado</item>
+        <item quantity="many">seguidores verificados</item>
+        <item quantity="other">seguidores verificados</item>
+    </plurals>
+    <plurals name="goal_noun_impressions">
+        <item quantity="one">impresión</item>
+        <item quantity="many">impresiones</item>
+        <item quantity="other">impresiones</item>
+    </plurals>
+    <plurals name="goal_noun_engagement">
+        <item quantity="one">tasa de interacción</item>
+        <item quantity="many">tasa de interacción</item>
+        <item quantity="other">tasa de interacción</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_minutes">
+        <item quantity="one">Límite de Buffer alcanzado. Inténtalo dentro de %1$s minuto.</item>
+        <item quantity="many">Límite de Buffer alcanzado. Inténtalo dentro de %1$s minutos.</item>
+        <item quantity="other">Límite de Buffer alcanzado. Inténtalo dentro de %1$s minutos.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_hours">
+        <item quantity="one">Límite de Buffer alcanzado. Inténtalo dentro de %1$s hora.</item>
+        <item quantity="many">Límite de Buffer alcanzado. Inténtalo dentro de %1$s horas.</item>
+        <item quantity="other">Límite de Buffer alcanzado. Inténtalo dentro de %1$s horas.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_days">
+        <item quantity="one">Límite de Buffer alcanzado. Inténtalo dentro de %1$s día.</item>
+        <item quantity="many">Límite de Buffer alcanzado. Inténtalo dentro de %1$s días.</item>
+        <item quantity="other">Límite de Buffer alcanzado. Inténtalo dentro de %1$s días.</item>
+    </plurals>
+    <plurals name="widget_count_followers">
+        <item quantity="one">Seguidor</item>
+        <item quantity="many">Seguidores</item>
+        <item quantity="other">Seguidores</item>
+    </plurals>
+</resources>

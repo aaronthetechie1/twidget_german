@@ -2,6 +2,8 @@
 
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
+
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -44,7 +46,7 @@ object ScheduleMediaExporter {
                     is PublicUrlMedia -> saveRemote(context, source.url, source.mimeType, index)
                 }
             }.onSuccess { saved++ }
-                .onFailure { lastError = it.message ?: "Save failed" }
+                .onFailure { lastError = it.message ?: UiMessages.message(UiMessages.Key.ERROR_SAVE_MEDIA) }
         }
         return when {
             saved == 0 -> ScheduleMediaExportOutcome(
@@ -65,7 +67,7 @@ object ScheduleMediaExporter {
 
     private fun saveLocal(context: Context, media: LocalUriMedia, index: Int) {
         val uri = Uri.parse(media.uri)
-        require(uri.scheme == "content") { "Unsupported local media URI" }
+        require(uri.scheme == "content") { UiMessages.message(UiMessages.Key.ERROR_READ_MEDIA) }
         context.contentResolver.openInputStream(uri)?.use { input ->
             val fileName = media.displayName?.takeIf { it.isNotBlank() }
                 ?: defaultFileName(media.mimeType, index)
@@ -75,7 +77,7 @@ object ScheduleMediaExporter {
                 mimeType = media.mimeType ?: "*/*",
                 write = { output -> input.copyTo(output) },
             )
-        } ?: error("Couldn't read saved media")
+        } ?: error(UiMessages.message(UiMessages.Key.ERROR_READ_MEDIA))
     }
 
     private fun saveRemote(
@@ -94,11 +96,11 @@ object ScheduleMediaExporter {
         val code = connection.responseCode
         if (code !in 200..299) {
             connection.disconnect()
-            error("Download HTTP $code")
+            error(UiMessages.message(UiMessages.Key.ERROR_DOWNLOAD_MEDIA))
         }
         if (connection.contentLengthLong > MAX_BYTES) {
             connection.disconnect()
-            error("Media file is too large")
+            error(UiMessages.message(UiMessages.Key.ERROR_MEDIA_LARGE))
         }
         val resolvedMime = mimeType
             ?: connection.contentType?.substringBefore(';')?.trim()
@@ -136,9 +138,9 @@ object ScheduleMediaExporter {
             val target = context.contentResolver.insert(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                 values,
-            ) ?: error("Couldn't create download")
+            ) ?: error(UiMessages.message(UiMessages.Key.ERROR_SAVE_MEDIA))
             context.contentResolver.openOutputStream(target)?.use(write)
-                ?: error("Couldn't write download")
+                ?: error(UiMessages.message(UiMessages.Key.ERROR_SAVE_MEDIA))
         } else {
             @Suppress("DEPRECATION")
             val directory = File(
@@ -146,7 +148,7 @@ object ScheduleMediaExporter {
                 DOWNLOADS_SUBDIR,
             )
             if (!directory.exists() && !directory.mkdirs()) {
-                error("Couldn't create Downloads folder")
+                error(UiMessages.message(UiMessages.Key.ERROR_SAVE_MEDIA))
             }
             File(directory, safeName).outputStream().use(write)
         }
@@ -159,7 +161,7 @@ object ScheduleMediaExporter {
             val read = input.read(buffer)
             if (read < 0) break
             total += read
-            if (total > MAX_BYTES) error("Media file is too large")
+            if (total > MAX_BYTES) error(UiMessages.message(UiMessages.Key.ERROR_MEDIA_LARGE))
             output.write(buffer, 0, read)
         }
     }

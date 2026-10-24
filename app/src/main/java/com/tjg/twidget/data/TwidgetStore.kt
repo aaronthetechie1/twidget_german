@@ -1,5 +1,6 @@
 package com.tjg.twidget.data
 
+import com.tjg.twidget.core.UiMessages
 import android.content.Context
 import android.content.SharedPreferences
 import com.tjg.twidget.R
@@ -585,17 +586,17 @@ object TwidgetStore {
         recoverAccountMigration(context)
         val old = normalizeUsername(oldUsername)
         val next = normalizeUsername(profile.userName)
-        require(next.matches(Regex("[A-Za-z0-9_]{1,15}"))) { "Enter a valid X handle." }
+        require(next.matches(Regex("[A-Za-z0-9_]{1,15}"))) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_INVALID) }
         require(accounts(context).any { it.equals(old, true) } &&
             accountGeneration(context, old) == expectedGeneration &&
-            !prefs(context).getBoolean(removedAccountKey(old), false)) { "The saved account changed. Try again." }
+            !prefs(context).getBoolean(removedAccountKey(old), false)) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_CHANGED) }
         if (old.equals(next, true)) return
         val previous = currentStats(context, old)
         require((previous.userId.isNotBlank() && previous.userId == profile.userId) ||
-            (allowLegacy && previous.userId.isBlank())) { "The new handle belongs to a different X account." }
-        require(profile.syncedAt >= previous.syncedAt) { "The profile lookup is older than your saved data. Try again." }
+            (allowLegacy && previous.userId.isBlank())) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_IDENTITY) }
+        require(profile.syncedAt >= previous.syncedAt) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_STALE) }
         require(statsJson(context, next) == null && historyJson(context, next) == null) {
-            "That handle already has saved data. Your existing accounts have been kept."
+            UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_EXISTS)
         }
         val store = prefs(context)
         AccountHandleMigration.assertDestinationEmpty(context, next)
@@ -781,13 +782,7 @@ object TwidgetStore {
             else -> false
         }
         val locale = AppLocales.applicationLocale()
-        val pattern = when {
-            monthly -> "MMM"
-            locale.language == "de" -> "d. MMM"
-            locale.language == "fr" -> "d MMM"
-            else -> "MMM d"
-        }
-        val labelFormat = SimpleDateFormat(pattern, locale)
+        val skeleton = if (monthly) "MMM" else "MMMd"
         var previousEnd = rangeStart(all, range) - 1
         return bucketEnds(all, range).mapNotNull { end ->
             val bucketStart = previousEnd + 1
@@ -797,7 +792,7 @@ object TwidgetStore {
             val sample = all.lastOrNull { it.timestamp in bucketStart..end && !it.estimated }
                 ?: all.lastOrNull { it.timestamp in bucketStart..end }
                 ?: estimateAt(all, end)
-            sample?.copy(dayLabel = labelFormat.format(Date(sample.timestamp)))
+            sample?.copy(dayLabel = AppLocales.formatDate(sample.timestamp, skeleton, locale))
         }
     }
 
@@ -918,18 +913,18 @@ object TwidgetStore {
     @Synchronized
     fun importFollowerHistory(context: Context, username: String, samples: List<HistorySample>): Int {
         val cleanUsername = normalizeUsername(username)
-        require(cleanUsername.isNotBlank()) { "An account is required." }
+        require(cleanUsername.isNotBlank()) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_CHANGED) }
         require(accounts(context).any { it.equals(cleanUsername, ignoreCase = true) }) {
-            "The selected account is no longer tracked."
+            UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_CHANGED)
         }
         val imported = samples.filter { it.imported && it.followersKnown && !it.estimated }
-        require(imported.isNotEmpty()) { "The import contains no follower history." }
+        require(imported.isNotEmpty()) { UiMessages.message(UiMessages.Key.ERROR_CSV_EMPTY) }
         // A newer import can replace a previous import, while existing
         // live/bridge observations are appended last and always win on overlap.
         val saved = savedHistory(context, cleanUsername)
         val stats = currentStats(context, cleanUsername)
         require(stats.followersKnown && stats.syncedAt >= startOfDay(System.currentTimeMillis())) {
-            "Sync this account today before importing its analytics."
+            UiMessages.message(UiMessages.Key.ERROR_CSV_SYNC)
         }
         XAnalyticsImportPolicy.validate(imported, saved, stats.followersCount)
         val replaceable = saved.filter { it.imported && !it.sharedImport }
@@ -1023,21 +1018,15 @@ object TwidgetStore {
     fun followersDelta(context: Context, username: String = settings(context).username): Long =
         todayDelta(context, username) { it.followers }
 
-    fun compactNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String {
-        val absValue = abs(value)
-        return when {
-            absValue >= 1_000_000 -> "${String.format(locale, "%.1f", value / 1_000_000f)}M"
-            absValue >= 10_000 -> "${value / 1_000}K"
-            else -> NumberFormat.getIntegerInstance(locale).format(value)
-        }
-    }
+    fun compactNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String =
+        AppLocales.compact(value, locale)
 
     fun signedNumber(value: Long, locale: Locale = AppLocales.applicationLocale()): String =
         if (value > 0) "+${compactNumber(value, locale)}" else compactNumber(value, locale)
 
     fun lastSyncedText(context: Context, stats: ProfileStats = currentStats(context)): String {
         if (stats.syncedAt <= 0L) return context.getString(R.string.not_synced_yet)
-        val formatterDate = AppLocales.formatDate(stats.syncedAt, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm")
+        val formatterDate = AppLocales.formatDate(stats.syncedAt, "MMMdjm")
         return context.getString(R.string.last_synced, formatterDate)
     }
 
@@ -1101,7 +1090,7 @@ object TwidgetStore {
 
     private fun sampleFor(stats: ProfileStats): HistorySample =
         HistorySample(
-            dayLabel = AppLocales.formatDate(stats.syncedAt, "d. MMM", "MMM d", "d MMM"),
+            dayLabel = AppLocales.formatDate(stats.syncedAt, "MMMd"),
             followers = stats.followersCount,
             following = stats.followingsCount,
             posts = stats.statusesCount,
@@ -1311,20 +1300,12 @@ object TwidgetStore {
     )
 
     private fun demoHistory(): List<HistorySample> {
-        val formatter = SimpleDateFormat(
-            when (AppLocales.applicationLocale().language) {
-                "de" -> "d. MMM"
-                "fr" -> "d MMM"
-                else -> "MMM d"
-            },
-            AppLocales.applicationLocale(),
-        )
         val today = startOfDay(System.currentTimeMillis())
         val followerGains = listOf(25L, 40L, 30L, 38L, 22L, 52L, 109L)
         return followerGains.indices.map { index ->
             val timestamp = today - (followerGains.lastIndex - index) * DAY_MILLIS
             HistorySample(
-                dayLabel = formatter.format(Date(timestamp)),
+                dayLabel = AppLocales.formatDate(timestamp),
                 followers = 7_371L + followerGains.take(index + 1).sum(),
                 following = 300L + index,
                 posts = 2_080L + index * 4L,

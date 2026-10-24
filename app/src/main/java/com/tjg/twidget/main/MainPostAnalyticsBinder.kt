@@ -51,7 +51,7 @@ internal class MainPostAnalyticsBinder(
                     scanning -> postAnalyticsShell(
                         activity.getString(R.string.finding_banger),
                         BangerScanWorker.postsScanned(activity, account).takeIf { it > 0 }
-                            ?.let { activity.getString(R.string.banger_scanning_progress, NumberFormat.getIntegerInstance().format(it)) }
+                            ?.let { activity.getString(R.string.banger_scanning_progress, NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(it)) }
                             ?: activity.getString(R.string.banger_scanning),
                         null,
                     )
@@ -308,7 +308,7 @@ internal class MainPostAnalyticsBinder(
 
     private fun postDate(post: PostSummary): String =
         if (post.timestamp > 0L) {
-            AppLocales.formatDate(post.timestamp, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm")
+            AppLocales.formatDate(post.timestamp, "MMMdjm")
         } else {
             post.createdAt
         }

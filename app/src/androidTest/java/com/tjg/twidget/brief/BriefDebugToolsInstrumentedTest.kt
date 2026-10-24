@@ -76,7 +76,7 @@ class BriefDebugToolsInstrumentedTest {
         }
         val provider = BriefSettingsStore.provider(context)
         val key = BriefSettingsStore.cloudApiKey(context)
-        for ((scenario, _) in BriefReviewDebugFixtures.scenarios) {
+        for ((scenario, _) in BriefReviewDebugFixtures.scenarios(context)) {
             val state = BriefReviewDebugFixtures.state(context, scenario)
             if (scenario.startsWith("error_")) {
                 assertEquals(BriefReviewPhase.FAILED, state.phase)
@@ -102,7 +102,7 @@ class BriefDebugToolsInstrumentedTest {
         assertEquals(before, BriefPublishedReviewStore.posts(context, username, 100).associate { post ->
             post.url to BriefPublishedReviewStore.read(context, BriefReviewTarget(username, postUrl = post.url))?.savedAt
         })
-        assertFalse(BriefReviewDebug.checks().contains("FAIL"))
+        assertFalse(BriefReviewDebug.checks(context).contains(context.getString(R.string.l10n_debug_fail)))
     }
 
     @Test fun reviewAttemptLogPersistsOnlyMetadataAndStopsWhenDebugIsLocked() = withDebug {

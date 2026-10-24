@@ -4,6 +4,16 @@ All notable changes to Twidget are documented here.
 
 ## [Unreleased]
 
+- Preserve regional number and date conventions when choosing an app or widget
+  language, including local compact counts, date order and calendar weekdays.
+  Let translated Brief and onboarding buttons wrap and grow to fit their labels.
+
+- Let users skip optional notification and alarm permissions during onboarding.
+
+- Complete localisation of follower artwork, goals, dates, number formatting,
+  scheduling and import errors, and developer diagnostics. Add Spanish review
+  validation and complete French and Spanish plural forms.
+
 - Add Spanish localisation for the app, widgets, Your Brief and tweet reviews.
 
 - Report the selected default public profile separately from tracked accounts

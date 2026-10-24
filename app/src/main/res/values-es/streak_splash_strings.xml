@@ -2,6 +2,7 @@
 <resources>
     <plurals name="streak_days">
         <item quantity="one">%1$d día</item>
+        <item quantity="many">%1$d días</item>
         <item quantity="other">%1$d días</item>
     </plurals>
     <string name="streak_safe_until_tomorrow">Tu racha está a salvo hasta mañana</string>

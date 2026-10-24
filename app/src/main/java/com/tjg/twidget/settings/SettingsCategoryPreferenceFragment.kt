@@ -1,5 +1,6 @@
 package com.tjg.twidget.settings
 
+import com.tjg.twidget.core.UiMessages
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -430,7 +431,7 @@ class SettingsCategoryPreferenceFragment : InsetPreferenceFragment() {
                                 buildScreen()
                             } else {
                                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
-                                input.error = result.exceptionOrNull()?.message ?: getString(R.string.sync_failed)
+                                input.error = UiMessages.resolve(requireContext(), result.exceptionOrNull()?.message, R.string.sync_failed)
                             }
                         }
                     }

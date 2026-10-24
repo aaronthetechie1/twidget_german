@@ -333,8 +333,8 @@ object BriefEngine {
     }
 
     private fun standoutPostBody(post: PostSummary, strings: BriefStrings): String {
-        val views = TwidgetStore.compactNumber(post.views)
-        val likes = TwidgetStore.compactNumber(post.likes)
+        val views = strings.compactNumber(post.views)
+        val likes = strings.compactNumber(post.likes)
         return when {
             post.views > 0 && post.likes > 0 -> strings.text(R.string.brief_card_post_views_likes, views, likes)
             post.views > 0 -> strings.text(R.string.brief_card_post_views, views)

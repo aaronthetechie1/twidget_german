@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.AppCompatButton xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/dashboard_view_report"
-    style="@style/OneUI.ContainedButton"
+    style="@style/Twidget.WrappingButton"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:minWidth="0dp"

@@ -5,8 +5,6 @@ import androidx.annotation.StringRes
 import com.tjg.twidget.R
 import com.tjg.twidget.data.TwidgetStore
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,7 +32,7 @@ data class BriefEngineReport(
     fun asText(context: Context): String = buildString {
         appendLine(context.getString(R.string.brief_debug_report_title))
         appendLine(context.getString(R.string.brief_debug_report_account, username))
-        appendLine(context.getString(R.string.brief_debug_report_generated, date(generatedAt)))
+        appendLine(context.getString(R.string.brief_debug_report_generated, date(generatedAt, context)))
         appendLine()
         appendLine(context.getString(R.string.brief_debug_report_input_facts))
         appendLine(context.getString(R.string.brief_debug_report_followers, number(followers)))
@@ -47,7 +45,7 @@ data class BriefEngineReport(
         appendLine(context.getString(R.string.brief_debug_report_standout_post_views, standoutPostViews?.let(::number) ?: context.getString(R.string.brief_debug_report_none)))
         appendLine(context.getString(R.string.brief_debug_report_quiet_post_views, quietPostViews?.let(::number) ?: context.getString(R.string.brief_debug_report_none)))
         appendLine(context.getString(R.string.brief_debug_report_posting_streak, postingStreak))
-        appendLine(context.getString(R.string.brief_debug_report_original_activity_complete, originalActivityComplete))
+        appendLine(context.getString(R.string.brief_debug_report_original_activity_complete, context.getString(if (originalActivityComplete) R.string.l10n_debug_yes else R.string.l10n_debug_no)))
         appendLine(context.getString(R.string.brief_debug_report_upcoming_tweets, upcomingTweets))
         appendLine(context.getString(R.string.brief_debug_report_follower_scan_completed_at, dateOrMissing(followerScanCompletedAt, context)))
         appendLine(context.getString(R.string.brief_debug_report_followers_scanned, followersScanned))
@@ -64,12 +62,12 @@ data class BriefEngineReport(
     }.trimEnd()
 
     companion object {
-        private fun number(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+        private fun number(value: Long): String = NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(value)
         private fun signed(value: Long): String = if (value > 0) "+${number(value)}" else number(value)
-        private fun date(value: Long): String =
-            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(value))
+        private fun date(value: Long, context: Context): String =
+            com.tjg.twidget.core.AppLocales.dateTime(context, value)
         private fun dateOrMissing(value: Long, context: Context): String =
-            if (value > 0L) date(value) else context.getString(R.string.brief_debug_report_none)
+            if (value > 0L) date(value, context) else context.getString(R.string.brief_debug_report_none)
     }
 }
 

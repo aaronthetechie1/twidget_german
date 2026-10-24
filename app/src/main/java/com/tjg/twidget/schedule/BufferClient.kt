@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import com.tjg.twidget.core.json
 
 import android.content.Context
@@ -140,21 +141,21 @@ class BufferClient(
     fun updatePost(post: ScheduledPost): BufferResult<String> = mutatePost(post, true, false)
 
     fun deletePost(remotePostId: String): BufferResult<String> {
-        if (remotePostId.isBlank()) return failure("A Buffer post ID is required")
+        if (remotePostId.isBlank()) return failure(UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST))
         return execute(
             DELETE_MUTATION,
             JSONObject().put("input", JSONObject().put("id", remotePostId)),
         ) { data ->
             val payload = data.getJSONObject("deletePost")
             payload.optString("id").takeIf(String::isNotBlank)
-                ?: error(payload.optString("message").ifBlank { "Buffer could not delete the post" })
+                ?: error(payload.optString("message").ifBlank { UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST) })
         }
     }
 
     private fun mutatePost(post: ScheduledPost, update: Boolean, saveToDraft: Boolean): BufferResult<String> = runCatching {
-        require(post.provider == ScheduleProvider.BUFFER) { "Post must use the Buffer provider" }
-        require(post.accountUsername.isNotBlank()) { "Choose a Buffer X channel" }
-        requireNotNull(post.scheduledAt) { "A scheduled time is required" }
+        require(post.provider == ScheduleProvider.BUFFER) { UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST) }
+        require(post.accountUsername.isNotBlank()) { UiMessages.message(UiMessages.Key.ERROR_BUFFER_CHANNEL) }
+        requireNotNull(post.scheduledAt) { UiMessages.message(UiMessages.Key.ERROR_BUFFER_TIME) }
         val input = if (update) {
             BufferGraphQlCodec.editPostInput(post, saveToDraft)
         } else {
@@ -164,9 +165,9 @@ class BufferClient(
         execute(operation, JSONObject().put("input", input)) { data ->
             val payload = data.getJSONObject(if (update) "editPost" else "createPost")
             payload.optJSONObject("post")?.optString("id")?.takeIf(String::isNotBlank)
-                ?: error(payload.optString("message").ifBlank { "Buffer could not save the post" })
+                ?: error(payload.optString("message").ifBlank { UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST) })
         }
-    }.getOrElse { failure(it.message ?: "Buffer request failed") }
+    }.getOrElse { failure(it.message ?: UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST)) }
 
     private fun <T> execute(
         query: String,
@@ -188,16 +189,16 @@ class BufferClient(
         )
         BufferRequestThrottle.observe(appContext, response)
         if (response.code == 429) {
-            error(BufferRequestThrottle.blockingMessage(appContext) ?: "Buffer request limit reached. Try again later.")
+            error(BufferRequestThrottle.blockingMessage(appContext) ?: UiMessages.message(UiMessages.Key.ERROR_BUFFER_LIMIT))
         }
         val root = runCatching { JSONObject(response.body) }.getOrElse { JSONObject() }
         if (response.code !in 200..299) {
-            error(root.firstError() ?: "Buffer HTTP ${response.code}")
+            error(root.firstError() ?: UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST))
         }
         root.firstError()?.let { error(it) }
         BufferResult(parser(root.getJSONObject("data")))
     } catch (error: Exception) {
-        failure(error.message ?: "Buffer request failed")
+        failure(error.message ?: UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST))
     }
 
     private fun <T> failure(message: String): BufferResult<T> = BufferResult(errors = listOf(BufferError(message)))
@@ -231,11 +232,11 @@ internal object BufferGraphQlCodec {
     fun editPostInput(post: ScheduledPost, saveToDraft: Boolean): JSONObject =
         contentInput(post, saveToDraft).put(
             "id",
-            requireNotNull(post.remotePostId) { "A Buffer post ID is required" },
+            requireNotNull(post.remotePostId) { UiMessages.message(UiMessages.Key.ERROR_BUFFER_REQUEST) },
         )
 
     private fun contentInput(post: ScheduledPost, saveToDraft: Boolean): JSONObject {
-        val first = post.thread.firstOrNull() ?: error("At least one thread item is required")
+        val first = post.thread.firstOrNull() ?: error(UiMessages.message(UiMessages.Key.ERROR_EMPTY_THREAD))
         val input = JSONObject()
             .put("text", first.text)
             .put("schedulingType", "automatic")
@@ -259,7 +260,7 @@ internal object BufferGraphQlCodec {
     private fun ScheduleThreadItem.assetsJson(): JSONArray = JSONArray().apply {
         media.forEach { source ->
             val url = (source as? PublicUrlMedia)?.url
-                ?: error("Buffer media must use a public URL")
+                ?: error(UiMessages.message(UiMessages.Key.ERROR_READ_MEDIA))
             val kind = if (source.mimeType?.startsWith("video/", ignoreCase = true) == true) "video" else "image"
             put(JSONObject().put(kind, JSONObject().put("url", url)))
         }

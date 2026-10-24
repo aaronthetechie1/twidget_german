@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="l10n_error_unknown">Se ha producido un error. Inténtalo de nuevo.</string>
+    <string name="l10n_error_empty_thread">El hilo debe contener al menos una publicación.</string>
+    <string name="l10n_error_empty_item">Una publicación del hilo debe contener texto o contenido multimedia.</string>
+    <string name="l10n_error_text_limit">El texto debe tener como máximo %1$s caracteres.</string>
+    <string name="l10n_error_media_limit">Una publicación puede contener como máximo %1$s archivos adjuntos.</string>
+    <string name="l10n_error_future_time">La hora programada debe ser futura.</string>
+    <string name="l10n_error_schedule_failed">No se pudo programar. Inténtalo de nuevo.</string>
+    <string name="l10n_error_reminder_failed">No se pudo programar el recordatorio. Comprueba los permisos de las alarmas.</string>
+    <string name="l10n_error_buffer_request">Buffer no pudo completar la solicitud. Inténtalo de nuevo.</string>
+    <string name="l10n_error_buffer_channel">Elige un canal de X en Buffer.</string>
+    <string name="l10n_error_buffer_time">Debes elegir una hora de programación.</string>
+    <string name="l10n_error_buffer_connect">Conecta Buffer en los ajustes de programación.</string>
+    <string name="l10n_error_buffer_login">No se pudo iniciar sesión en Buffer. Inténtalo de nuevo.</string>
+    <string name="l10n_error_buffer_verify">No se pudo verificar el inicio de sesión en Buffer. Inténtalo de nuevo.</string>
+    <string name="l10n_error_buffer_config">El inicio de sesión en Buffer no está configurado en esta versión.</string>
+    <string name="l10n_error_buffer_limit">Se alcanzó el límite de solicitudes de Buffer. Inténtalo más tarde.</string>
+    <string name="l10n_error_cloudinary_config">Añade el nombre de tu nube de Cloudinary y el ajuste de subida en los ajustes de Buffer para adjuntar contenido del dispositivo.</string>
+    <string name="l10n_error_upload">No se pudo subir el contenido a Cloudinary. Comprueba la conexión y los ajustes de subida.</string>
+    <string name="l10n_error_read_media">No se pudo leer el contenido seleccionado.</string>
+    <string name="l10n_error_media_large">El archivo multimedia es demasiado grande.</string>
+    <string name="l10n_error_save_media">No se pudo guardar el contenido. Comprueba el acceso al almacenamiento e inténtalo de nuevo.</string>
+    <string name="l10n_error_download_media">No se pudo descargar el contenido. Comprueba tu conexión.</string>
+    <string name="l10n_error_csv_anchor">La cuenta seleccionada aún no tiene un recuento de seguidores utilizable.</string>
+    <string name="l10n_error_csv_empty">El archivo no contiene filas de estadísticas.</string>
+    <string name="l10n_error_csv_column">Falta la columna %1$s.</string>
+    <string name="l10n_error_csv_row">La fila %1$s está incompleta o contiene un valor no válido en %2$s.</string>
+    <string name="l10n_error_csv_year">La exportación contiene más de un año de datos.</string>
+    <string name="l10n_error_csv_duplicate">La exportación contiene fechas duplicadas.</string>
+    <string name="l10n_error_csv_invalid">No se pudo leer el archivo de estadísticas. Comprueba sus columnas y valores.</string>
+    <string name="l10n_error_account_changed">La cuenta guardada ha cambiado. Inténtalo de nuevo.</string>
+    <string name="l10n_error_account_identity">El nuevo nombre de usuario pertenece a otra cuenta de X.</string>
+    <string name="l10n_error_account_stale">La consulta del perfil es anterior a tus datos guardados. Inténtalo de nuevo.</string>
+    <string name="l10n_error_account_exists">Ese nombre de usuario ya tiene datos guardados. Se han conservado tus cuentas existentes.</string>
+    <string name="l10n_error_account_invalid">Introduce un nombre de usuario de X válido.</string>
+    <string name="l10n_error_account_save">No se pudieron guardar los datos de la cuenta. Reinicia la app para recuperarlos de forma segura.</string>
+    <string name="l10n_buffer_connected_message">Buffer conectado</string>
+    <string name="l10n_buffer_retry_wait">Se alcanzó el límite de solicitudes de Buffer. Inténtalo de nuevo dentro de %1$s.</string>
+    <string name="l10n_widget_followers_of">de seguidores</string>
+    <string name="l10n_import_localized_range">Del %1$s al %2$s</string>
+    <string name="l10n_error_csv_inconsistent">La fila %1$s indica %2$s interacciones, menos que sus %3$s acciones de interacción visibles.</string>
+    <string name="l10n_error_csv_gap">La exportación tiene un intervalo sin datos entre %1$s y %2$s.</string>
+    <string name="l10n_error_csv_size">El archivo de estadísticas es demasiado grande. El límite es de %1$s caracteres.</string>
+    <string name="l10n_error_csv_quotes">El archivo contiene un valor entre comillas sin cerrar.</string>
+</resources>
