@@ -2,6 +2,8 @@ package com.tjg.twidget.brief
 
 import android.view.ViewGroup
 import android.animation.ArgbEvaluator
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
@@ -389,28 +391,42 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val runnable = object : Runnable {
             override fun run() {
                 if (loadingStatusRunnable !== this) return
+                val currentRunnable = this
                 val message = getString(messageIds[loadingStatusIndex % messageIds.size])
                 loadingStatusIndex += 1
                 statusView.animate().cancel()
                 if (ValueAnimator.areAnimatorsEnabled() && statusView.alpha > 0f) {
-                    statusView.animate()
-                        .alpha(0f)
-                        .translationY(-offset)
-                        .setDuration(220L)
-                        .setInterpolator(loadingStatusDisappearInterpolator)
-                        .withEndAction {
-                            if (loadingStatusRunnable !== this) return@withEndAction
-                            statusView.text = message
-                            statusView.alpha = 0f
-                            statusView.translationY = offset
-                            statusView.animate()
-                                .alpha(1f)
-                                .translationY(0f)
-                                .setDuration(420L)
-                                .setInterpolator(loadingStatusAppearInterpolator)
-                                .start()
-                        }
-                        .start()
+                    val fadeOut = ObjectAnimator.ofFloat(statusView, View.ALPHA, statusView.alpha, 0f).apply {
+                        duration = 170L
+                        interpolator = loadingStatusAppearInterpolator
+                    }
+                    val moveOut = ObjectAnimator.ofFloat(
+                        statusView,
+                        View.TRANSLATION_Y,
+                        statusView.translationY,
+                        -offset,
+                    ).apply {
+                        duration = 280L
+                        interpolator = loadingStatusDisappearInterpolator
+                    }
+                    AnimatorSet().apply {
+                        playTogether(fadeOut, moveOut)
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                if (loadingStatusRunnable !== currentRunnable) return
+                                statusView.text = message
+                                statusView.alpha = 0f
+                                statusView.translationY = offset
+                                statusView.animate()
+                                    .alpha(1f)
+                                    .translationY(0f)
+                                    .setDuration(420L)
+                                    .setInterpolator(loadingStatusAppearInterpolator)
+                                    .start()
+                            }
+                        })
+                        start()
+                    }
                 } else {
                     statusView.text = message
                     statusView.alpha = 1f
