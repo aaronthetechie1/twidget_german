@@ -338,7 +338,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun showRememberedPresentation(presentation: BriefPresentation) {
         visiblePresentation = presentation
-        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title).showStaticText(presentation.title)
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+            .showStaticText(getString(R.string.brief_summary_title_week))
         findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body).showStaticText(presentation.body)
         findViewById<LinearLayout>(R.id.brief_cards).removeAllViews()
         entranceSections = emptyList()
@@ -582,7 +583,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         renderedSnapshot = snapshot
         visiblePresentation = BriefStore.presentation(this, username, snapshot)
         val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(this))
-        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title).showStaticText(summary.title)
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+            .showStaticText(getString(R.string.brief_summary_title_week))
         findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body).showStaticText(summary.body)
         val columns = configureResponsiveLayout()
         val container = findViewById<LinearLayout>(R.id.brief_cards)
