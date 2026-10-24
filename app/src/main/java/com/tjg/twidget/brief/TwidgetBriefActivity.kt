@@ -377,15 +377,21 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             startLoadingStatusRotation()
         } else if (showBrief && loadingContainer.visibility == View.VISIBLE && ValueAnimator.areAnimatorsEnabled()) {
             val offset = 12f * resources.displayMetrics.density
+            val loadingStatus = findViewById<TextView>(R.id.brief_loading_status)
             scroll.visibility = View.VISIBLE
             scroll.alpha = 0f
             scroll.translationY = offset
             stopLoadingStatusRotation(resetView = false)
+            loadingStatus.animate()
+                .alpha(0f)
+                .setDuration(300L)
+                .setInterpolator(loadingStatusDisappearInterpolator)
+                .start()
             loadingAnimation.cancelAnimation()
             loadingContainer.animate()
                 .alpha(0f)
                 .translationY(-offset)
-                .setDuration(240L)
+                .setDuration(320L)
                 .setInterpolator(loadingStatusDisappearInterpolator)
                 .withEndAction {
                     loadingContainer.visibility = View.GONE
