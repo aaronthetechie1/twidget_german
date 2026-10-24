@@ -355,7 +355,7 @@ class BriefCoachAiTest {
     }
 
     @Test fun `all UI locales supply complete coaching copy with correct argument formats`() {
-        for (locale in listOf(Locale.US, Locale.GERMAN, Locale.FRENCH)) {
+        for (locale in listOf(Locale.US, Locale.GERMAN, Locale.FRENCH, Locale.forLanguageTag("es"))) {
             val copy = TestBriefStrings(locale)
             assertFalse(copy.text(com.tjg.twidget.R.string.coach_ai_auto_note).isBlank())
             assertFalse(copy.text(com.tjg.twidget.R.string.coach_ai_quote, text).isBlank())

@@ -22,7 +22,12 @@ cd "$(dirname "$0")/.."
 res=app/src/main/res
 default_dir=$res/values
 target_dir=$res/values-$qualifier
-translatable_files=(strings settings_strings milestone_strings streak_splash_strings top_followers_browser_strings)
+translatable_files=()
+for resource_file in "$default_dir"/*.xml; do
+    if grep -q -E '^[[:space:]]*<(string|plurals) name="' "$resource_file"; then
+        translatable_files+=("$(basename "$resource_file" .xml)")
+    fi
+done
 
 # Prints the resource names of every translatable <string> and <plurals>
 # element in the given files. Non-translatable strings are excluded.

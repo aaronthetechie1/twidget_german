@@ -2,8 +2,9 @@
 
 Thanks for wanting to bring Twidget to your language. Translations are plain
 Android XML files edited in a fork and submitted through GitHub; there is no
-hosted translation platform. Twidget currently ships in **English** (the
-default) and **German** (`values-de`, contributed by Aaron the Techie).
+hosted translation platform. Twidget ships in **English** (the default), **German** (`values-de`,
+contributed by Aaron the Techie), **French** (`values-fr`) and **Spanish**
+(`values-es`, contributed by Wigetta).
 
 ## Quick start
 
@@ -35,13 +36,18 @@ maintainer will do the wiring.
 ## Step 1: create the language folder
 
 `scripts/translations.sh init <qualifier>` creates
-`app/src/main/res/values-<qualifier>/` containing copies of the four English
+`app/src/main/res/values-<qualifier>/` containing copies of the English
 files that hold user-facing text, with non-translatable strings (URLs, brand
 names, and format-only templates) already stripped out:
 
 | File | What it covers |
 | --- | --- |
-| `strings.xml` | Almost everything: dashboard, settings, widgets, Brief, scheduling, About |
+| `strings.xml` | Dashboard, settings, widgets, Brief, scheduling, About |
+| `settings_strings.xml` | Settings categories and navigation |
+| `brief_coach_strings.xml` | Tweet assistant and AI feedback |
+| `brief_goal_strings.xml` | Brief goal cards |
+| `brief_review_strings.xml` | Tweet and draft reviews |
+| `brief_review_preview_strings.xml` | Review previews and relative times |
 | `milestone_strings.xml` | Follower milestone cards and notifications |
 | `streak_splash_strings.xml` | Streak splash screen |
 | `top_followers_browser_strings.xml` | Top Followers browser |
@@ -61,7 +67,7 @@ enough that speakers of the other variant would object; a plain code serves
 every region of that language.
 
 The script needs Bash (macOS, Linux, Git Bash, or WSL on Windows). Without
-it, copy the four files by hand and delete every line containing
+it, copy these files by hand and delete every line containing
 `translatable="false"`.
 
 ## Step 2: translate the strings
