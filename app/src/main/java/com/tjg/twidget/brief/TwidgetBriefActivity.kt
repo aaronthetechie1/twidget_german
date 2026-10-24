@@ -416,7 +416,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     statusView.alpha = 1f
                     statusView.translationY = 0f
                 }
-                statusView.postDelayed(this, 2_800L)
+                statusView.postDelayed(this, 2_400L)
             }
         }
         loadingStatusRunnable = runnable
