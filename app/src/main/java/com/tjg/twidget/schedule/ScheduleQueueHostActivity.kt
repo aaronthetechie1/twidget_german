@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -59,7 +60,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Date
@@ -416,7 +416,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                         showFeedback(
                             getString(
                                 R.string.schedule_sync_failed,
-                                result.errors.firstOrNull() ?: getString(R.string.schedule_unknown_error),
+                                UiMessages.resolve(this@ScheduleQueueHostActivity, result.errors.firstOrNull(), R.string.schedule_unknown_error),
                             ),
                         ) { syncBufferQueue(userInitiated = true) }
                     }
@@ -591,7 +591,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             changeCalendarMonth(-1)
         }.apply { contentDescription = getString(R.string.schedule_previous_month) })
         addView(TextView(this@ScheduleQueueHostActivity).apply {
-            text = calendarMonth.format(DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())).uppercase(Locale.getDefault())
+            text = calendarMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, AppLocales.applicationLocale()).uppercase(AppLocales.applicationLocale())
             gravity = Gravity.CENTER
             textSize = 18f
             typeface = TwidgetFonts.forApp(context, 700)
@@ -606,7 +606,8 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         columnCount = 7
         setPadding(scheduleDp(8), scheduleDp(4), scheduleDp(8), scheduleDp(12))
         val firstDay = calendarMonth.atDay(1)
-        val leadingDays = (firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
+        val weekStart = AppLocales.firstDayOfWeek()
+        val leadingDays = (firstDay.dayOfWeek.value - weekStart.value + 7) % 7
         val rowCount = (leadingDays + calendarMonth.lengthOfMonth() + 6) / 7
         val viewportHeight = (scroll.height - scroll.paddingBottom).takeIf { it > 0 }
             ?: (resources.displayMetrics.heightPixels - scheduleDp(220))
@@ -621,9 +622,9 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             gridPadding + weekHeaderHeight + rowMargins + dayHeight * rowCount,
         )
-        DayOfWeek.entries.forEachIndexed { column, day ->
+        List(7) { weekStart.plus(it.toLong()) }.forEachIndexed { column, day ->
             addView(TextView(this@ScheduleQueueHostActivity).apply {
-                text = day.getDisplayName(TextStyle.NARROW, Locale.getDefault())
+                text = day.getDisplayName(TextStyle.NARROW, AppLocales.applicationLocale())
                 gravity = Gravity.CENTER
                 textSize = 12f
                 typeface = TwidgetFonts.forApp(context, 700)
@@ -654,7 +655,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
         bindCalendarCellGestures(this, date, posts)
         if (date == null) return@apply
         addView(TextView(this@ScheduleQueueHostActivity).apply {
-            text = date.dayOfMonth.toString()
+            text = AppLocales.integer(date.dayOfMonth.toLong())
             textSize = 14f
             typeface = TwidgetFonts.forApp(context, if (date == LocalDate.now()) 700 else 600)
             setTextColor(ContextCompat.getColor(
@@ -809,7 +810,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
             }
         }
         post.errorMessage?.takeIf(String::isNotBlank)?.let {
-            addView(metaText(getString(R.string.schedule_error_detail, it)).apply {
+            addView(metaText(getString(R.string.schedule_error_detail, UiMessages.resolve(this@ScheduleQueueHostActivity, it, R.string.schedule_unknown_error))).apply {
                 setTextColor(ContextCompat.getColor(context, R.color.metric_red))
                 setPadding(0, scheduleDp(12), 0, 0)
             })
@@ -1249,26 +1250,8 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     }
 
     private fun queueDateTitle(value: Long?): String = value?.let {
-        val locale = AppLocales.applicationLocale()
-        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
-        if (locale.language == "de") {
-            date.format(DateTimeFormatter.ofPattern("EEE, d. MMMM yyyy 'um' HH:mm", locale))
-        } else if (locale.language == "fr") {
-            date.format(DateTimeFormatter.ofPattern("EEE d MMMM yyyy 'à' HH:mm", locale))
-        } else {
-            val weekdayAndMonth = date.format(DateTimeFormatter.ofPattern("EEE, MMMM", locale))
-            val time = date.format(DateTimeFormatter.ofPattern("h:mm a", locale))
-            "$weekdayAndMonth ${date.dayOfMonth}${ordinalSuffix(date.dayOfMonth)}, ${date.year} at $time"
-        }
+        AppLocales.dateTime(this, it)
     } ?: getString(R.string.schedule_no_time)
-
-    private fun ordinalSuffix(day: Int): String = when {
-        day % 100 in 11..13 -> "th"
-        day % 10 == 1 -> "st"
-        day % 10 == 2 -> "nd"
-        day % 10 == 3 -> "rd"
-        else -> "th"
-    }
 
     private fun duplicate(post: ScheduledPost) {
         val duplicate = createDuplicate(post)
@@ -1601,11 +1584,11 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
                 if (outcome.detail.isNullOrBlank()) {
                     getString(R.string.schedule_media_saved, outcome.savedCount)
                 } else {
-                    getString(R.string.schedule_media_saved_partial, outcome.savedCount, outcome.detail)
+                    getString(R.string.schedule_media_saved_partial, outcome.savedCount, UiMessages.resolve(this@ScheduleQueueHostActivity, outcome.detail, R.string.schedule_media_save_failed))
                 }
             }
             ScheduleMediaExportResult.NOTHING_TO_SAVE -> getString(R.string.schedule_media_nothing_to_save)
-            ScheduleMediaExportResult.FAILED -> outcome.detail ?: getString(R.string.schedule_media_save_failed)
+            ScheduleMediaExportResult.FAILED -> UiMessages.resolve(this@ScheduleQueueHostActivity, outcome.detail, R.string.schedule_media_save_failed)
         }
         // Retrying partial success would save already-downloaded files again.
         showFeedback(message, retry.takeIf { outcome.result == ScheduleMediaExportResult.FAILED })
@@ -1628,7 +1611,7 @@ abstract class ScheduleQueueHostActivity : FoldablePopOverActivity() {
     private fun showErrors(errors: List<String>) {
         AlertDialog.Builder(this)
             .setTitle(R.string.schedule_error_title)
-            .setMessage(errors.filter(String::isNotBlank).joinToString("\n"))
+            .setMessage(errors.filter(String::isNotBlank).joinToString("\n") { UiMessages.resolve(this@ScheduleQueueHostActivity, it, R.string.schedule_unknown_error) })
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }

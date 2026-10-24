@@ -68,7 +68,12 @@ internal class MilestoneCardBinder(
         edit.visibility = View.VISIBLE
 
         val target = formatValue(settings.metric, settings.target)
-        val noun = metricNoun(settings.metric)
+        val noun = activity.resources.getQuantityString(when (settings.metric) {
+            MilestoneMetric.FOLLOWERS -> R.plurals.goal_noun_followers
+            MilestoneMetric.VERIFIED_FOLLOWERS -> R.plurals.goal_noun_verified
+            MilestoneMetric.ENGAGEMENT_RATE -> R.plurals.goal_noun_engagement
+            MilestoneMetric.IMPRESSIONS -> R.plurals.goal_noun_impressions
+        }, if (settings.target == 1.0) 1 else 2)
         val message = MilestoneCopyFactory.message(activity, account, state, progress, target, noun)
         root.findViewById<TextView>(R.id.milestone_title).text = message.title
         root.findViewById<TextView>(R.id.milestone_message).text =
@@ -106,15 +111,8 @@ internal class MilestoneCardBinder(
         if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "${(target * 100).toInt()}%"
         } else {
-            NumberFormat.getIntegerInstance(Locale.getDefault()).format(target.toLong())
+            NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(target.toLong())
         }
-
-    private fun metricNoun(metric: MilestoneMetric): String = when (metric) {
-        MilestoneMetric.FOLLOWERS -> "follower"
-        MilestoneMetric.VERIFIED_FOLLOWERS -> "verified follower"
-        MilestoneMetric.ENGAGEMENT_RATE -> "engagement rate"
-        MilestoneMetric.IMPRESSIONS -> "impression"
-    }
 
     private companion object {
         const val DARK_GLOW_STRENGTH = 0.30f

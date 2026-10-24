@@ -139,7 +139,7 @@ internal object MilestoneGoalDialog {
         if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "${(value * 100).toInt()}%"
         } else {
-            NumberFormat.getIntegerInstance(Locale.getDefault()).format(value.toLong())
+            NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(value.toLong())
         }
 
     internal fun targetToPickerValue(metric: MilestoneMetric, target: Double): Int =
@@ -156,7 +156,7 @@ internal object MilestoneGoalDialog {
         if (metric == MilestoneMetric.ENGAGEMENT_RATE) {
             "$value%"
         } else {
-            NumberFormat.getIntegerInstance(Locale.getDefault()).format(value)
+            NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(value)
         }
 
     private fun pickerMaximum(metric: MilestoneMetric): Int =

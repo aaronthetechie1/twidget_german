@@ -1,5 +1,7 @@
 package com.tjg.twidget.analytics
 
+import com.tjg.twidget.core.AppLocales
+import com.tjg.twidget.core.UiMessages
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -222,7 +224,7 @@ class AnalyticsImportActivity : EdgeToEdgeActivity() {
             else -> if (bridge != null || error !is IllegalArgumentException) {
                 getString(R.string.import_failure_default)
             } else {
-                error.message?.takeIf { it.isNotBlank() } ?: getString(R.string.import_failure_default)
+                UiMessages.resolve(this, error.message, R.string.l10n_error_csv_invalid)
             }
         }
         findViewById<TextView>(R.id.import_failure_help).text = getString(when (code) {
@@ -346,22 +348,11 @@ class AnalyticsImportActivity : EdgeToEdgeActivity() {
     }
 
     private fun formatRange(first: LocalDate, last: LocalDate): String =
-        "${formatDate(first)} to ${formatDate(last)}"
+        getString(R.string.l10n_import_localized_range, formatDate(first), formatDate(last))
 
-    private fun formatDate(date: LocalDate): String {
-        val month = date.month.getDisplayName(TextStyle.FULL, Locale.UK)
-        return "${date.dayOfMonth}${ordinal(date.dayOfMonth)} $month, ${date.year}"
-    }
+    private fun formatDate(date: LocalDate): String = AppLocales.date(date)
 
-    private fun ordinal(day: Int): String = when {
-        day in 11..13 -> "th"
-        day % 10 == 1 -> "st"
-        day % 10 == 2 -> "nd"
-        day % 10 == 3 -> "rd"
-        else -> "th"
-    }
-
-    private fun formatCount(value: Long): String = NumberFormat.getIntegerInstance(Locale.US).format(value)
+    private fun formatCount(value: Long): String = NumberFormat.getIntegerInstance(AppLocales.applicationLocale()).format(value)
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {

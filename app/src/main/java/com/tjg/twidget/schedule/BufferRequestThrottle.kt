@@ -2,6 +2,7 @@ package com.tjg.twidget.schedule
 
 import android.content.Context
 import com.tjg.twidget.core.HttpTransport
+import com.tjg.twidget.core.UiMessages
 
 internal object BufferRequestThrottle {
     private const val PREFS_NAME = "twidget_buffer_request_throttle"
@@ -23,7 +24,7 @@ internal object BufferRequestThrottle {
     fun blockingMessage(context: Context, nowMillis: Long = System.currentTimeMillis()): String? {
         val remaining = prefs(context).getLong(KEY_BLOCKED_UNTIL, 0L) - nowMillis
         if (remaining <= 0L) return null
-        return "Buffer request limit reached. Try again in ${formatWait(remaining)}."
+        return formatWait(remaining)
     }
 
     fun observe(context: Context, response: HttpTransport.Response, nowMillis: Long = System.currentTimeMillis()) {
@@ -41,13 +42,13 @@ internal object BufferRequestThrottle {
         return when {
             totalMinutes >= 24 * 60 -> {
                 val days = (totalMinutes + 24 * 60 - 1) / (24 * 60)
-                "$days day${if (days == 1L) "" else "s"}"
+                UiMessages.message(UiMessages.Key.ERROR_BUFFER_WAIT_DAYS, days)
             }
             totalMinutes >= 60 -> {
                 val hours = (totalMinutes + 59) / 60
-                "$hours hour${if (hours == 1L) "" else "s"}"
+                UiMessages.message(UiMessages.Key.ERROR_BUFFER_WAIT_HOURS, hours)
             }
-            else -> "$totalMinutes minute${if (totalMinutes == 1L) "" else "s"}"
+            else -> UiMessages.message(UiMessages.Key.ERROR_BUFFER_WAIT_MINUTES, totalMinutes)
         }
     }
 

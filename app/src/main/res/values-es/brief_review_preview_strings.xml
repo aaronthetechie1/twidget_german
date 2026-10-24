@@ -19,36 +19,44 @@
     <string name="review_preview_typical_interactions">Sus interacciones fueron parecidas a las de tus tuits similares.</string>
     <plurals name="review_preview_minutes">
         <item quantity="one">hace %1$s minuto</item>
+        <item quantity="many">hace %1$s minutos</item>
         <item quantity="other">hace %1$s minutos</item>
     </plurals>
     <plurals name="review_preview_hours">
         <item quantity="one">hace %1$s hora</item>
+        <item quantity="many">hace %1$s horas</item>
         <item quantity="other">hace %1$s horas</item>
     </plurals>
     <plurals name="review_preview_days">
         <item quantity="one">hace %1$s día</item>
+        <item quantity="many">hace %1$s días</item>
         <item quantity="other">hace %1$s días</item>
     </plurals>
     <plurals name="review_preview_weeks">
         <item quantity="one">hace %1$s semana</item>
+        <item quantity="many">hace %1$s semanas</item>
         <item quantity="other">hace %1$s semanas</item>
     </plurals>
     <plurals name="review_preview_months">
         <item quantity="one">hace %1$s mes</item>
+        <item quantity="many">hace %1$s meses</item>
         <item quantity="other">hace %1$s meses</item>
     </plurals>
     <plurals name="review_preview_years">
-        <item quantity="one">hace %1$s año</item>z
+        <item quantity="one">hace %1$s año</item>
+        <item quantity="many">hace %1$s años</item>
         <item quantity="other">hace %1$s años</item>
     </plurals>
     <string name="review_preview_subject_tweet">Tu tuit</string>
     <string name="review_preview_subject_reply">Tu respuesta</string>
     <plurals name="review_preview_view_count">
         <item quantity="one">%1$s visualización</item>
+        <item quantity="many">%1$s visualizaciones</item>
         <item quantity="other">%1$s visualizaciones</item>
     </plurals>
     <plurals name="review_preview_interaction_count">
         <item quantity="one">%1$s interacción pública</item>
+        <item quantity="many">%1$s interacciones públicas</item>
         <item quantity="other">%1$s interacciones públicas</item>
     </plurals>
 </resources>

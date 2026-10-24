@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="goal_noun_followers">
+        <item quantity="one">follower</item>
+        <item quantity="other">followers</item>
+    </plurals>
+    <plurals name="goal_noun_verified">
+        <item quantity="one">verified follower</item>
+        <item quantity="other">verified followers</item>
+    </plurals>
+    <plurals name="goal_noun_impressions">
+        <item quantity="one">impression</item>
+        <item quantity="other">impressions</item>
+    </plurals>
+    <plurals name="goal_noun_engagement">
+        <item quantity="one">engagement rate</item>
+        <item quantity="other">engagement rate</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_minutes">
+        <item quantity="one">Buffer request limit reached. Try again in %1$s minute.</item>
+        <item quantity="other">Buffer request limit reached. Try again in %1$s minutes.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_hours">
+        <item quantity="one">Buffer request limit reached. Try again in %1$s hour.</item>
+        <item quantity="other">Buffer request limit reached. Try again in %1$s hours.</item>
+    </plurals>
+    <plurals name="l10n_buffer_retry_days">
+        <item quantity="one">Buffer request limit reached. Try again in %1$s day.</item>
+        <item quantity="other">Buffer request limit reached. Try again in %1$s days.</item>
+    </plurals>
+    <plurals name="widget_count_followers">
+        <item quantity="one">Follower</item>
+        <item quantity="other">Followers</item>
+    </plurals>
+</resources>

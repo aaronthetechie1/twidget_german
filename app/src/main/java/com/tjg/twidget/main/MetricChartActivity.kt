@@ -1,5 +1,6 @@
 package com.tjg.twidget.main
 
+import com.tjg.twidget.core.AppLocales
 import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
@@ -171,7 +172,7 @@ class MetricChartActivity : FoldablePopOverActivity() {
     }
 
     private fun metricBinding(metricId: String): MetricChartBinding {
-        val numberFormat = NumberFormat.getIntegerInstance(Locale.US)
+        val numberFormat = NumberFormat.getIntegerInstance(AppLocales.applicationLocale())
         return when (metricId) {
             DashboardCardType.FOLLOWERS.id -> MetricChartBinding(
                 known = { it.followersKnown },

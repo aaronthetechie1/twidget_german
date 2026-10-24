@@ -128,6 +128,7 @@
     <string name="daily_streak_detail">Cuenta los tuits originales detectados en X. Las respuestas, republicaciones y me gusta no cuentan.</string>
     <plurals name="daily_streak_days">
         <item quantity="one">%1$d día</item>
+        <item quantity="many">%1$d días</item>
         <item quantity="other">%1$d días</item>
     </plurals>
     <string name="daily_streak_none">Aún sin racha</string>
@@ -380,7 +381,7 @@
     <string name="skip">Omitir</string>
     <string name="onboarding_overview_summary">Twidget mantiene sincronizados tu recuento de seguidores, los cambios recientes y los widgets de la pantalla de inicio de One UI desde un solo perfil.</string>
     <string name="onboarding_permissions_title">Permisos</string>
-    <string name="onboarding_required_permissions">Permisos necesarios</string>
+    <string name="onboarding_required_permissions">Permisos opcionales</string>
     <string name="onboarding_permission_notifications_title">Notificaciones</string>
     <string name="onboarding_permission_notifications_summary">Muestra el progreso de los escaneos, los resultados de las publicaciones y los recordatorios de publicaciones programadas.</string>
     <string name="onboarding_permission_alarms_title">Alarmas y recordatorios</string>
@@ -484,6 +485,7 @@
     <string name="brief_debug_log_empty">Aún no se han registrado evaluaciones del motor</string>
     <plurals name="brief_debug_log_summary">
         <item quantity="one">%1$d entrada · Última: %2$s · %3$s</item>
+        <item quantity="many">%1$d entradas · Última: %2$s · %3$s</item>
         <item quantity="other">%1$d entradas · Última: %2$s · %3$s</item>
     </plurals>
     <string name="brief_debug_nano_category">Diagnósticos de Gemini Nano</string>
@@ -555,7 +557,7 @@
     <string name="brief_debug_report_standout_post_views">vistasPublicacionDestacada=%1$s</string>
     <string name="brief_debug_report_quiet_post_views">vistasPublicacionSilenciosa=%1$s</string>
     <string name="brief_debug_report_posting_streak">rachaPublicacion=%1$d</string>
-    <string name="brief_debug_report_original_activity_complete">actividadOriginalCompleta=%1$b</string>
+    <string name="brief_debug_report_original_activity_complete">actividadOriginalCompleta=%1$s</string>
     <string name="brief_debug_report_upcoming_tweets">tuitsProximos=%1$d</string>
     <string name="brief_debug_report_follower_scan_completed_at">escaneoSeguidoresCompletadoEn=%1$s</string>
     <string name="brief_debug_report_followers_scanned">seguidoresEscanados=%1$d</string>
@@ -813,6 +815,7 @@
     <string name="brief_draft_without_text">Borrador con contenido multimedia</string>
     <plurals name="brief_draft_thread_count">
         <item quantity="one">%d tuit</item>
+        <item quantity="many">hilo de %d tuits</item>
         <item quantity="other">hilo de %d tuits</item>
     </plurals>
     <string name="brief_post_follow_through_explainer">El rendimiento de los tuits programados conecta un tuit programado con sus resultados en directo. Cuando rinde notablemente por encima o por debajo de tus tuits habituales, Tu Resumen destaca lo que puede valer la pena llevar al siguiente.</string>
@@ -890,6 +893,7 @@
     <!-- Brief template copy written into cards and summaries by BriefEngine. -->
     <plurals name="brief_follower_count">
         <item quantity="one">%1$s seguidor</item>
+        <item quantity="many">%1$s seguidores</item>
         <item quantity="other">%1$s seguidores</item>
     </plurals>
     <string name="brief_provider_note_template">Esperando la generación del modelo</string>
@@ -917,6 +921,7 @@
     <string name="brief_summary_post_lesson">Un tuit reciente te da algo de lo que aprender.</string>
     <plurals name="brief_summary_upcoming">
         <item quantity="one">Un tuit programado listo más adelante.</item>
+        <item quantity="many">%1$d tuits programados listos más adelante.</item>
         <item quantity="other">%1$d tuits programados listos más adelante.</item>
     </plurals>
     <string name="brief_summary_top_followers">Hay un cambio significativo en tus mejores seguidores.</string>
@@ -932,6 +937,7 @@
     <string name="brief_short_post_lesson">Un tuit reciente ofrece una lección.</string>
     <plurals name="brief_short_upcoming">
         <item quantity="one">Un tuit programado a continuación.</item>
+        <item quantity="many">%1$d tuits programados a continuación.</item>
         <item quantity="other">%1$d tuits programados a continuación.</item>
     </plurals>
     <string name="brief_short_top_followers">Tus mejores seguidores han cambiado.</string>
@@ -963,23 +969,28 @@
     <string name="brief_card_streak_start_idle">Twidget no ha detectado ningún tuit original durante más de tres días. Publica hoy para empezar.</string>
     <plurals name="brief_card_streak_title">
         <item quantity="one">Racha de publicaciones de %1$d día</item>
+        <item quantity="many">Racha de publicaciones de %1$d días</item>
         <item quantity="other">Racha de publicaciones de %1$d días</item>
     </plurals>
     <string name="brief_card_streak_kept_today">Ya has mantenido viva la racha hoy. ¡Buen trabajo!</string>
     <plurals name="brief_card_streak_buffer">
         <item quantity="one">Hay un tuit programado para publicarse hoy y mantener tu ritmo de %1$d día.</item>
+        <item quantity="many">Hay un tuit programado para publicarse hoy y mantener tu ritmo de %1$d días.</item>
         <item quantity="other">Hay un tuit programado para publicarse hoy y mantener tu ritmo de %1$d días.</item>
     </plurals>
     <plurals name="brief_card_streak_ready">
         <item quantity="one">Tu siguiente tuit está listo ahora. Publícalo para mantener tu ritmo de %1$d día.</item>
+        <item quantity="many">Tu siguiente tuit está listo ahora. Publícalo para mantener tu ritmo de %1$d días.</item>
         <item quantity="other">Tu siguiente tuit está listo ahora. Publícalo para mantener tu ritmo de %1$d días.</item>
     </plurals>
     <plurals name="brief_card_streak_queued">
         <item quantity="one">Tienes un tuit en cola hoy. Publícalo para mantener tu ritmo de %1$d día.</item>
+        <item quantity="many">Tienes un tuit en cola hoy. Publícalo para mantener tu ritmo de %1$d días.</item>
         <item quantity="other">Tienes un tuit en cola hoy. Publícalo para mantener tu ritmo de %1$d días.</item>
     </plurals>
     <plurals name="brief_card_streak_tweet_today">
         <item quantity="one">Publica hoy para mantener tu ritmo de %1$d día.</item>
+        <item quantity="many">Publica hoy para mantener tu ritmo de %1$d días.</item>
         <item quantity="other">Publica hoy para mantener tu ritmo de %1$d días.</item>
     </plurals>
     <string name="brief_card_top_follower_new">Un nuevo seguidor principal</string>
@@ -990,14 +1001,17 @@
     <string name="brief_goal_remaining_body">Estás a %1$s de tu objetivo de %2$s %3$s.</string>
     <plurals name="brief_goal_unit_verified_followers">
         <item quantity="one">%1$s seguidor verificado</item>
+        <item quantity="many">%1$s seguidores verificados</item>
         <item quantity="other">%1$s seguidores verificados</item>
     </plurals>
     <plurals name="brief_goal_unit_impressions">
         <item quantity="one">%1$s impresión</item>
+        <item quantity="many">%1$s impresiones</item>
         <item quantity="other">%1$s impresiones</item>
     </plurals>
     <plurals name="brief_goal_unit_points">
         <item quantity="one">%1$s punto porcentual</item>
+        <item quantity="many">%1$s puntos porcentuales</item>
         <item quantity="other">%1$s puntos porcentuales</item>
     </plurals>
     <string name="brief_guide_fix_title">Arregla una publicación antes de que decaiga</string>
@@ -1059,6 +1073,7 @@
     <string name="widget_contained_footer_summary">Coloca el nombre de usuario en una forma contenida para mejorar la legibilidad.</string>
     <plurals name="dashboard_streak_days">
         <item quantity="one">día</item>
+        <item quantity="many">días</item>
         <item quantity="other">días</item>
     </plurals>
     <string name="streak_card_steady">Racha estable</string>
@@ -1079,6 +1094,7 @@
     <string name="card_catalogue_added">%1$s añadido al panel</string>
     <plurals name="card_catalogue_available">
         <item quantity="one">%d tarjeta disponible</item>
+        <item quantity="many">%d tarjetas disponibles</item>
         <item quantity="other">%d tarjetas disponibles</item>
     </plurals>
     <string name="debug_haptics_title">Vibración</string>
@@ -1190,22 +1206,27 @@
     <string name="review_rewrite_fill_intro">Aquí tienes una reescritura sugerida. Completa los detalles que faltan antes de publicar.</string>
     <plurals name="review_fact_likes">
         <item quantity="one">%1$s me gusta</item>
+        <item quantity="many">%1$s me gusta</item>
         <item quantity="other">%1$s me gusta</item>
     </plurals>
     <plurals name="review_fact_replies">
         <item quantity="one">%1$s respuesta</item>
+        <item quantity="many">%1$s respuestas</item>
         <item quantity="other">%1$s respuestas</item>
     </plurals>
     <plurals name="review_fact_retweets">
         <item quantity="one">%1$s republicación</item>
+        <item quantity="many">%1$s republicaciones</item>
         <item quantity="other">%1$s republicaciones</item>
     </plurals>
     <plurals name="review_fact_quotes">
         <item quantity="one">%1$s cita</item>
+        <item quantity="many">%1$s citas</item>
         <item quantity="other">%1$s citas</item>
     </plurals>
     <plurals name="review_fact_hours">
         <item quantity="one">%1$s hora</item>
+        <item quantity="many">%1$s horas</item>
         <item quantity="other">%1$s horas</item>
     </plurals>
     <string name="review_fact_rate">%1$s de tasa de interacción</string>

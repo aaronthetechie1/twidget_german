@@ -1,5 +1,6 @@
 package com.tjg.twidget.brief
 
+import android.view.ViewGroup
 import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
@@ -729,7 +730,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     }
 
     private fun scheduleDate(timestamp: Long): String = if (timestamp > 0L) {
-        AppLocales.formatDate(timestamp, "EEE, d. MMM · HH:mm", "EEE, MMM d · h:mm a", "EEE d MMM · HH:mm")
+        AppLocales.formatDate(timestamp, "EMMMdjm")
     } else {
         getString(R.string.time_unavailable)
     }
@@ -913,7 +914,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val openSchedule = View.OnClickListener { openScheduledTweets() }
         addView(LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), 0, dp(20), 0)
+            minimumHeight = dp(52)
+            setPadding(dp(20), dp(12), dp(20), dp(12))
             setBackgroundResource(R.drawable.brief_guide_action_surface)
             clipToOutline = true
             applyBriefCardRipple()
@@ -921,7 +923,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             isFocusable = isClickable
             if (isClickable) setOnClickListener(openPrimary)
             addView(primaryText(actionLabel(card) ?: card.title, 18f, bold = true))
-        }, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             marginEnd = dp(10)
         })
 
@@ -1058,7 +1060,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val providerNote = renderedSnapshot?.providerMessage?.ifBlank { getString(R.string.brief_provider_note_template) }
             ?: visiblePresentation?.let {
                 getString(R.string.brief_saved_summary_info,
-                    AppLocales.formatDate(it.generatedAt, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm"))
+                    AppLocales.formatDate(it.generatedAt, "MMMdjm"))
             } ?: return
         val builder = AlertDialog.Builder(this)
             .setTitle(R.string.brief_ai_disclaimer)
@@ -1211,11 +1213,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     ).apply { topMargin = dp(top) }
 
     private fun postDate(post: PostSummary): String = if (post.timestamp > 0L) {
-        AppLocales.formatDate(post.timestamp, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm")
+        AppLocales.formatDate(post.timestamp, "MMMdjm")
     } else post.createdAt
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-    private fun format(value: Long): String = NumberFormat.getIntegerInstance().format(value)
+    private fun format(value: Long): String = NumberFormat.getIntegerInstance(com.tjg.twidget.core.AppLocales.applicationLocale()).format(value)
 
     companion object {
         private const val MASONRY_COLUMN_GAP_DP = 20

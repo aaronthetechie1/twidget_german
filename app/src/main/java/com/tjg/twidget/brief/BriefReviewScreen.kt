@@ -238,7 +238,7 @@ internal class BriefReviewScreen(private val context: Context, private val callb
                 Triple(R.string.brief_metric_quote_tweets, evidence.post.quotes, OneUiIconR.drawable.ic_oui_message_outline))), BriefReviewViews.params(context, 10))
         })
         if (showObservedAt) add(text(if (evidence.observedAt > 0L) context.getString(R.string.review_observed_at,
-            AppLocales.formatDate(evidence.observedAt, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm"))
+            AppLocales.formatDate(evidence.observedAt, "MMMdjm"))
             else context.getString(R.string.coach_archived_limit),
             12f, secondary = true).apply { setPadding(dp(19), 0, dp(19), 0) }, 6)
     }
@@ -278,7 +278,7 @@ internal class BriefReviewScreen(private val context: Context, private val callb
         heading(R.string.review_trend_title)
         val points = evidence.observations.let { values ->
             if (values.size <= 7) values else (0..6).map { values[it * (values.size - 1) / 6] }
-        }.map { ImportedChartPoint(AppLocales.formatDate(it.at, "d.M. HH:mm", "MMM d HH:mm", "d MMM HH:mm"), it.interactions) }
+        }.map { ImportedChartPoint(AppLocales.formatDate(it.at, "MMMdjm"), it.interactions) }
         add(BriefReviewViews.card(context).apply {
             addView(MetricChartView(context).apply {
                 setSeries(points)
@@ -293,7 +293,7 @@ internal class BriefReviewScreen(private val context: Context, private val callb
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(19), 0, 0, 0)
             val label = savedAt?.let { context.getString(R.string.review_saved_at,
-                AppLocales.formatDate(it, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm")) }
+                AppLocales.formatDate(it, "MMMdjm")) }
                 ?: context.getString(if (result.cloud) R.string.coach_ai_cloud_result else R.string.coach_ai_local_result)
             addView(text(label), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(ImageButton(context).apply {
@@ -311,7 +311,7 @@ internal class BriefReviewScreen(private val context: Context, private val callb
         val limits = subject.input.report.limitations.toMutableList()
         subject.input.reviewEvidence?.observedAt?.takeIf { it > 0 }?.let {
             limits += context.getString(R.string.review_observed_at,
-                AppLocales.formatDate(it, "d. MMM, HH:mm", "MMM d, h:mm a", "d MMM, HH:mm"))
+                AppLocales.formatDate(it, "MMMdjm"))
         }
         if (!result.completeText) limits += context.getString(R.string.coach_ai_text_excerpt)
         subject.input.media.take(4).forEachIndexed { index, ref ->

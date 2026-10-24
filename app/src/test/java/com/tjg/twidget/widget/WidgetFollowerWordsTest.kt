@@ -2,6 +2,7 @@ package com.tjg.twidget.widget
 
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetFollowerWordsTest {
@@ -64,5 +65,15 @@ class WidgetFollowerWordsTest {
             "Un Milliard Deux Cent Trente Quatre Millions Cinq Cent Soixante Sept Mille Huit Cent Quatre Vingt Dix",
             TwidgetWidget.followersInWords(1_234_567_890L, fr),
         )
+    }
+    @Test fun spellsSpanishCountsBeforeMasculineNouns() {
+        val es = Locale.forLanguageTag("es")
+        val cases = mapOf(0L to "Cero", 1L to "Un", 21L to "Veintiún", 31L to "Treinta y un",
+            100L to "Cien", 101L to "Ciento un", 500L to "Quinientos", 700L to "Setecientos",
+            1000L to "Mil", 21_000L to "Veintiún mil", 7_671L to "Siete mil seiscientos setenta y un",
+            1_000_000L to "Un millón", 21_000_000L to "Veintiún millones", 1_000_000_000L to "Mil millones",
+            1_000_000_000_000L to "Un billón", 1_000_000_000_000_000_000L to "Un trillón")
+        for ((count, expected) in cases) assertEquals("$count", expected, TwidgetWidget.followersInWords(count, es))
+        assertTrue(TwidgetWidget.followersInWords(Long.MAX_VALUE, es).startsWith("Nueve trillones"))
     }
 }

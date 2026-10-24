@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -113,8 +114,7 @@ object ScheduleNotificationHelper {
             return false
         }
         ensureChannel(context)
-        val error = post.errorMessage?.takeIf(String::isNotBlank)
-            ?: context.getString(R.string.schedule_buffer_failed_fallback)
+        val error = UiMessages.resolve(context, post.errorMessage, R.string.schedule_buffer_failed_fallback)
         val preview = post.thread.firstOrNull()?.text?.takeIf(String::isNotBlank)
             ?: context.getString(R.string.schedule_media_post)
         val detail = context.getString(R.string.schedule_buffer_failed_detail, error, preview)

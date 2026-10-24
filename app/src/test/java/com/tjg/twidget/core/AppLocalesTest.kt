@@ -7,7 +7,7 @@ import org.junit.Test
 
 class AppLocalesTest {
     @Test fun unsupportedLanguagesUseEnglishButSupportedRegionsKeepTheirFormatting() {
-        assertEquals(Locale.ENGLISH, AppLocales.supportedLocale(Locale.JAPAN))
+        assertEquals(Locale.forLanguageTag("en-JP"), AppLocales.supportedLocale(Locale.JAPAN))
         assertEquals(Locale.GERMANY, AppLocales.supportedLocale(Locale.GERMANY))
         assertEquals(Locale.FRANCE, AppLocales.supportedLocale(Locale.FRANCE))
         assertEquals(Locale.UK, AppLocales.supportedLocale(Locale.UK))
@@ -15,21 +15,23 @@ class AppLocalesTest {
         assertEquals(Locale.forLanguageTag("es-MX"), AppLocales.supportedLocale(Locale.forLanguageTag("es-MX")))
     }
 
-    @Test fun explicitSpanishWidgetLocaleOverridesTheAppLocale() {
-        assertEquals(Locale.forLanguageTag("es"), AppLocales.resolve("es"))
-        assertEquals(Locale.forLanguageTag("es"), AppLocales.resolve("ES"))
+    @Test fun languageOnlyChoicesInheritRegionAndNumberingPreferences() {
+        assertEquals(Locale.forLanguageTag("es-MX"), AppLocales.regionalLocale(Locale.forLanguageTag("es"), Locale.forLanguageTag("es-MX")))
+        assertEquals(Locale.forLanguageTag("es-ES"), AppLocales.regionalLocale(Locale.forLanguageTag("es"), Locale.forLanguageTag("en-ES")))
+        assertEquals(Locale.UK, AppLocales.regionalLocale(Locale.ENGLISH, Locale.UK))
+        assertEquals(Locale.forLanguageTag("fr-CA"), AppLocales.regionalLocale(Locale.FRENCH, Locale.CANADA))
+        assertEquals(Locale.forLanguageTag("en-IN-u-nu-deva"), AppLocales.regionalLocale(Locale.ENGLISH, Locale.forLanguageTag("hi-IN-u-nu-deva")))
     }
 
-    @Test fun datePatternsFollowTheLocaleLanguage() {
-        assertEquals("de", AppLocales.formatDate(0L, "'de'", "'en'", "'fr'", Locale.GERMANY))
-        assertEquals("fr", AppLocales.formatDate(0L, "'de'", "'en'", "'fr'", Locale.FRANCE))
-        assertEquals("en", AppLocales.formatDate(0L, "'de'", "'en'", "'fr'", Locale.UK))
-        assertEquals("en", AppLocales.formatDate(0L, "'de'", "'en'", "'fr'", Locale.JAPAN))
+    @Test fun explicitRegionsTakePrecedenceAndUnsupportedLanguagesKeepTheDeviceRegion() {
+        assertEquals(Locale.forLanguageTag("es-MX"), AppLocales.regionalLocale(Locale.forLanguageTag("es-MX"), Locale.forLanguageTag("es-ES")))
+        assertEquals(Locale.forLanguageTag("en-JP"), AppLocales.regionalLocale(AppLocales.supportedLocale(Locale.JAPAN), Locale.UK))
     }
 
-    @Test fun widgetDeltasFollowTheExplicitWidgetLocale() {
-        assertEquals("+1.234", TwidgetStore.signedNumber(1234, Locale.GERMAN))
-        assertEquals("-1.234", TwidgetStore.signedNumber(-1234, Locale.GERMAN))
-        assertEquals("+1,234", TwidgetStore.signedNumber(1234, Locale.ENGLISH))
+    @Test fun calendarsUseTheRegionsFirstWeekday() {
+        assertEquals(java.time.DayOfWeek.SUNDAY, AppLocales.firstDayOfWeek(Locale.US))
+        assertEquals(java.time.DayOfWeek.MONDAY, AppLocales.firstDayOfWeek(Locale.UK))
+        assertEquals(java.time.DayOfWeek.SUNDAY, AppLocales.firstDayOfWeek(Locale.forLanguageTag("es-MX")))
+        assertEquals(java.time.DayOfWeek.MONDAY, AppLocales.firstDayOfWeek(Locale.forLanguageTag("es-ES")))
     }
 }

@@ -24,7 +24,7 @@ internal object SettingsLanguage {
 
     fun refreshWidgetsIfLanguageChanged(context: android.content.Context) {
         val prefs = context.getSharedPreferences(com.tjg.twidget.data.TwidgetStore.PREFS, android.content.Context.MODE_PRIVATE)
-        val language = context.resources.configuration.locales.toLanguageTags()
+        val language = com.tjg.twidget.core.AppLocales.formattingLocale(context).toLanguageTag()
         val previous = prefs.getString("settings_widget_locale", null)
         if (language != previous) {
             prefs.edit().putString("settings_widget_locale", language).apply()

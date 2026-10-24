@@ -19,7 +19,7 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="10dp" android:textColor="@color/oneui_text_secondary" android:textSize="14sp" />
         <androidx.appcompat.widget.AppCompatButton android:id="@+id/brief_refresh_error_action"
-            style="@style/OneUI.ContainedButton"
+            style="@style/Twidget.WrappingButton"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="14dp" android:textAllCaps="false"
             android:theme="@style/OneUI.ContainedPrimaryColorButtonTheme" />

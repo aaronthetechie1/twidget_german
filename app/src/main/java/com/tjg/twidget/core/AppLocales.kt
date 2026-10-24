@@ -14,7 +14,7 @@ import java.util.Locale
 
 /**
  * Resolves the in-app language for UI, widgets, and number/date formatting.
- * Widget settings may override the app locale with an explicit `de` / `en` tag;
+ * Widget settings may override the app language with an explicit language tag;
  * `DEFAULT` follows [AppCompatDelegate] when a language is stored, else the
  * system locale.
  */
@@ -33,26 +33,42 @@ object AppLocales {
 
     internal fun supportedLocale(locale: Locale): Locale = when (locale.language) {
         "de", "en", "es", "fr" -> locale
-        else -> Locale.ENGLISH
+        else -> Locale.Builder().setLocale(locale).setLanguage("en").setScript("").build()
     }
 
-    fun resolve(languageTag: String? = DEFAULT): Locale = when (languageTag?.lowercase(Locale.ROOT)) {
-        "de" -> Locale.GERMAN
-        "en" -> Locale.ENGLISH
-        "es" -> Locale.forLanguageTag("es")
-        "fr" -> Locale.FRENCH
-        else -> applicationLocale()
+    /** A language-only selection inherits the device region; explicit country tags win. */
+    internal fun regionalLocale(language: Locale, device: Locale): Locale {
+        if (language.country.isNotEmpty() || device.country.isEmpty()) return language
+        return Locale.Builder().setLocale(language).setRegion(device.country).apply {
+            for (key in listOf("nu", "rg", "hc", "fw")) {
+                if (language.getUnicodeLocaleType(key) == null) device.getUnicodeLocaleType(key)?.let {
+                    setUnicodeLocaleKeyword(key, it)
+                }
+            }
+        }.build()
+    }
+
+    private fun deviceLocale(): Locale =
+        if (appContext == null) Locale.getDefault(Locale.Category.FORMAT)
+        else Resources.getSystem().configuration.locales[0]
+
+    fun formattingLocale(context: Context): Locale =
+        regionalLocale(supportedLocale(context.resources.configuration.locales[0]), deviceLocale())
+
+    fun resolve(languageTag: String? = DEFAULT): Locale {
+        if (languageTag.isNullOrBlank() || languageTag.equals(DEFAULT, true)) return applicationLocale()
+        val locale = Locale.forLanguageTag(languageTag)
+        return if (locale.language in setOf("en", "de", "fr", "es")) regionalLocale(locale, deviceLocale())
+        else applicationLocale()
     }
 
     fun applicationLocale(): Locale {
-        if (appContext == null) return supportedLocale(Locale.getDefault())
-        val stored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && appContext != null) {
+        val device = deviceLocale()
+        if (appContext == null) return supportedLocale(device)
+        val stored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             LocaleManagerCompat.getApplicationLocales(requireNotNull(appContext))
-        } else {
-            AppCompatDelegate.getApplicationLocales()
-        }
-        return supportedLocale(stored.takeUnless { it.isEmpty }?.get(0)
-            ?: Resources.getSystem().configuration.locales.get(0) ?: Locale.ENGLISH)
+        } else AppCompatDelegate.getApplicationLocales()
+        return regionalLocale(supportedLocale(stored.takeUnless { it.isEmpty }?.get(0) ?: device), device)
     }
 
     fun wrap(context: Context, languageTag: String? = DEFAULT): Context {
@@ -65,18 +81,44 @@ object AppLocales {
     fun integer(value: Long, locale: Locale = applicationLocale()): String =
         NumberFormat.getIntegerInstance(locale).format(value)
 
-    fun formatDate(
-        timestamp: Long,
-        germanPattern: String,
-        englishPattern: String,
-        frenchPattern: String,
-        locale: Locale = applicationLocale(),
-    ): String {
-        val pattern = when (locale.language) {
-            "de" -> germanPattern
-            "fr" -> frenchPattern
-            else -> englishPattern
+    fun date(value: java.time.LocalDate, locale: Locale = applicationLocale()): String =
+        value.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+
+    /** CLDR supplies compact units, separators, spacing, magnitude and rounding for the region. */
+    fun compact(value: Long, locale: Locale = applicationLocale()): String =
+        if (value in -999L..999L) integer(value, locale) else android.icu.text.CompactDecimalFormat.getInstance(locale,
+            android.icu.text.CompactDecimalFormat.CompactStyle.SHORT).apply {
+                maximumSignificantDigits = 3
+            }.format(value)
+
+    fun percent(value: Double, digits: Int = 1, locale: Locale = applicationLocale()): String =
+        NumberFormat.getPercentInstance(locale).apply {
+            minimumFractionDigits = digits
+            maximumFractionDigits = digits
+        }.format(value)
+
+    fun firstDayOfWeek(locale: Locale = applicationLocale()): java.time.DayOfWeek =
+        java.time.temporal.WeekFields.of(locale).firstDayOfWeek
+
+    fun dateTime(context: Context, timestamp: Long): String =
+        formatDate(timestamp, "yMMMdjm", formattingLocale(context), context)
+
+    /** Skeletons describe fields, leaving their order, punctuation and clock to the user's locale. */
+    fun formatDate(timestamp: Long, skeleton: String = "MMMd", locale: Locale = applicationLocale(),
+        context: Context? = appContext): String {
+        val date = Date(timestamp)
+        // The JVM-only engine also uses this helper without an Android application context.
+        if (context == null) {
+            val dateFormat = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, locale)
+            return if (skeleton.any { it in "jHh" }) dateFormat.format(date) + " · " +
+                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, locale).format(date)
+            else dateFormat.format(date)
         }
-        return SimpleDateFormat(pattern, locale).format(Date(timestamp))
+        val regionalContext = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+            setLocales(LocaleList(locale))
+        })
+        val clock = if (android.text.format.DateFormat.is24HourFormat(regionalContext)) "H" else "h"
+        val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton.replace("j", clock))
+        return SimpleDateFormat(pattern, locale).format(date)
     }
 }

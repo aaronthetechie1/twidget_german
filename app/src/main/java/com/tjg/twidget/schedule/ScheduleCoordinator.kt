@@ -1,5 +1,6 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
 import android.content.Context
 import com.tjg.twidget.data.TwidgetStore
 
@@ -149,7 +150,7 @@ class ScheduleCoordinator(
             localScheduler.schedule(scheduled)
             ScheduleCoordinatorResult(scheduled)
         } catch (error: Exception) {
-            persistFailure(scheduled, listOf(error.message ?: "Unable to schedule reminder"), nowMillis)
+            persistFailure(scheduled, listOf(error.message ?: UiMessages.message(UiMessages.Key.ERROR_REMINDER_FAILED)), nowMillis)
         }
     }
 
@@ -201,7 +202,7 @@ class ScheduleCoordinator(
         errors: List<String>,
         nowMillis: Long,
     ): ScheduleCoordinatorResult {
-        val messages = errors.filter(String::isNotBlank).ifEmpty { listOf("Scheduling failed") }
+        val messages = errors.filter(String::isNotBlank).ifEmpty { listOf(UiMessages.message(UiMessages.Key.ERROR_SCHEDULE_FAILED)) }
         val failed = post.copy(
             status = ScheduleStatus.FAILED,
             errorMessage = messages.joinToString("\n"),

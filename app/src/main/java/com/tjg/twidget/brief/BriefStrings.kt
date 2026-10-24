@@ -26,6 +26,9 @@ interface BriefStrings {
 
     fun number(value: Long): String = NumberFormat.getIntegerInstance(locale).format(value)
 
+    /** Non-Android implementations may retain full counts; Android uses regional compact notation. */
+    fun compactNumber(value: Long): String = number(value)
+
     fun followers(value: Long): String =
         quantityText(R.plurals.brief_follower_count, quantity(value), number(value))
 
@@ -39,7 +42,9 @@ interface BriefStrings {
 
 private class ResourceBriefStrings(private val context: Context) : BriefStrings {
     override val locale: Locale =
-        AppLocales.supportedLocale(context.resources.configuration.locales.get(0) ?: Locale.getDefault())
+        AppLocales.formattingLocale(context)
+
+    override fun compactNumber(value: Long): String = AppLocales.compact(value, locale)
 
     override fun text(id: Int, vararg args: Any): String =
         if (args.isEmpty()) context.getString(id) else context.getString(id, *args)

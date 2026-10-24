@@ -112,9 +112,8 @@ internal class WidgetSettingsCard(
                 clock.gravity = Gravity.CENTER
                 clock.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 addView(clock)
-                date.text = android.text.format.DateFormat.format(
-                    android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "EEE MMM d"),
-                    java.util.Date())
+                date.text = com.tjg.twidget.core.AppLocales.formatDate(System.currentTimeMillis(), "EMMMd",
+                    com.tjg.twidget.core.AppLocales.resolve(settings.language), context)
                 date.textSize = 16f
                 date.setTextColor(Color.WHITE)
                 date.gravity = Gravity.CENTER

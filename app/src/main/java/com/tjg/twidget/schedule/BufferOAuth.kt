@@ -2,6 +2,8 @@
 
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.UiMessages
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -32,7 +34,7 @@ object BufferOAuth {
 
     fun authorizationIntent(context: Context): Intent {
         val clientId = clientId(context)
-        require(clientId.isNotBlank()) { "Buffer OAuth client ID is not configured" }
+        require(clientId.isNotBlank()) { UiMessages.message(UiMessages.Key.ERROR_BUFFER_CONFIG) }
         val verifier = randomUrlToken(48)
         val state = randomUrlToken(32)
         val challenge = base64Url(
@@ -62,10 +64,10 @@ object BufferOAuth {
         val receivedState = callback.getQueryParameter("state")
         prefs(context).edit().remove(KEY_PENDING_STATE).remove(KEY_PENDING_VERIFIER).apply()
         require(!expectedState.isNullOrBlank() && expectedState == receivedState) {
-            "Buffer sign-in could not be verified. Please try again."
+            UiMessages.message(UiMessages.Key.ERROR_BUFFER_VERIFY)
         }
         val code = callback.getQueryParameter("code")?.takeIf(String::isNotBlank)
-            ?: error("Buffer did not return an authorization code")
+            ?: error(UiMessages.message(UiMessages.Key.ERROR_BUFFER_LOGIN))
         val body = form(
             "client_id" to clientId(context),
             "grant_type" to "authorization_code",
@@ -83,7 +85,7 @@ object BufferOAuth {
         val refresh = SecureCredentialStore.read(context, SecureCredentialStore.BUFFER_REFRESH_TOKEN)
         if (refresh.isBlank()) {
             if (access.isNotBlank() && expiry == 0L) return@synchronized access
-            error("Connect Buffer in Scheduling settings")
+            error(UiMessages.message(UiMessages.Key.ERROR_BUFFER_CONNECT))
         }
         val body = form(
             "client_id" to clientId(context),
@@ -92,7 +94,7 @@ object BufferOAuth {
         )
         saveTokenResponse(context, requestToken(body), refresh)
         SecureCredentialStore.read(context, SecureCredentialStore.BUFFER_ACCESS_TOKEN)
-            .takeIf(String::isNotBlank) ?: error("Buffer did not return an access token")
+            .takeIf(String::isNotBlank) ?: error(UiMessages.message(UiMessages.Key.ERROR_BUFFER_LOGIN))
     }
 
     fun disconnect(context: Context) {
@@ -117,14 +119,14 @@ object BufferOAuth {
         )
         val json = runCatching { JSONObject(response.body) }.getOrElse { JSONObject() }
         if (response.code !in 200..299) {
-            error(json.optString("error_description").ifBlank { json.optString("error").ifBlank { "Buffer sign-in failed" } })
+            error(json.optString("error_description").ifBlank { json.optString("error").ifBlank { UiMessages.message(UiMessages.Key.ERROR_BUFFER_LOGIN) } })
         }
         return json
     }
 
     private fun saveTokenResponse(context: Context, json: JSONObject, previousRefresh: String = "") {
         val access = json.optString("access_token").takeIf(String::isNotBlank)
-            ?: error("Buffer did not return an access token")
+            ?: error(UiMessages.message(UiMessages.Key.ERROR_BUFFER_LOGIN))
         val refresh = json.optString("refresh_token").takeIf(String::isNotBlank) ?: previousRefresh
         val expiresIn = json.optLong("expires_in", 3600L).coerceAtLeast(60L)
         SecureCredentialStore.write(

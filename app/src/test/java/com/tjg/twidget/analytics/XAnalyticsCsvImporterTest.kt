@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.tjg.twidget.core.UiMessages
 
 class XAnalyticsCsvImporterTest {
     @Test
@@ -173,7 +174,7 @@ class XAnalyticsCsvImporterTest {
             )
         }.exceptionOrNull()
 
-        assertTrue(error?.message.orEmpty().contains("visible interaction actions"))
+        assertEquals(UiMessages.Key.ERROR_CSV_INCONSISTENT, UiMessages.decode(error?.message.orEmpty()).single().key)
     }
 
     private fun history(day: Long, followers: Long, imported: Boolean = false) = HistorySample(
@@ -202,7 +203,7 @@ class XAnalyticsCsvImporterTest {
         }.exceptionOrNull()
 
         assertTrue(error is IllegalArgumentException)
-        assertTrue(error?.message.orEmpty().contains("does not include today", ignoreCase = true))
+        assertEquals(UiMessages.Key.ERROR_CSV_OLD, UiMessages.decode(error?.message.orEmpty()).single().key)
     }
 
     @Test
@@ -306,6 +307,6 @@ class XAnalyticsCsvImporterTest {
         }.exceptionOrNull()
 
         assertFalse(error == null)
-        assertTrue(error?.message.orEmpty().contains("gap", ignoreCase = true))
+        assertEquals(UiMessages.Key.ERROR_CSV_GAP, UiMessages.decode(error?.message.orEmpty()).single().key)
     }
 }

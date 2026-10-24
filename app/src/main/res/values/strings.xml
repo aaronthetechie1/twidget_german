@@ -410,7 +410,7 @@
     <string name="skip">Skip</string>
     <string name="onboarding_overview_summary">Twidget keeps your follower count, recent changes, and One UI home screen widgets in sync from one profile.</string>
     <string name="onboarding_permissions_title">Permissions</string>
-    <string name="onboarding_required_permissions">Required permissions</string>
+    <string name="onboarding_required_permissions">Optional permissions</string>
     <string name="onboarding_permission_notifications_title">Notifications</string>
     <string name="onboarding_permission_notifications_summary">Shows scan progress, publishing results, and scheduled-post reminders.</string>
     <string name="onboarding_permission_alarms_title">Alarms and reminders</string>
@@ -585,7 +585,7 @@
     <string name="brief_debug_report_standout_post_views">standoutPostViews=%1$s</string>
     <string name="brief_debug_report_quiet_post_views">quietPostViews=%1$s</string>
     <string name="brief_debug_report_posting_streak">postingStreak=%1$d</string>
-    <string name="brief_debug_report_original_activity_complete">originalActivityComplete=%1$b</string>
+    <string name="brief_debug_report_original_activity_complete">originalActivityComplete=%1$s</string>
     <string name="brief_debug_report_upcoming_tweets">upcomingTweets=%1$d</string>
     <string name="brief_debug_report_follower_scan_completed_at">followerScanCompletedAt=%1$s</string>
     <string name="brief_debug_report_followers_scanned">followersScanned=%1$d</string>

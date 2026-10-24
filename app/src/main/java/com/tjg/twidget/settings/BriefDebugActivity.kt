@@ -21,8 +21,6 @@ import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.InsetPreferenceFragment
 import com.tjg.twidget.ui.startSettingsSubActivity
 import dev.oneuiproject.oneui.layout.ToolbarLayout
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class BriefDebugActivity : FoldablePopOverActivity() {
@@ -109,8 +107,7 @@ class BriefDebugLogFragment : InsetPreferenceFragment() {
                 screen.addPreference(Preference(context).apply {
                     key = "brief_debug_log_$index"
                     title = "${entry.event} · @${entry.username}"
-                    summary = SimpleDateFormat("MMM d, HH:mm:ss", Locale.US)
-                        .format(Date(entry.timestamp))
+                    summary = com.tjg.twidget.core.AppLocales.formatDate(entry.timestamp, "MMMdjms")
                     setOnPreferenceClickListener {
                         showDebugText(context, entry.event, entry.report, copyable = true)
                         true

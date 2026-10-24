@@ -1,5 +1,6 @@
 package com.tjg.twidget.data
 
+import com.tjg.twidget.core.UiMessages
 import android.content.Context
 import android.content.SharedPreferences
 import com.tjg.twidget.schedule.ScheduleStore
@@ -13,7 +14,7 @@ internal object AccountHandleMigration {
     private var recovering = false
     private var persistenceFailed = false
     private fun durable(success: Boolean) {
-        if (!success) { persistenceFailed = true; error("Account storage could not be saved. Restart the app to recover safely.") }
+        if (!success) { persistenceFailed = true; error(UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_SAVE)) }
     }
 
     fun assertDestinationEmpty(context: Context, handle: String) {
@@ -22,7 +23,7 @@ internal object AccountHandleMigration {
         require(main.all.keys.none { mainKey(it, next, next) != null } && stores.none { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE).all.keys.any { companionKey(name, it, next, next) != null }
         } && listOf("", ".pending").none { java.io.File(context.filesDir, "top_followers/$next.jsonl$it").exists() }) {
-            "The new handle has local data. Both accounts have been kept; resolve the destination data before changing handles."
+            UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_EXISTS)
         }
     }
 
@@ -41,7 +42,7 @@ internal object AccountHandleMigration {
     internal var checkpoint: ((String) -> Unit)? = null
 
     fun recover(context: Context) {
-        check(!persistenceFailed) { "Restart the app to recover the pending account migration." }
+        check(!persistenceFailed) { UiMessages.message(UiMessages.Key.ERROR_ACCOUNT_SAVE) }
         if (recovering) return
         val main = context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE)
         val raw = main.getString(JOURNAL, null) ?: return
