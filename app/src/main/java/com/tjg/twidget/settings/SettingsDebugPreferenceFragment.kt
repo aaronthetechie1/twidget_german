@@ -164,9 +164,23 @@ class SettingsDebugPreferenceFragment : InsetPreferenceFragment() {
             setOnPreferenceChangeListener { _, value ->
                 if (value == true) saveDummyProfile(DEFAULT_DUMMY_FOLLOWERS)
                 else {
-                    TwidgetStore.removeAccount(context, DUMMY_USERNAME)
-                    TwidgetWidget.updateAll(context)
-                    TwidgetBriefWidget.updateAll(context)
+                    val appContext = context.applicationContext
+                    val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    com.tjg.twidget.core.AppExecutors.execute(onRejected = {
+                        Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                    }) {
+                        val result = runCatching {
+                            TwidgetStore.removeAccount(appContext, DUMMY_USERNAME)
+                            TwidgetWidget.updateAll(appContext)
+                            TwidgetBriefWidget.updateAll(appContext)
+                        }
+                        handler.post {
+                            if (isAdded) {
+                                if (result.isFailure) Toast.makeText(appContext, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                                buildScreen()
+                            }
+                        }
+                    }
                 }
                 listView.post { if (isAdded) buildScreen() }
                 true

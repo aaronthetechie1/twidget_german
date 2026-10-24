@@ -35,15 +35,26 @@
             <com.tjg.twidget.widget.WallpaperPreviewLayout
                 android:id="@+id/preview_container"
                 android:layout_width="match_parent"
-                android:layout_height="236dp"
+                android:layout_height="280dp"
                 android:layout_marginTop="20dp">
 
-                <FrameLayout
-                    android:id="@+id/preview_widget"
-                    android:layout_width="162dp"
-                    android:layout_height="176dp"
-                    android:layout_gravity="center"
-                    android:padding="10dp" />
+                <androidx.viewpager.widget.ViewPager
+                    android:id="@+id/widget_style_pager"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingBottom="48dp" />
+
+                <TextView
+                    android:id="@+id/widget_style_indicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_gravity="bottom"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:shadowColor="#66000000"
+                    android:shadowRadius="4"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </com.tjg.twidget.widget.WallpaperPreviewLayout>
 
             <dev.oneuiproject.oneui.widget.Separator
@@ -67,21 +78,6 @@
             <dev.oneuiproject.oneui.widget.RoundedLinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="?android:colorBackground"
-                android:orientation="vertical">
-
-                <dev.oneuiproject.oneui.widget.CardItemView
-                    android:id="@+id/widget_style_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:showTopDivider="false"
-                    app:title="@string/widget_style" />
-            </dev.oneuiproject.oneui.widget.RoundedLinearLayout>
-
-            <dev.oneuiproject.oneui.widget.RoundedLinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
                 android:background="?android:colorBackground"
                 android:orientation="vertical">
 
@@ -169,9 +165,16 @@
                     android:orientation="vertical">
 
                     <dev.oneuiproject.oneui.widget.RadioItemView
+                        android:id="@+id/tap_app_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:title="@string/tap_twidget" />
+
+                    <dev.oneuiproject.oneui.widget.RadioItemView
                         android:id="@+id/tap_refresh_row"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        app:showTopDivider="true"
                         app:title="@string/tap_refresh" />
 
                     <dev.oneuiproject.oneui.widget.RadioItemView
@@ -180,13 +183,6 @@
                         android:layout_height="wrap_content"
                         app:showTopDivider="true"
                         app:title="@string/tap_profile" />
-
-                    <dev.oneuiproject.oneui.widget.RadioItemView
-                        android:id="@+id/tap_app_row"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        app:showTopDivider="true"
-                        app:title="@string/tap_twidget" />
                 </dev.oneuiproject.oneui.widget.RadioItemViewGroup>
             </dev.oneuiproject.oneui.widget.RoundedLinearLayout>
         </LinearLayout>

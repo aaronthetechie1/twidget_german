@@ -71,7 +71,7 @@
     <string name="account_handle" translatable="false">\@%1$s</string>
     <string name="preview_follower_count">7,671</string>
     <string name="preview_follower_delta" translatable="false">+21</string>
-    <string name="preview_account_handle" translatable="false">\@thatjoshguy69</string>
+    <string name="preview_account_handle" translatable="false">\@thatjoshguy</string>
     <string name="preview_followers_large">Seven Thousand, Six\nHundred and Seventy\nOne Followers</string>
     <string name="preview_followers_square">Seven Thousand,\nSix Hundred and\nSeventy One\nFollowers</string>
     <string name="tweet_metrics">%1$s views · %2$s replies · %3$s likes</string>
@@ -155,7 +155,7 @@
     <string name="open_settings">Open settings</string>
     <string name="refresh_stats">Refresh stats</string>
     <string name="profile_username">Profile username</string>
-    <string name="profile_username_hint" translatable="false">thatjoshguy69</string>
+    <string name="profile_username_hint" translatable="false">thatjoshguy</string>
     <string name="data_source">Data source</string>
     <string name="analytics">Analytics</string>
     <string name="refresh">Refresh</string>
@@ -165,8 +165,8 @@
     <string name="source_fxtwitter" translatable="false">FxTwitter</string>
     <string name="source_fxtwitter_summary">Free public FxTwitter API</string>
     <string name="share_history">Contribute to shared history</string>
-    <string name="share_history_summary">Share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
-    <string name="share_history_onboarding_summary">Optional: share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users.</string>
+    <string name="share_history_summary">Share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users. Your default public profile is also reported for usage statistics. Turning this off removes that report when online.</string>
+    <string name="share_history_onboarding_summary">Optional: share public account stats with other Twidget users for better data for everyone. Top Followers scans run on the bridge and the latest completed public follower list can be reused by other opted-in users. Your default public profile is also reported for usage statistics. Turning this off removes that report when online.</string>
     <string name="source_self_hosted">Self-hosted bridge</string>
     <string name="source_self_hosted_summary">Use your own bridge</string>
     <string name="source_x_api" translatable="false">X API</string>
@@ -247,8 +247,8 @@
     <string name="notices_title">Notices</string>
     <string name="notices_load_failed">Couldn’t refresh release notes.</string>
     <string name="notices_showing_cache">Showing the last successfully downloaded notices.</string>
-    <string name="notices_beta">BETA</string>
-    <string name="notices_upcoming">UPCOMING</string>
+    <string name="notices_beta">Beta</string>
+    <string name="notices_upcoming">Upcoming</string>
     <string name="notices_upcoming_summary">Preview of the next release. Details may change.</string>
     <string name="notices_no_details">No additional release details were published.</string>
     <string name="notices_view_on_github">View full release on GitHub</string>
@@ -541,9 +541,9 @@
     <string name="brief_debug_scenario_post_follow_through">Scheduled post follow-through</string>
     <string name="brief_debug_scenario_posting_guide">Next post guidance</string>
     <string name="brief_debug_scenario_steady">Everything steady</string>
-    <string name="brief_debug_card_post_title">Why this tweet worked</string>
+    <string name="brief_debug_card_post_title">How this tweet performed</string>
     <string name="brief_debug_card_post_body">It reached substantially more people than your typical tweet this week.</string>
-    <string name="brief_debug_card_worst_post_title">What may have limited it</string>
+    <string name="brief_debug_card_worst_post_title">How this tweet compares</string>
     <string name="brief_debug_card_worst_post_body">It reached fewer people than your typical tweet this week.</string>
     <string name="brief_debug_card_growth_title">Your audience is taking off</string>
     <string name="brief_debug_card_growth_body">You gained 84 followers today and 679 over the last week.</string>
@@ -846,14 +846,14 @@
     <string name="brief_content_posting_guidance">Next tweet guidance</string>
     <string name="brief_content_account_goals">Account goals</string>
     <string name="brief_tweet_activity_explainer">Posting rhythm uses your original tweets to show when you’re building a consistent streak or when it may be worth posting again. Replies don’t count.</string>
-    <string name="brief_schedule_health_explainer">Schedule suggestions surface one useful action when a queued tweet needs attention, a draft is ready to schedule, or your calendar has a gap of more than three days. Unpublished tweet text stays private and is never sent to Your Brief’s AI provider.</string>
+    <string name="brief_schedule_health_explainer">Schedule suggestions surface one useful action when a queued tweet needs attention, a draft is ready to schedule, or your calendar has a gap of more than three days. Automatic schedule suggestions do not send unpublished tweet text to the AI provider. On-demand draft coaching follows your local or cloud AI setting.</string>
     <string name="brief_draft_without_text">Draft with media</string>
     <plurals name="brief_draft_thread_count">
         <item quantity="one">%d tweet</item>
         <item quantity="other">%d-tweet thread</item>
     </plurals>
     <string name="brief_post_follow_through_explainer">Scheduled tweet performance connects a scheduled tweet with its live results. When it performs meaningfully above or below your usual tweets, Your Brief highlights what may be worth carrying into the next one.</string>
-    <string name="brief_posting_guidance_explainer">Next tweet guidance turns patterns in your recent original tweets into one practical suggestion for what or when to post next. It appears only when Twidget has enough evidence to make the suggestion useful.</string>
+    <string name="brief_posting_guidance_explainer">Next tweet guidance highlights measured patterns in your recent posts. Draft and tweet reviews have their own Tweet reviews switch at the top of Manage content.</string>
     <string name="brief_categories_empty_body">Choose the updates you want to see in Brief settings.</string>
     <string name="brief_ai_studio_key">AI Studio API key</string>
     <string name="brief_api_key_required_title">AI setup required</string>
@@ -878,7 +878,7 @@
     <string name="brief_provider_local">Local</string>
     <string name="brief_provider_cloud">Cloud</string>
     <string name="brief_provider_auto_summary">Prefer Gemini Nano; fall back to Gemini Cloud when your API key is configured</string>
-    <string name="brief_provider_local_summary">Use Gemini Nano only. Account facts never leave this device.</string>
+    <string name="brief_provider_local_summary">Use Gemini Nano for Your Brief. Tweet reviews use cloud AI with a Gemini API key.</string>
     <string name="brief_provider_cloud_summary">Use Gemini Cloud with your own API key</string>
     <string name="brief_cloud_key">Gemini API key</string>
     <string name="brief_cloud_privacy_summary">Cloud writing sends Brief summaries and cards, including public names, account statistics, goals and scheduling summaries, to Google. Auto mode may use cloud writing when local writing is unavailable. Google’s API terms govern retention and use of this content. ML Kit also collects diagnostic and usage data. Choose Local or remove your key to stop future cloud writing.</string>
@@ -929,7 +929,7 @@
         <item quantity="one">%1$s follower</item>
         <item quantity="other">%1$s followers</item>
     </plurals>
-    <string name="brief_provider_note_template">Built on device from your Twidget data</string>
+    <string name="brief_provider_note_template">Awaiting model generation</string>
     <string name="brief_provider_note_nano">Written privately with Gemini Nano on this device</string>
     <string name="brief_provider_note_cloud">Written with Gemini Cloud using your API key</string>
     <string name="brief_provider_note_nano_then_cloud">Gemini Nano couldn’t complete this Brief; used Gemini Cloud with your API key</string>
@@ -938,9 +938,9 @@
     <string name="brief_provider_note_nano_failed">Gemini Nano is available, but couldn’t complete this Brief</string>
     <string name="brief_provider_note_nano_unavailable">Gemini Nano isn’t available on this device</string>
     <string name="brief_provider_note_cloud_needs_key">Add a Gemini API key in Settings to enable cloud writing</string>
-    <string name="brief_provider_note_auto_downloadable">Gemini Nano is ready to download; using private factual copy for now</string>
-    <string name="brief_provider_note_auto_none">No AI provider is ready; using private factual copy</string>
-    <string name="brief_provider_note_unreachable">AI wasn’t reachable; using private factual copy</string>
+    <string name="brief_provider_note_auto_downloadable">Gemini Nano is ready to download; generation is pending</string>
+    <string name="brief_provider_note_auto_none">No AI provider is ready</string>
+    <string name="brief_provider_note_unreachable">The AI provider couldn’t complete this Brief</string>
     <string name="brief_summary_title_moving_closer">Moving closer</string>
     <string name="brief_summary_title_momentum">Momentum is building</string>
     <string name="brief_summary_title_reset">A moment to reset</string>
@@ -1048,39 +1048,39 @@
     <string name="brief_guide_gap_body_far">Your next scheduled tweet is more than three days away. Fill the gap if you want to stay visible.</string>
     <string name="brief_guide_follow_through_strong_title">Build on your scheduled tweet</string>
     <string name="brief_guide_follow_through_quiet_title">Adjust after your scheduled tweet</string>
-    <string name="brief_guide_follow_through_strong_body">It beat your recent baseline. Open it, note what people responded to, then plan a useful follow-up.</string>
-    <string name="brief_guide_follow_through_quiet_body">It landed below your recent baseline. Open it before your next post and reconsider the hook or timing.</string>
+    <string name="brief_guide_follow_through_strong_body">It beat the median of your other recent tweets of similar age. Review the responses for a possible follow-up.</string>
+    <string name="brief_guide_follow_through_quiet_body">It recorded fewer views and engagements than your other recent tweets of similar age. These counts don’t establish why.</string>
     <string name="brief_guide_source_buffer">Tweeted with Buffer</string>
     <string name="brief_guide_source_twidget">Scheduled with Twidget</string>
     <string name="brief_guide_follow_up_title">Follow up while it’s fresh</string>
-    <string name="brief_guide_follow_up_body">A recent tweet clearly beat your baseline. Add a useful update, answer the next question, or show the result.</string>
+    <string name="brief_guide_follow_up_body">A recent tweet beat the median of your other tweets of similar age. Consider a useful update or an answer to a reply.</string>
     <string name="brief_guide_window_title">Try your next tweet in the %1$s</string>
-    <string name="brief_guide_window_body">Your recent %1$s tweets performed better than your other time windows. Test that timing again.</string>
+    <string name="brief_guide_window_body">Among recent tweets of similar age, your %1$s tweets had a higher median view count. Try that window again as an experiment.</string>
     <string name="brief_window_morning">morning</string>
     <string name="brief_window_afternoon">afternoon</string>
     <string name="brief_window_evening">evening</string>
     <string name="brief_window_late_night">late night</string>
     <string name="brief_guide_format_media_title">Try a visual next</string>
     <string name="brief_guide_format_text_title">Let the words lead</string>
-    <string name="brief_guide_format_media_body">Your recent tweets with media performed better than text-only posts. Test another clear visual.</string>
-    <string name="brief_guide_format_text_body">Your recent text-only tweets performed better than posts with media. Test a focused, self-contained idea.</string>
-    <string name="tweet_performance_strong_title">Why this tweet worked</string>
-    <string name="tweet_performance_quiet_title">What may have limited it</string>
-    <string name="tweet_performance_strong_engagements">It generated more engagements than your weekly baseline.</string>
-    <string name="tweet_performance_strong_views">It reached substantially more people than your typical tweet this week.</string>
-    <string name="tweet_performance_strong_likes">It drew more likes than your typical tweet this week.</string>
-    <string name="tweet_performance_strong_quotes">It earned more quote tweets than your weekly baseline.</string>
-    <string name="tweet_performance_strong_retweets">It earned more retweets than your weekly baseline.</string>
-    <string name="tweet_performance_strong_replies">It generated more conversation than your weekly baseline.</string>
-    <string name="tweet_performance_quiet_engagements">It generated fewer engagements than your weekly baseline.</string>
-    <string name="tweet_performance_quiet_views">It reached fewer people than your typical tweet this week.</string>
-    <string name="tweet_performance_quiet_likes">It drew fewer likes than your weekly norm.</string>
-    <string name="tweet_performance_quiet_quotes">It earned fewer quote tweets than your weekly baseline.</string>
-    <string name="tweet_performance_quiet_retweets">It earned fewer retweets than your weekly baseline.</string>
-    <string name="tweet_performance_quiet_replies">It generated less conversation than your typical tweet.</string>
-    <string name="tweet_performance_insufficient_data">There isn’t enough complete data yet to identify a clear pattern.</string>
-    <string name="tweet_performance_strong_unexplained">It performed well overall, without one metric clearly explaining the result.</string>
-    <string name="tweet_performance_quiet_unexplained">It was this week’s quietest tweet, but no single metric clearly explains the result.</string>
+    <string name="brief_guide_format_media_body">Among recent tweets of similar age, posts with media had a higher median view count. Test another visual; this doesn’t establish that media caused the difference.</string>
+    <string name="brief_guide_format_text_body">Among recent tweets of similar age, text-only posts had a higher median view count. Try another focused idea as an experiment.</string>
+    <string name="tweet_performance_strong_title">How this tweet performed</string>
+    <string name="tweet_performance_quiet_title">How this tweet compares</string>
+    <string name="tweet_performance_strong_engagements">It generated more engagements than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_strong_views">It recorded substantially more views than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_strong_likes">It drew more likes than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_strong_quotes">It earned more quote tweets than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_strong_retweets">It earned more retweets than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_strong_replies">It received more replies than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_engagements">It generated fewer engagements than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_views">It recorded fewer views than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_likes">It drew fewer likes than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_quotes">It earned fewer quote tweets than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_retweets">It earned fewer retweets than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_quiet_replies">It received fewer replies than your other recent tweets of similar age.</string>
+    <string name="tweet_performance_insufficient_data">There isn’t enough comparable data in this snapshot for a fair comparison.</string>
+    <string name="tweet_performance_strong_unexplained">These counts alone do not establish why this tweet performed as it did.</string>
+    <string name="tweet_performance_quiet_unexplained">These counts alone do not establish why this tweet performed as it did.</string>
     <string name="milestone_noun_follower">follower</string>
     <string name="milestone_noun_verified_follower">verified follower</string>
     <string name="milestone_noun_engagement_rate">engagement rate</string>
@@ -1089,7 +1089,7 @@
     <string name="widget_style">Widget style</string>
     <string name="widget_style_one_ui">One UI</string>
     <string name="widget_style_material">Material 3 Expressive</string>
-    <string name="brief_api_key_dialog_body">Create and copy an API key in Google AI Studio, then paste it here. This lets Your Brief process summaries. Read the <annotation link="privacy">Privacy Policy</annotation> for information on how this data is used and secured.</string>
+    <string name="brief_api_key_dialog_body">Create and copy an API key in Google AI Studio, then paste it here. This key enables cloud tweet and draft reviews, and cloud summaries when selected for Your Brief. Read the <annotation link="privacy">Privacy Policy</annotation> for information on how this data is used and secured.</string>
     <string name="brief_api_key_studio_link">Tap here to go to Google AI Studio</string>
     <string name="brief_api_key_privacy_open_failed">Couldn’t open the privacy policy.</string>
     <string name="widget_contained_footer">Contained username</string>
@@ -1146,4 +1146,96 @@
     <string name="about_evowizz_title" translatable="false">Dy (evowizz)</string>
     <string name="about_evowizz_summary">Knows his shit; localised to French</string>
     <string name="link_evowizz" translatable="false">https://evowizz.dev/</string>
+    <string name="settings_widgets">Widgets</string>
+    <string name="widget_lock_screen">Lock screen widget</string>
+    <string name="widget_one_ui_only">Only supported on Samsung devices</string>
+    <string name="notices_latest_version">Latest version</string>
+    <string name="notices_older_releases">Older releases</string>
+    <string name="change_account_handle">Change handle</string>
+    <string name="change_account_handle_message">Enter the new X handle for this same account. Your history, widgets, goals and local data will move with it. For accounts saved before identity tracking, make sure this is the same person.</string>
+    <string name="invalid_account_handle">Enter an X handle using 1–15 letters, numbers or underscores.</string>
+    <string name="account_handle_changed">Account handle updated. Your data has been kept.</string>
+    <string name="brief_context_relative_title">A standout for your account</string>
+    <string name="brief_context_followers_week">Your week in followers</string>
+    <string name="brief_context_followers_recorded">Your recorded follower change</string>
+    <string name="brief_context_followers_body">From %1$s to %2$s, your net follower change was %3$s (%4$s → %5$s).</string>
+    <string name="brief_context_posts_title">Your recent posts in view</string>
+    <string name="brief_context_posts_body">Recent original posts included: %1$s. Together they have %2$s recorded views and %3$s engagements so far. These counts cover each post’s lifetime so far, not just views or engagements earned this week.</string>
+    <string name="brief_context_posts_sampled">This snapshot contains a sample of recent posts.</string>
+    <string name="brief_context_posts_summary">Your recent-post snapshot is included below.</string>
+    <string name="brief_stat_net_change">Net follower change</string>
+    <string name="brief_stat_posts">Recent original posts</string>
+    <string name="brief_generation_failed_title">Your Brief couldn’t be generated</string>
+    <string name="brief_generation_failed_body">The model didn’t return a complete response. Try again to generate your descriptions.</string>
+    <string name="brief_generation_retry">Try again</string>
+    <string name="brief_refreshing">Refreshing your Brief</string>
+    <string name="brief_saved_summary_info">Showing your last successful Brief from %1$s while a new one is prepared.</string>
+
+    <!-- Brief and tweet-review debug tools. -->
+    <string name="debug_brief_home">Your Brief debug</string>
+    <string name="debug_brief_ai">AI debug</string>
+    <string name="debug_brief_ranking">Candidate ranking</string>
+    <string name="debug_ui_state">UI state</string>
+    <string name="debug_component_library">Show component library</string>
+    <string name="debug_show_onboarding">Show onboarding</string>
+    <string name="debug_show_review_preview">Show tweet review preview</string>
+    <string name="debug_preview_state">Preview state</string>
+    <string name="debug_launch_preview">Launch preview</string>
+    <string name="debug_ai_diagnostics">AI diagnostics</string>
+    <string name="debug_view_ai">View AI debugging options</string>
+    <string name="debug_engine">Brief engine debug</string>
+    <string name="debug_view_ranking">View candidate ranking</string>
+    <string name="debug_view_engine_log">View engine log</string>
+    <string name="debug_rebuild">Force rebuild engine</string>
+    <string name="debug_regenerate_brief">Refresh and regenerate Your Brief</string>
+    <string name="debug_nano_config">Nano model config</string>
+    <string name="debug_cloud_config">Cloud model config</string>
+    <string name="debug_refresh_nano">Refresh Nano status</string>
+    <string name="debug_refresh_cloud">Refresh cloud status</string>
+    <string name="debug_nano_state">Nano state</string>
+    <string name="debug_last_attempt">Last generation attempt</string>
+    <string name="debug_copy_results">Copy results to clipboard</string>
+    <string name="debug_tweet_reviews">Tweet review debug</string>
+    <string name="debug_review_ui">Review UI states</string>
+    <string name="debug_review_engine">Review engine debug</string>
+    <string name="debug_review_ai">Review AI diagnostics</string>
+    <string name="debug_review_log">Review attempt log</string>
+    <string name="debug_review_preview">Tweet review preview</string>
+    <string name="debug_review_state">Review preview state</string>
+    <string name="debug_synthetic_note">Sample preview · no model calls or saved-review changes</string>
+    <string name="debug_open_review_library">Open tweets and drafts</string>
+    <string name="debug_review_subject">Tweet or draft to inspect</string>
+    <string name="debug_no_review_subjects">No cached tweets, saved reviews or ready drafts for this account</string>
+    <string name="debug_review_evidence">Inspect evidence and context</string>
+    <string name="debug_review_evidence_summary">View the source text, media references, quote context, history and measured evidence available to the model</string>
+    <string name="debug_review_cache">Inspect review cache</string>
+    <string name="debug_review_checks">Run policy and cache checks</string>
+    <string name="debug_review_checks_summary">Check cloud requirements and age-based refresh windows without generating advice</string>
+    <string name="debug_regenerate_review">Refresh and regenerate selected review</string>
+    <string name="debug_regenerate_review_summary">Refresh its metrics and generate a new review. Uses cloud in Auto or Cloud mode and requires a key.</string>
+    <string name="debug_review_route">Review provider and configuration</string>
+    <string name="debug_test_review_provider">Test review provider</string>
+    <string name="debug_test_review_provider_summary">Send the selected tweet or draft, its context and media to cloud. Reports validation and media coverage without replacing the saved review.</string>
+    <string name="debug_review_test_result">Last review provider test</string>
+    <string name="debug_review_log_empty">No review attempts recorded yet</string>
+    <string name="debug_test_failed">Debug test could not finish</string>
+    <string name="debug_sample_account">Sample account</string>
+    <string name="debug_sample_explanation">Your sample tweet received 1,164 views and 23 public interactions. The opening leaves the subject implicit; that may make it harder for readers outside the conversation to understand it. This is a possible explanation, not a measured cause.</string>
+    <string name="debug_sample_suggestion">Name what you shipped before asking for feedback.</string>
+    <string name="debug_sample_reason">Your comparison posts explain the tool in the opening line. Try the same approach here and compare the response at a similar age.</string>
+    <string name="debug_sample_draft_explanation">Your sample draft asks for feedback without naming what you built. Your comparison posts give readers that context up front. Try a clearer opening; this is draft advice, not a prediction of its performance.</string>
+    <string name="debug_sample_quote_explanation">Your sample tweet received 1,164 views and 23 public interactions. The quoted tweet already explains the tool. A more specific question may give readers an easier way to respond; that is a possible experiment, not a measured cause.</string>
+    <string name="review_next_steps_intro">Here’s what you should do next time</string>
+    <string name="review_rewrite_fill_intro">Here’s a suggested rewrite. Fill in the missing details before posting.</string>
+
+    <!-- Typed, source-attributed figures in AI review commentary. -->
+    <plurals name="review_fact_likes"><item quantity="one">%1$s like</item><item quantity="other">%1$s likes</item></plurals>
+    <plurals name="review_fact_replies"><item quantity="one">%1$s reply</item><item quantity="other">%1$s replies</item></plurals>
+    <plurals name="review_fact_retweets"><item quantity="one">%1$s repost</item><item quantity="other">%1$s reposts</item></plurals>
+    <plurals name="review_fact_quotes"><item quantity="one">%1$s quote</item><item quantity="other">%1$s quotes</item></plurals>
+    <plurals name="review_fact_hours"><item quantity="one">%1$s hour</item><item quantity="other">%1$s hours</item></plurals>
+    <string name="review_fact_rate">%1$s engagement rate</string>
+    <string name="review_fact_age">%1$s after posting</string>
+    <string name="review_fact_history">%1$s on your tweet from %2$s</string>
+    <string name="review_fact_median">%1$s as the median across %2$s similar tweets</string>
 </resources>

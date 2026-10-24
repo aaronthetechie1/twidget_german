@@ -24,8 +24,24 @@ internal class MainSyncController(
     private val analyticsInFlight = mutableSetOf<String>()
     private val streakInFlight = mutableSetOf<String>()
 
+    private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var rebindScheduled = false
+    private fun scheduleDashboardBind() {
+        if (rebindScheduled) return
+        rebindScheduled = true
+        val token = lifecycleGeneration
+        uiHandler.postDelayed({
+            rebindScheduled = false
+            if (token == lifecycleGeneration && !activity.isDestroyed && !activity.isFinishing && !activity.editModeController.editMode) {
+                activity.dashboardBinder.bindContent()
+            }
+        }, 80L)
+    }
+
     fun invalidateLifecycle() {
         lifecycleGeneration++
+        uiHandler.removeCallbacksAndMessages(null)
+        rebindScheduled = false
     }
 
     fun setupRefresh() {
@@ -44,7 +60,7 @@ internal class MainSyncController(
         sync(userInitiated = true)
     }
 
-    fun sync(userInitiated: Boolean = false) {
+    fun sync(showProgress: Boolean = true, userInitiated: Boolean = false) {
         if (isSyncing) {
             activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
             return
@@ -55,14 +71,13 @@ internal class MainSyncController(
         if (userInitiated) TwidgetHaptics.refresh(refreshView)
         val generation = ++syncGeneration
         val lifecycleToken = lifecycleGeneration
-        // Launch-time syncs show the same spinner as a pull refresh.
-        activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = true
+        activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = showProgress
         AppExecutors.execute(onRejected = {
             postUiIfCurrent(lifecycleToken) {
                 if (generation != syncGeneration) return@postUiIfCurrent
                 isSyncing = false
                 activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
-                Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                if (showProgress) Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
                 if (userInitiated && activity.hasWindowFocus()) TwidgetHaptics.reject(refreshView)
             }
         }) {
@@ -77,12 +92,20 @@ internal class MainSyncController(
                 if (generation != syncGeneration) return@postUiIfCurrent
                 isSyncing = false
                 activity.findViewById<SwipeRefreshLayout>(R.id.main_refresh).isRefreshing = false
-                activity.render()
+                if (result.isSuccess) {
+                    val refreshed = result.getOrThrow()
+                    if (activity.selectedAccount.equals(account, true) &&
+                        !refreshed.userName.equals(account, true) &&
+                        TwidgetStore.accounts(activity).any { it.equals(refreshed.userName, true) }) {
+                        activity.selectedAccount = refreshed.userName
+                    }
+                    activity.render()
+                }
                 if (userInitiated && activity.hasWindowFocus() && activity.selectedAccount.equals(account, ignoreCase = true)) {
                     if (result.isSuccess) TwidgetHaptics.confirm(refreshView)
                     else TwidgetHaptics.reject(refreshView)
                 }
-                if (result.isFailure) {
+                if (result.isFailure && showProgress) {
                     Toast.makeText(activity, R.string.sync_failed, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -92,7 +115,8 @@ internal class MainSyncController(
     // Fetches fresh post analytics off the main thread when the cache is stale,
     // then repaints the current account's dashboard.
     fun maybeRefreshAnalytics(account: String) {
-        if (activity.editModeController.editMode || !AnalyticsClient.isStale(activity, activity.analytics)) return
+        if (activity.editModeController.editMode || !AnalyticsClient.isStale(activity, activity.analytics) ||
+            !AnalyticsClient.mayAttempt(activity, account)) return
         val key = account.lowercase(Locale.US)
         synchronized(analyticsInFlight) {
             if (!analyticsInFlight.add(key)) return
@@ -107,7 +131,7 @@ internal class MainSyncController(
             postUiIfCurrent(lifecycleToken) {
                 if (activity.selectedAccount.equals(account, ignoreCase = true) && !activity.editModeController.editMode) {
                     activity.analytics = fresh
-                    activity.dashboardBinder.bindContent()
+                    scheduleDashboardBind()
                 }
             }
         }
@@ -127,7 +151,7 @@ internal class MainSyncController(
             synchronized(streakInFlight) { streakInFlight.remove(key) }
             postUiIfCurrent(lifecycleToken) {
                 if (activity.selectedAccount.equals(account, ignoreCase = true) && !activity.editModeController.editMode) {
-                    activity.dashboardBinder.bindContent()
+                    scheduleDashboardBind()
                 }
             }
         }

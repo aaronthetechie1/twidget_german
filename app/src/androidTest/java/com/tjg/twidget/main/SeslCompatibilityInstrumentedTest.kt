@@ -1,6 +1,7 @@
 package com.tjg.twidget.main
 
 import android.app.Activity
+import androidx.core.widget.NestedScrollView
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
@@ -159,7 +160,7 @@ class SeslCompatibilityInstrumentedTest {
 
     @Test fun dashboardActionsAndFabRemainOnScreenThroughoutScroll() {
         context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE).edit()
-            .putString("username", account).putBoolean("refresh_on_launch", false).commit()
+            .remove("accounts").putString("username", account).putBoolean("refresh_on_launch", false).commit()
         TwidgetStore.saveStats(context, ProfileStats("SESL Test", account, 7757, 200, 400, 900))
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             settle()
@@ -184,6 +185,100 @@ class SeslCompatibilityInstrumentedTest {
                     assertFullyVisible(activity.findViewById(R.id.schedule_fab))
                 }
                 capture("DashboardScrolled-$index")
+            }
+        }
+    }
+
+    @Test fun dashboardFirstFrameShowsCachedStatsAndSavedCards() {
+        context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("onboarded", true).remove("accounts").putString("username", account)
+            .putBoolean("refresh_on_launch", false).commit()
+        TwidgetStore.saveStats(context, ProfileStats("Cached heading", account, 7757, 200, 400, 900))
+        val cards = listOf("milestone", "followers", "daily_streak", "follower_ratio")
+        TwidgetStore.saveDashboardCards(context, cards)
+        val observed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val callback = androidx.test.runner.lifecycle.ActivityLifecycleCallback { activity, stage ->
+            if (activity is MainActivity && stage == androidx.test.runner.lifecycle.Stage.CREATED) {
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                assertEquals("Cached heading", layout.collapsedTitle.toString())
+                assertEquals("@$account", layout.collapsedSubtitle.toString())
+                assertEquals(TwidgetStore.lastSyncedText(activity, TwidgetStore.currentStats(activity, account)), layout.expandedSubtitle.toString())
+                val grid = activity.findViewById<android.widget.GridLayout>(R.id.dashboard_content)
+                assertEquals(cards, (0 until grid.childCount).map { grid.getChildAt(it).tag })
+                assertEquals(activity.dp(DashboardCardSize.MILESTONE.heightDp), grid.getChildAt(0).layoutParams.height)
+                assertEquals(activity.dp(DashboardCardSize.CHART.heightDp), grid.getChildAt(1).layoutParams.height)
+                assertEquals("7,757", activity.findViewById<android.widget.TextView>(R.id.followers_value).text.toString())
+                assertFalse(activity.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.main_refresh).isRefreshing)
+                observed.set(true)
+            }
+        }
+        val lifecycle = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+        lifecycle.addLifecycleCallback(callback)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { settle() }
+            assertTrue("Cached stats and saved cards must be ready before the first frame", observed.get())
+        } finally {
+            lifecycle.removeLifecycleCallback(callback)
+        }
+    }
+
+    @Test fun dashboardHeadingAndViewportSurviveEditingAndNestedPages() {
+        context.getSharedPreferences(TwidgetStore.PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("onboarded", true).remove("accounts").putString("username", account)
+            .putBoolean("refresh_on_launch", false).commit()
+        TwidgetStore.saveStats(context, ProfileStats("Stable heading", account, 7757, 200, 400, 900))
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            settle()
+            var height = 0
+            var scrollY = 0
+            scenario.onActivity { activity ->
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                layout.setExpanded(false, false)
+            }
+            settle()
+            scenario.onActivity { activity ->
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                val scroll = activity.findViewById<NestedScrollView>(R.id.dashboard_scroll)
+                scroll.scrollTo(0, activity.dp(180))
+                scrollY = scroll.scrollY
+                height = layout.appBarLayout.height
+                val title = layout.collapsedTitle
+                activity.render()
+                assertSame("Unchanged account titles must retain their native spans", title, layout.collapsedTitle)
+                activity.editModeController.setEditMode(true)
+            }
+            settle()
+            scenario.onActivity { activity ->
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                assertTrue("Edit mode keeps app bar geometry", layout.isExpandable)
+                assertEquals(height, layout.appBarLayout.height)
+                assertEquals(scrollY, activity.findViewById<NestedScrollView>(R.id.dashboard_scroll).scrollY)
+                assertEquals(activity.getString(R.string.edit_dashboard), layout.collapsedTitle.toString())
+                activity.editModeController.setEditMode(false)
+            }
+            settle()
+            var offset = 0
+            lateinit var title: CharSequence
+            scenario.onActivity { activity ->
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                assertFalse("Leaving a scrolled edit session must not expand the heading", layout.isExpanded)
+                assertEquals(scrollY, activity.findViewById<NestedScrollView>(R.id.dashboard_scroll).scrollY)
+                offset = layout.appBarLayout.top
+                title = requireNotNull(layout.collapsedTitle)
+                activity.startActivity(Intent(activity, com.tjg.twidget.settings.SettingsActivity::class.java))
+            }
+            settle()
+            instrumentation.runOnMainSync {
+                androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                    .filterIsInstance<com.tjg.twidget.settings.SettingsActivity>().forEach { it.finish() }
+            }
+            settle()
+            scenario.onActivity { activity ->
+                val layout = activity.findViewById<ToolbarLayout>(R.id.main_toolbar_layout)
+                assertSame(title, layout.collapsedTitle)
+                assertEquals(offset, layout.appBarLayout.top)
+                assertEquals(scrollY, activity.findViewById<NestedScrollView>(R.id.dashboard_scroll).scrollY)
             }
         }
     }
@@ -741,14 +836,68 @@ class SeslCompatibilityInstrumentedTest {
         }
     }
 
+    @Test fun noticesCardsUseDesignSectionsAndRetainChangelogNavigation() {
+        val stable = ReleaseNotice("v99.0.0", "Twidget v99.0.0", "A concise release introduction.\n\n## Added\n- A feature",
+            "https://example.com/stable", false, "2026-10-10T10:00:00Z")
+        val beta = stable.copy(tag = "v99.0.0-beta.4", title = "Twidget v99.0.0 Beta 4", prerelease = true)
+        ReleaseNoticesStore.save(context, listOf(beta, stable))
+        val originalMode = com.tjg.twidget.ui.AppAppearance.mode(context)
+        try {
+            for (mode in listOf(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
+                androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES)) {
+                instrumentation.runOnMainSync { com.tjg.twidget.ui.AppAppearance.setMode(context, mode) }
+                ReleaseNoticesStore.save(context, listOf(beta, stable))
+                ActivityScenario.launch(NoticesActivity::class.java).use { scenario ->
+                    scenario.onActivity { activity ->
+                        val content = activity.findViewById<LinearLayout>(R.id.notices_content)
+                        val sections = content.children.filterIsInstance<dev.oneuiproject.oneui.widget.Separator>().toList()
+                        assertEquals(listOf(activity.getString(R.string.notices_latest_version), activity.getString(R.string.notices_older_releases)), sections.map { it.text.toString() })
+                        val cards = content.children.filter { it.isClickable }.toList()
+                        val releases = ReleaseNoticesStore.visible(activity).filterNot { it.upcoming }
+                        val latest = releases.firstOrNull { !it.prerelease } ?: releases.first()
+                        assertEquals(listOf(latest.tag) + releases.filter { it != latest }.map { it.tag }, cards.map { it.tag })
+                        val latestTexts = descendants(cards[0] as ViewGroup).filterIsInstance<android.widget.TextView>()
+                        assertTrue(latestTexts.any { it.text.toString() == latest.title.removePrefix("Twidget ") && it.getTag(R.id.app_font_role) == com.tjg.twidget.ui.TwidgetFonts.Role.CODE })
+                        assertTrue(latestTexts.any { it.text.toString() == ReleaseNoticeText.summary(latest.body) })
+                        assertFalse(latestTexts.any { it.text.toString().contains("View changelog") })
+                    }
+                    settle()
+                    capture("NoticesCards")
+                    val monitor = instrumentation.addMonitor(NoticeDetailActivity::class.java.name, null, false)
+                    var selectedTag: String? = null
+                    try {
+                        scenario.onActivity { activity ->
+                            val card = activity.findViewById<LinearLayout>(R.id.notices_content).children.first { it.isClickable }
+                            selectedTag = card.tag as String
+                            card.performClick()
+                        }
+                        val detail = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
+                        assertNotNull(detail)
+                        assertEquals(selectedTag, detail!!.intent.getStringExtra(NoticeDetailActivity.EXTRA_NOTICE_TAG))
+                        instrumentation.runOnMainSync { detail.finish() }
+                    } finally { instrumentation.removeMonitor(monitor) }
+                }
+            }
+        } finally {
+            instrumentation.runOnMainSync { com.tjg.twidget.ui.AppAppearance.setMode(context, originalMode) }
+        }
+    }
+
     @Test fun noticeReaderUsesNativeFloatingBack() {
-        val notice = ReleaseNotice("chrome-test", "Twidget release", "Reader text.\n\n".repeat(100),
-            "https://github.com", false, "2026-09-18T12:00:00Z")
+        val notice = ReleaseNotice("chrome-test", "Twidget v1.3.0 Beta 4", "Reader text.\n\n".repeat(100),
+            "https://github.com", true, "2026-09-18T12:00:00Z")
         ReleaseNoticesStore.save(context, listOf(notice))
         ActivityScenario.launchActivityForResult<NoticeDetailActivity>(Intent(context, NoticeDetailActivity::class.java)
             .putExtra(NoticeDetailActivity.EXTRA_NOTICE_TAG, notice.tag)).use { scenario ->
             settle()
             scenario.onActivity { activity ->
+                val title = activity.findViewById<android.widget.TextView>(R.id.notice_detail_title)
+                assertEquals("v1.3.0 Beta 4", title.text.toString())
+                assertEquals(com.tjg.twidget.ui.TwidgetFonts.Role.CODE, title.getTag(R.id.app_font_role))
+                val badge = activity.findViewById<android.widget.TextView>(R.id.notice_detail_beta)
+                assertEquals(View.VISIBLE, badge.visibility)
+                assertEquals(activity.getString(R.string.notices_beta), badge.text.toString())
+                assertEquals(android.graphics.Color.WHITE, badge.currentTextColor)
                 val host = activity.findViewById<FrameLayout>(R.id.notice_detail_back)
                 assertNull(host.background)
                 assertEquals(activity.window.decorView.width, host.width)

@@ -32,6 +32,17 @@ internal object TwidgetHaptics {
         previewPrimitive(view, 5) // PRIMITIVE_QUICK_RISE; waveform previews also work before API 30.
     }
 
+    /** Continuous, cancellable fade-in over the supplied animation feedback duration. */
+    fun animationRise(view: View, durationMs: Long): () -> Unit {
+        if (durationMs <= 0 || !view.isHapticFeedbackEnabled ||
+            Settings.System.getInt(view.context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) == 0) return {}
+        val vibrator = view.context.getSystemService(Vibrator::class.java) ?: return {}
+        if (!vibrator.hasVibrator()) return {}
+        val ramp = AnimationHapticRamp.create(durationMs, vibrator.hasAmplitudeControl())
+        vibrateTouch(vibrator, VibrationEffect.createWaveform(ramp.timings, ramp.amplitudes, -1))
+        return { vibrator.cancel() }
+    }
+
     fun supportsPrimitive(view: View, primitive: Int): Boolean {
         if (Build.VERSION.SDK_INT < 30) return false
         val vibrator = view.context.getSystemService(Vibrator::class.java) ?: return false

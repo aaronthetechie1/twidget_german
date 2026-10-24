@@ -180,6 +180,8 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
             EditorItem(it.id, it.text, it.media.toMutableList())
         }.orEmpty().ifEmpty { listOf(EditorItem()) }
 
+        if (editorPost == null) applyReviewSeed()
+
         composeUi = ScheduleComposeUi(this, root)
         composeUi.bind()
     }
@@ -636,6 +638,25 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         return requestedUsername()
     }
 
+    private fun applyReviewSeed() {
+        val rewrite = intent.getStringExtra(EXTRA_REVIEW_REWRITE) ?: return
+        val draft = intent.getStringExtra(EXTRA_REVIEW_DRAFT_ID)?.let(store::get)
+        val postUrl = intent.getStringExtra(EXTRA_REVIEW_POST_URL)
+        val savedPost = postUrl?.let { com.tjg.twidget.brief.BriefPublishedReviewStore.read(this,
+            com.tjg.twidget.brief.BriefReviewTarget(editorAccount, postUrl = it))?.subject?.post }
+        val post = (savedPost ?: if (postUrl == null) null else com.tjg.twidget.analytics.AnalyticsClient.cached(this, editorAccount)?.let {
+            (it.recentPosts + it.recentReplies).firstOrNull { candidate -> candidate.url == postUrl }
+        })?.takeIf { it.fullText == intent.getStringExtra(EXTRA_REVIEW_ORIGINAL_TEXT) }
+            ?.let { it.copy(authorUserName = TwidgetStore.canonicalAccount(this, it.authorUserName)) }
+        val seed = com.tjg.twidget.brief.BriefReviewRewrite.seed(editorAccount, rewrite,
+            intent.getIntExtra(EXTRA_REVIEW_ENTRY, -1), draft, post,
+            intent.getLongExtra(EXTRA_REVIEW_UPDATED_AT, 0L))
+        if (seed == null) { toast(R.string.coach_ai_stale); return }
+        editorItems.clear()
+        editorItems += seed.map { EditorItem(it.id, it.text, it.media.toMutableList()) }
+        if (draft != null) editorProvider = draft.provider
+    }
+
     private fun requestedUsername(): String =
         ScheduleAccountScope.resolve(
             intent?.getStringExtra(EXTRA_USERNAME),
@@ -693,6 +714,12 @@ class ScheduleComposeActivity : FoldablePopOverActivity() {
         const val EXTRA_USERNAME = "com.tjg.twidget.extra.COMPOSE_USERNAME"
         const val EXTRA_SCHEDULE_ID = "com.tjg.twidget.extra.COMPOSE_SCHEDULE_ID"
         const val EXTRA_SCHEDULED_AT = "com.tjg.twidget.extra.COMPOSE_SCHEDULED_AT"
+        const val EXTRA_REVIEW_REWRITE = "com.tjg.twidget.extra.REVIEW_REWRITE"
+        const val EXTRA_REVIEW_ENTRY = "com.tjg.twidget.extra.REVIEW_ENTRY"
+        const val EXTRA_REVIEW_DRAFT_ID = "com.tjg.twidget.extra.REVIEW_DRAFT_ID"
+        const val EXTRA_REVIEW_UPDATED_AT = "com.tjg.twidget.extra.REVIEW_UPDATED_AT"
+        const val EXTRA_REVIEW_POST_URL = "com.tjg.twidget.extra.REVIEW_POST_URL"
+        const val EXTRA_REVIEW_ORIGINAL_TEXT = "com.tjg.twidget.extra.REVIEW_ORIGINAL_TEXT"
         private const val MAX_THREAD_ITEMS = 20
         private const val SAMSUNG_GALLERY_PACKAGE = "com.sec.android.gallery3d"
     }

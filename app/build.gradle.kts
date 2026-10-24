@@ -1,12 +1,10 @@
 import com.tjg.twidget.buildlogic.loadReleaseKey
-import com.tjg.twidget.buildlogic.shouldSignDebugWithRelease
 
 plugins {
     alias(libs.plugins.twidget.android.application)
 }
 
 val releaseKey = loadReleaseKey()
-val signDebugWithRelease = shouldSignDebugWithRelease(releaseKey)
 
 android {
     namespace = "com.tjg.twidget"
@@ -23,18 +21,27 @@ android {
         }
     }
 
+    // Original font is a test-only comparison fixture; it is never packaged in the app.
+    sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("design-assets"))
+
+    testBuildType = providers.gradleProperty("auditTestBuildType").orElse("debug").get()
+
     defaultConfig {
         applicationId = "com.tjg.twidget"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // A platform-only runner exercises the actual shrunk app without keeping
+        // AndroidX test dependencies that AGP otherwise deduplicates against it.
+        testInstrumentationRunner = if (testBuildType == "audit") {
+            "com.tjg.twidget.core.MinifiedSmokeRunner"
+        } else "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
-        // Default for contributors and pull requests. Trusted builds can opt
-        // into the production certificate with -PsignDebugWithRelease=true so
-        // they install over beta/stable builds without changing the debug
-        // version suffix.
+        // Debug builds always use this development certificate, including CI.
         getByName("debug") {
             storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
         if (releaseKey != null) {
             create("release") {
@@ -48,9 +55,8 @@ android {
 
     buildTypes {
         debug {
-            if (signDebugWithRelease) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
         }
         release {
             isMinifyEnabled = true
@@ -61,6 +67,13 @@ android {
             )
             // Null without a release key, so release builds are unsigned.
             signingConfig = signingConfigs.findByName("release")
+        }
+        // Minified, independently installed build for shrinker/device checks. Never published.
+        create("audit") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".audit"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
         }
         create("beta") {
             initWith(getByName("release"))
@@ -94,6 +107,7 @@ configurations.configureEach {
 dependencies {
     implementation(libs.oneui.design)
     implementation(libs.lottie)
+    implementation(libs.androidx.dynamicanimation)
     implementation(libs.androidx.work.runtime)
     implementation(libs.mlkit.genai.prompt)
     implementation(libs.kotlinx.coroutines.android)

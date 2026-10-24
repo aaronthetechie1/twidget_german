@@ -15,6 +15,8 @@ import com.tjg.twidget.widget.TwidgetWidget
 class TwidgetApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(this)
+        com.tjg.twidget.bridge.BridgeHandleMigrationWorker.enqueueIfPending(this)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             android.app.WallpaperManager.getInstance(this).addOnColorsChangedListener(
                 { _, _ -> refreshHomeWidgets() }, android.os.Handler(mainLooper),
@@ -22,8 +24,10 @@ class TwidgetApplication : Application(), Configuration.Provider {
         }
         AppLocales.initialize(this)
         com.tjg.twidget.ui.AppAppearance.apply(this)
+        com.tjg.twidget.brief.BriefForegroundPreparation.install(this)
         AppPaletteManager.reconcile(this)
         AppExecutors.execute {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(this)
             runCatching { com.tjg.twidget.followers.TopFollowersLocalScanCleanup.run(this) }
             com.tjg.twidget.widget.WidgetPreviews.publish(this)
         }

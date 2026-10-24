@@ -7,8 +7,9 @@ import com.tjg.twidget.core.NetworkResponseParsers
 import com.tjg.twidget.data.BridgeEndpoint
 import com.tjg.twidget.data.HistorySample
 import com.tjg.twidget.data.ProfileStats
+import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.data.TwidgetSettings
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Calendar
@@ -35,9 +36,9 @@ object HistoryPool {
         // Pool state is per-day server-side; one exchange per account per day.
         if (!needsSync(context, username)) return stats
         markAttempted(context, username)
-        val pooled = runCatching { fetchPooledHistory(context, username, endpoint) }.getOrNull() ?: return stats
+        val pooled = runCatching { fetchPooledHistory(context, username, stats.userId, endpoint) }.getOrNull() ?: return stats
         markSynced(context, username)
-        return if (pooled.isEmpty()) stats else stats.copy(history = stats.history + pooled)
+        return if (pooled.isEmpty()) stats else stats.copy(history = stats.history + pooled, historyUserId = stats.userId)
     }
 
     fun importAnalytics(
@@ -66,10 +67,23 @@ object HistoryPool {
     }
 
     // Registers the account when unknown and returns the pooled history.
-    private fun fetchPooledHistory(context: Context, username: String, endpoint: BridgeEndpoint): List<HistorySample> {
+    private fun fetchPooledHistory(context: Context, username: String, userId: String, endpoint: BridgeEndpoint): List<HistorySample> {
         val body = request(context, "GET", "${endpoint.url}/history/${encode(username)}", null, endpoint.token)
-        val array = JSONObject(body).optJSONArray("history") ?: JSONArray()
-        return parseHistory(array)
+        return ownedHistory(body, userId) ?: throw IllegalStateException("Shared history account identity is not verified")
+    }
+
+    internal fun ownedHistory(body: String, userId: String): List<HistorySample>? {
+        val root = JSONObject(body)
+        if (userId.isBlank() || root.optString("userId") != userId) return null
+        return parseHistory(root.optJSONArray("history") ?: JSONArray())
+    }
+
+    fun migrateHandle(context: Context, old: String, next: String, userId: String) {
+        val settings = TwidgetStore.settings(context)
+        if (!settings.shareHistory) return
+        val endpoint = TwidgetStore.bridgeEndpoint(settings)
+        request(context, "POST", "${endpoint.url}/history/${encode(old)}/handle", JSONObject()
+            .put("username", next).put("userId", userId).toString(), endpoint.token)
     }
 
     private fun parseHistory(array: JSONArray): List<HistorySample> =

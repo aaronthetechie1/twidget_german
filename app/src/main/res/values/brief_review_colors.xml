@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="review_library_art_top">#B3DDE4E6</color>
+    <color name="review_library_art_bottom">#B3CED5E0</color>
+    <color name="review_library_art_detail">#FFFFFF</color>
+    <color name="brief_review_icon_ripple">#18000000</color>
+    <color name="brief_review_quote_surface">#FFFFFF</color>
+    <color name="brief_review_media_fade_bottom">#E8F3FD</color>
+</resources>

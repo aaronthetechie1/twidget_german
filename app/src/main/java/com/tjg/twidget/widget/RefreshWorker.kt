@@ -33,12 +33,14 @@ class RefreshWorker(context: Context, params: WorkerParameters) : Worker(context
         val defaultAccount = TwidgetStore.settings(context).username
         accountsToSync(context).forEach { account ->
             runCatching {
-                TwidgetStore.saveStats(context, RettiwtClient.refresh(context, account))
+                val stats = RettiwtClient.refresh(context, account)
+                TwidgetStore.saveStats(context, stats)
+                val currentAccount = stats.userName
                 if (BriefSettingsStore.enabled(context) && account.equals(defaultAccount, ignoreCase = true)) {
-                    BriefEngine.rebuild(context, account, force = true)
+                    BriefEngine.rebuild(context, currentAccount, force = true)
                 }
                 if (TwidgetStore.settings(context).shareHistory) {
-                    runCatching { TopFollowersBridgeSync.refresh(context, account, notifyChanges = true) }
+                    runCatching { TopFollowersBridgeSync.refresh(context, currentAccount, notifyChanges = true) }
                 }
                 anySuccess = true
             }

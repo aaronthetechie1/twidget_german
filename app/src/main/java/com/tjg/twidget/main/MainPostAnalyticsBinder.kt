@@ -10,6 +10,7 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.text.style.URLSpan
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -18,9 +19,13 @@ import androidx.appcompat.content.res.AppCompatResources
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.banger.BangerScanWorker
+import com.tjg.twidget.brief.BriefReviewTarget
+import com.tjg.twidget.brief.BriefTweetReviewActivity
 import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.ui.ProfileImageLoader
+import com.tjg.twidget.ui.TwidgetFonts
+import com.tjg.twidget.ui.startRightSidePopOverActivity
 import java.text.NumberFormat
 import dev.oneuiproject.oneui.R as OneUiIconR
 
@@ -41,6 +46,7 @@ internal class MainPostAnalyticsBinder(
                     post != null -> postAnalyticsCard(
                         activity.getString(if (data.bangerComplete) R.string.all_time_banger else R.string.best_banger_found),
                         post,
+                        account,
                     )
                     scanning -> postAnalyticsShell(
                         activity.getString(R.string.finding_banger),
@@ -53,10 +59,10 @@ internal class MainPostAnalyticsBinder(
                 }
             }
             DashboardCardType.BEST_POST -> data?.best
-                ?.let { postAnalyticsCard(activity.getString(if (data.postsAnalyzed == 1) R.string.only_post else R.string.best_post), it) }
+                ?.let { postAnalyticsCard(activity.getString(if (data.postsAnalyzed == 1 && data.recentPosts.singleOrNull()?.url == it.url) R.string.only_post else R.string.best_post), it, account) }
                 ?: emptyPostAnalyticsCard(account, R.string.best_post)
             DashboardCardType.WORST_POST -> data?.worst
-                ?.let { postAnalyticsCard(activity.getString(R.string.worst_post), it) }
+                ?.let { postAnalyticsCard(activity.getString(R.string.worst_post), it, account) }
                 ?: emptyPostAnalyticsCard(account, R.string.worst_post)
             else -> error("Not a post card")
         }
@@ -65,10 +71,10 @@ internal class MainPostAnalyticsBinder(
     private fun emptyPostAnalyticsCard(account: String, labelRes: Int = R.string.post_analytics): View =
         postAnalyticsShell(activity.getString(labelRes), activity.getString(R.string.post_card_waiting, account), null)
 
-    private fun postAnalyticsCard(label: String, post: PostSummary): View =
-        postAnalyticsShell(label, post.text.ifBlank { post.url }, post)
+    private fun postAnalyticsCard(label: String, post: PostSummary, account: String): View =
+        postAnalyticsShell(label, post.text.ifBlank { post.url }, post, account)
 
-    private fun postAnalyticsShell(label: String, body: String, post: PostSummary?): View {
+    private fun postAnalyticsShell(label: String, body: String, post: PostSummary?, account: String = ""): View {
         val surface = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(activity.dp(14), activity.dp(14), activity.dp(14), activity.dp(14))
@@ -141,7 +147,7 @@ internal class MainPostAnalyticsBinder(
             }
 
             post?.let {
-                addView(tweetMetricsRow(it), LinearLayout.LayoutParams(
+                addView(tweetFooter(it, account), LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 ).apply {
@@ -150,7 +156,69 @@ internal class MainPostAnalyticsBinder(
             }
         }
 
+        // Expand the hit area into the card's existing padding instead of making the stats row taller.
+        surface.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            surface.findViewById<View>(R.id.dashboard_view_report)?.let { button ->
+                val bounds = android.graphics.Rect(0, 0, button.width, button.height)
+                surface.offsetDescendantRectToMyCoords(button, bounds)
+                bounds.inset(0, -maxOf(0, (activity.dp(48) - bounds.height()) / 2))
+                bounds.top = bounds.top.coerceAtLeast(0)
+                bounds.bottom = bounds.bottom.coerceAtMost(surface.height)
+                surface.touchDelegate = android.view.TouchDelegate(bounds, button)
+            }
+        }
         return surface
+    }
+
+    private fun tweetFooter(post: PostSummary, account: String): View {
+        val footer = PostFooter(activity).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            isBaselineAligned = false
+        }
+        val metrics = tweetMetricsRow(post)
+        val button = LayoutInflater.from(activity).inflate(R.layout.view_dashboard_report_button, footer, false)
+            as androidx.appcompat.widget.AppCompatButton
+        button.typeface = TwidgetFonts.forApp(activity, 700)
+        button.setOnClickListener {
+            activity.startRightSidePopOverActivity(BriefTweetReviewActivity.intent(activity,
+                BriefReviewTarget(account, postUrl = post.url, fromDashboard = true)))
+        }
+        // The card delegates a larger touch area; this wrapper only lays out the compact pill.
+        val action = android.widget.FrameLayout(activity).apply {
+            addView(button, android.widget.FrameLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        }
+        footer.addView(metrics, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        footer.addView(action, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            marginStart = activity.dp(8)
+        })
+        return footer
+    }
+
+    /** Measure natural widths before sharing space so large type never clips the stats. */
+    private class PostFooter(context: android.content.Context) : LinearLayout(context) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            if (childCount == 2) {
+                val natural = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+                val metrics = getChildAt(0)
+                val action = getChildAt(1)
+                metrics.measure(natural, natural)
+                action.measure(natural, natural)
+                val gap = (8 * resources.displayMetrics.density).toInt()
+                val stacked = MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED &&
+                    metrics.measuredWidth + action.measuredWidth + gap > MeasureSpec.getSize(widthMeasureSpec)
+                orientation = if (stacked) VERTICAL else HORIZONTAL
+                (metrics.layoutParams as LayoutParams).apply {
+                    width = if (stacked) LayoutParams.MATCH_PARENT else 0
+                    weight = if (stacked) 0f else 1f
+                }
+                (action.layoutParams as LayoutParams).apply {
+                    gravity = Gravity.END
+                    marginStart = if (stacked) 0 else gap
+                }
+            }
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        }
     }
 
     private fun tweetAuthorRow(post: PostSummary): View =
@@ -235,7 +303,7 @@ internal class MainPostAnalyticsBinder(
             ).apply {
                 marginStart = activity.dp(4)
             })
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
     }
 
     private fun postDate(post: PostSummary): String =

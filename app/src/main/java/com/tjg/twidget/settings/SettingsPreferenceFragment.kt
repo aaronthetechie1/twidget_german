@@ -61,6 +61,9 @@ class SettingsPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(destination("appearance", R.string.widget_appearance_section, R.drawable.settings_icon_appearance) {
             openCategory(SettingsPage.APPEARANCE)
         })
+        screen.addPreference(destination("widgets", R.string.settings_widgets, R.drawable.settings_icon_widgets) {
+            openCategory(SettingsPage.WIDGETS)
+        })
         screen.addPreference(InsetPreferenceCategory(context))
         screen.addPreference(destination("data_sources", R.string.settings_data_sources, R.drawable.settings_icon_data) {
             openCategory(SettingsPage.DATA)

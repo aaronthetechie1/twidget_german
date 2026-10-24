@@ -2,12 +2,11 @@ package com.tjg.twidget.banger
 
 import android.content.Context
 import com.tjg.twidget.analytics.AnalyticsClient
-import com.tjg.twidget.analytics.PostLink
-import com.tjg.twidget.analytics.PostMedia
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.data.BridgeEndpoint
+import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.data.TwidgetSettings
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.NetworkResponseParsers
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
@@ -26,7 +25,7 @@ data class BangerResult(
 /** Builds a durable per-account Hall of Fame without retaining full timelines. */
 object BangerClient {
     private const val PREFS = "twidget_bangers"
-    private const val VERSION = 2
+    private const val VERSION = 3
     private const val PAGES_PER_REFRESH = 5
     private const val MAX_POSTS = 75_000
     private const val PAGE_SIZE = 100
@@ -37,38 +36,46 @@ object BangerClient {
         settings: TwidgetSettings,
         endpoint: BridgeEndpoint,
     ): BangerResult {
+        val clean = TwidgetStore.canonicalAccount(context, username)
+        val generation = TwidgetStore.accountGeneration(context, clean)
         val result = if (settings.shareHistory) {
-            fetchShared(context, username, endpoint)
+            fetchShared(context, clean, endpoint)
         } else {
-            refreshLocal(context, username)
+            refreshLocal(context, clean, generation)
         }
-        remember(context, username, result)
-        return result
+        return TwidgetStore.withAccountGeneration(context, clean, generation) {
+            remember(context, clean, result)
+            result
+        }
     }
 
     fun cached(context: Context, username: String): BangerResult? {
         val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(key, null) ?: return null
+        val raw = com.tjg.twidget.data.AccountPreferences.open(context, PREFS).getString(key, null) ?: return null
         return runCatching { resultFromJson(JSONObject(raw)) }.getOrNull()
     }
 
     fun clear(context: Context, username: String) {
-        val suffix = ":${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val edit = prefs.edit()
-        prefs.all.keys.filter { it.endsWith(suffix) }.forEach(edit::remove)
-        edit.apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val suffix = ":${username.trim().trimStart('@').lowercase(Locale.US)}"
+            val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
+            val edit = prefs.edit()
+            prefs.all.keys.filter { it.endsWith(suffix) }.forEach(edit::remove)
+            edit.apply()
+        }
     }
 
     private fun remember(context: Context, username: String, result: BangerResult) {
-        val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
-        val json = JSONObject()
-            .put("score", result.score)
-            .put("complete", result.complete)
-            .put("postsScanned", result.postsScanned)
-            .put("capped", result.capped)
-        result.post?.let { json.put("post", postToJson(it)) }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(key, json.toString()).apply()
+        synchronized(com.tjg.twidget.data.TwidgetStore) {
+            val key = "latest:${username.trim().trimStart('@').lowercase(Locale.US)}"
+            val json = JSONObject()
+                .put("score", result.score)
+                .put("complete", result.complete)
+                .put("postsScanned", result.postsScanned)
+                .put("capped", result.capped)
+            result.post?.let { json.put("post", postToJson(it)) }
+            com.tjg.twidget.data.AccountPreferences.open(context, PREFS).edit().putString(key, json.toString()).apply()
+        }
     }
 
     private fun fetchShared(context: Context, username: String, endpoint: BridgeEndpoint): BangerResult {
@@ -77,12 +84,14 @@ object BangerClient {
         return resultFromJson(root)
     }
 
-    private fun refreshLocal(context: Context, username: String): BangerResult {
+    private fun refreshLocal(context: Context, username: String, generation: Long): BangerResult {
         val key = "v$VERSION:${username.lowercase(Locale.US)}"
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = com.tjg.twidget.data.AccountPreferences.open(context, PREFS)
         val state = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
-        var winner = state.optJSONObject("post")?.let(::postFromJson)
-        var winnerScore = state.optDouble("score", 0.0)
+        val previous = prefs.getString("v2:${username.lowercase(Locale.US)}", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        var winner = (state.optJSONObject("post") ?: previous?.optJSONObject("post"))?.let(::postFromJson)
+        var winnerScore = winner?.let(BangerScore::calculate) ?: 0.0
         var complete = state.optBoolean("complete", false)
         var postsScanned = state.optInt("postsScanned", 0)
         var capped = state.optBoolean("capped", false)
@@ -109,7 +118,7 @@ object BangerClient {
             val results = root.optJSONArray("results") ?: JSONArray()
             for (index in 0 until results.length()) {
                 val status = results.optJSONObject(index) ?: continue
-                if (!isOwnOriginal(status, requested)) continue
+                if (!isOwnPost(status, requested)) continue
                 val post = AnalyticsClient.parseFxPost(status)
                 if (post.views <= 0) continue
                 if (!complete && !capped) postsScanned++
@@ -146,18 +155,14 @@ object BangerClient {
             .put("cursor", cursor)
             .put("updatedAt", System.currentTimeMillis())
         winner?.let { stored.put("post", postToJson(it)) }
-        prefs.edit().putString(key, stored.toString()).apply()
+        TwidgetStore.withAccountGeneration(context, username, generation) { prefs.edit().putString(key, stored.toString()).apply() }
         return BangerResult(winner, winnerScore, complete, postsScanned, capped)
     }
 
-    private fun isOwnOriginal(status: JSONObject, username: String): Boolean {
+    internal fun isOwnPost(status: JSONObject, username: String): Boolean {
         if (status.optString("type") != "status") return false
         if (!status.optJSONObject("author")?.optString("screen_name").orEmpty().equals(username, true)) return false
-        if (AnalyticsClient.hasValue(status, "reposted_by") || AnalyticsClient.hasValue(status, "replying_to") ||
-            AnalyticsClient.hasValue(status, "in_reply_to_status_id") || AnalyticsClient.hasValue(status, "in_reply_to_status_id_str")) return false
-        val id = status.optString("id")
-        val conversation = status.optString("conversation_id")
-        if (conversation.isNotBlank() && id.isNotBlank() && conversation != id) return false
+        if (AnalyticsClient.hasValue(status, "reposted_by")) return false
         return status.optString("url").lowercase(Locale.US).contains("/$username/status/") &&
             AnalyticsClient.fxTimestamp(status) in 1..(System.currentTimeMillis() + 5 * 60_000)
     }
@@ -170,33 +175,11 @@ object BangerClient {
         capped = json.optBoolean("capped", false),
     )
 
-    private fun postFromJson(json: JSONObject) = PostSummary(
-        url = json.optString("url"), text = json.optString("text"), views = json.optLong("views"),
-        likes = json.optLong("likes"), replies = json.optLong("replies"), reposts = json.optLong("reposts"),
-        quotes = json.optLong("quotes"), engagements = json.optLong("engagements"), timestamp = json.optLong("ts"),
-        createdAt = json.optString("createdAt"), authorName = json.optString("authorName"),
-        authorUserName = json.optString("authorUserName"), authorAvatar = json.optString("authorAvatar"),
-        links = json.optJSONArray("links")?.let { array ->
-            List(array.length()) { array.optJSONObject(it) }.mapNotNull { item ->
-                item?.let { PostLink(it.optString("display"), it.optString("url")) }
-            }
-        }.orEmpty(),
-        media = json.optJSONArray("media")?.let { array ->
-            List(array.length()) { array.optJSONObject(it) }.mapNotNull { item ->
-                item?.let { PostMedia(it.optString("type"), it.optString("url"), it.optString("alt"), it.optLong("width"), it.optLong("height")) }
-            }
-        }.orEmpty(),
-    )
+    private fun postFromJson(json: JSONObject): PostSummary =
+        requireNotNull(NetworkResponseParsers.parseBridgePost(json))
 
-    private fun postToJson(post: PostSummary) = JSONObject()
-        .put("url", post.url).put("text", post.text).put("views", post.views).put("likes", post.likes)
-        .put("replies", post.replies).put("reposts", post.reposts).put("quotes", post.quotes)
-        .put("engagements", post.engagements).put("ts", post.timestamp).put("createdAt", post.createdAt)
-        .put("authorName", post.authorName).put("authorUserName", post.authorUserName).put("authorAvatar", post.authorAvatar)
-        .put("links", JSONArray(post.links.map { JSONObject().put("display", it.display).put("url", it.url) }))
-        .put("media", JSONArray(post.media.map {
-            JSONObject().put("type", it.type).put("url", it.url).put("alt", it.alt).put("width", it.width).put("height", it.height)
-        }))
+    private fun postToJson(post: PostSummary): JSONObject = AnalyticsClient.serializePost(post)
+
 }
 
 // A banger is a post that hit hard in absolute terms, so rank by weighted

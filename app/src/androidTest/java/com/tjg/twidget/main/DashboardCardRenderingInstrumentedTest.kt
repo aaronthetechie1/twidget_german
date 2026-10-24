@@ -53,7 +53,9 @@ class DashboardCardRenderingInstrumentedTest {
                     if (value == "12.02%") {
                         assertTrue("Width narrows before reducing text size",
                             (number as com.tjg.twidget.ui.CardValueTextView).fittedWidth < 124)
-                        assertTrue("The 60sp numeral height is retained", kotlin.math.abs(number.textSize - 60 * context.resources.displayMetrics.scaledDensity) < 1f)
+                        val preferred = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,
+                            60f, context.resources.displayMetrics)
+                        assertTrue("The 60sp numeral height is retained", kotlin.math.abs(number.textSize - preferred) < 1f)
                         val compressedWidth = number.fittedWidth
                         number.text = "5.7x"
                         render(root, width, height, File(context.filesDir, "stat-restored-$night.png"))

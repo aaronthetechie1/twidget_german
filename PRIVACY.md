@@ -99,6 +99,21 @@ historical samples or reuse a completed public ranking. Ordinary direct
 FxTwitter lookups do not register an account in the shared-history pool.
 Private accounts are not accepted into the pool.
 
+When shared history is enabled, updated installs also report the public account
+selected as their default profile. A random, app-generated installation key
+lets the bridge replace that selection without using an advertising ID,
+Android ID, hardware identifier, or a list of the install's other accounts.
+The bridge stores only a SHA-256 hash of that key, the selected public handle,
+and the last report time. This is a reported default, not verified ownership of
+the X account. Older clients have no primary-profile classification.
+
+Reports are refreshed at most once per day unless the selection changes. They
+are visible only to the bridge operator, expire after 90 days without a report,
+and are removed when the pooled account is deleted. Switching the default
+replaces the report. Turning shared history off queues a removal request, which
+retries when the device is online. Clearing app data or uninstalling removes
+the local installation key; the old server report then expires automatically.
+
 The bridge may use PostgreSQL for history and Redis for short-lived caches,
 request limits, registration limits, and scheduled-job locks.
 
@@ -119,7 +134,8 @@ scan when available or sends the username to TwitterAPIs using a server-held,
 rate-limited provider key. Completed lists are retained for up to 30 days by
 default and can be viewed by other opted-in Twidget installs tracking that
 public handle. Twidget does not run Top Followers scans on the device. Turning
-off shared history stops new bridge requests; previously cached rankings can
+off shared history stops new data requests and queues removal of the install's
+default-profile report; previously cached rankings can
 still be viewed on the device.
 
 Personal TwitterAPIs keys and official X API credentials remain available for

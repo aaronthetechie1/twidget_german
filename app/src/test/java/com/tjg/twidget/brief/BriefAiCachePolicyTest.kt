@@ -116,6 +116,23 @@ class BriefAiCachePolicyTest {
         assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, strings, now))
     }
 
+    @Test
+    fun `new analytics discard qualitative post claims even when neither body contains numbers`() {
+        for (type in listOf(BriefCardType.POST, BriefCardType.WORST_POST, BriefCardType.POST_FOLLOW_THROUGH, BriefCardType.POSTING_GUIDE, BriefCardType.POST_CONTEXT)) {
+            val cached = snapshot(
+                generatedAt = now - 60_000L,
+                provider = BriefProviderUsed.LOCAL,
+                cards = listOf(card("post", "More replies", "It earned more replies than usual.", 90).copy(type = type)),
+            ).copy(analyticsCachedAt = now - 60_000L)
+            val refreshed = snapshot(
+                generatedAt = now,
+                provider = BriefProviderUsed.TEMPLATE,
+                cards = listOf(card("post", "How it compares", "Not enough comparable data.", 90).copy(type = type)),
+            ).copy(analyticsCachedAt = now)
+            assertSame(refreshed, BriefAiCachePolicy.retain(cached, refreshed, strings, now))
+        }
+    }
+
     private fun snapshot(
         generatedAt: Long,
         provider: BriefProviderUsed,

@@ -39,6 +39,7 @@ class LocalReminderScheduler(private val context: Context) {
     }
 
     fun rescheduleAll(store: ScheduleStore = ScheduleStore(appContext)): Int {
+        store.maintain()
         val now = System.currentTimeMillis()
         var count = 0
         store.list()

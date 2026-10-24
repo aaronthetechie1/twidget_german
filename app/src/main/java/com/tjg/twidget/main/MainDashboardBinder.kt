@@ -32,6 +32,7 @@ import com.tjg.twidget.brief.BriefEngine
 import com.tjg.twidget.brief.BriefCardType
 import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefStrings
+import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.brief.BriefSettingsStore
 import com.tjg.twidget.brief.TwidgetBriefActivity
 import com.tjg.twidget.data.AccountAverageSeries
@@ -220,29 +221,34 @@ internal class MainDashboardBinder(
         })
     }
 
-    fun bindContent() {
+    fun bindContent(refreshRemote: Boolean = true) {
         val host = activity.findViewById<FrameLayout>(R.id.main_content_host)
-        val skeleton = host.findViewById<View>(R.id.main_launch_skeleton)
         val page = host.findViewById<View>(R.id.main_account_page)
             ?: LayoutInflater.from(activity).inflate(R.layout.main_account_page, host, false)
                 .also { host.addView(it, 0) }
-        bindPage(page, activity.selectedAccount)
-        // Keep the static skeleton above the dashboard until every cached card
-        // has bound, then reveal the completed page in one frame.
-        skeleton?.let(host::removeView)
+        bindPage(page, activity.selectedAccount, refreshRemote)
     }
 
-    private fun bindPage(page: View, account: String) {
-        val stats = TwidgetStore.currentStats(activity, account)
+    private data class Structure(val account: String, val cards: List<DashboardCardType>, val editing: Boolean)
+    private val structures = java.util.WeakHashMap<View, Structure>()
+    private var reusableContent: View? = null
+    private fun inflateCard(layout: Int): View = reusableContent ?: LayoutInflater.from(activity).inflate(layout, null, false)
+
+    private var renderSnapshot: TwidgetStore.AccountSnapshot? = null
+
+    private fun bindPage(page: View, account: String, refreshRemote: Boolean) {
+        val snapshot = TwidgetStore.accountSnapshot(activity, account)
+        renderSnapshot = snapshot
+        val stats = snapshot.stats
         // Post analytics load from cache instantly; a background refresh below
         // repaints when fresh data arrives.
         activity.analytics = AnalyticsClient.cached(activity, account)
         // Daily samples drive the numbers; the chart list is the same week
         // bucketed down to a readable bar count. Analytics are fixed to the
         // weekly window — the old range chips are gone.
-        val history = TwidgetStore.rangedHistory(activity, account, HistoryRange.WEEK)
-        val chartHistory = TwidgetStore.chartHistory(activity, account, HistoryRange.WEEK)
-        val fullHistory = TwidgetStore.fullHistory(activity, account)
+        val history = TwidgetStore.rangedHistory(snapshot.history, HistoryRange.WEEK)
+        val chartHistory = TwidgetStore.chartHistory(snapshot.history, HistoryRange.WEEK)
+        val fullHistory = snapshot.history
         activity.importedAnalytics = ImportedAnalyticsStore.recent(activity, account)
         bindPrivateAccountNotice(page, stats)
         bindHistoryNotice(page, chartHistory)
@@ -291,36 +297,55 @@ internal class MainDashboardBinder(
             elevation = activity.dp(10).toFloat()
             setOnClickListener { editModeController.setEditMode(true) }
         }
-        // Rebuild synchronously behind the launch skeleton. LayoutTransition's
+        // Bind synchronously before drawing. LayoutTransition's
         // default APPEARING animation otherwise exposes a frame where every
         // newly added card is still transparent.
         container.layoutTransition = null
         container.setOnDragListener(editModeController.dashboardDragListener)
         page.findViewById<View>(R.id.dashboard_scroll).setOnDragListener(editModeController.dashboardDragListener)
-        container.removeAllViews()
-
-        TwidgetStore.dashboardCards(activity)
+        val cards = TwidgetStore.dashboardCards(activity)
             .mapNotNull(DashboardCardType::fromId)
             .filter { !it.requiresAnalyticsImport() || editModeController.hasAnalyticsImport() }
             .filter { it != DashboardCardType.MILESTONE || isDefaultAccount(account) }
-            .forEach { card ->
-                val content = createCardContent(card, account, stats, history, chartHistory, fullHistory)
-                val wrapper = createDashboardCardWrapper(card, content)
-                container.addView(
-                    wrapper,
-                    dashboardCardLayoutParams(
-                        card,
-                        content.minimumHeight.takeIf { card == DashboardCardType.TOP_FOLLOWERS && it > 0 },
-                    ),
-                )
+        val structure = Structure(account, cards, editModeController.editMode)
+        val reuse = !structure.editing && structures[page] == structure && container.childCount == cards.size &&
+            cards.indices.all { container.getChildAt(it).tag == cards[it].id }
+        if (!reuse) container.removeAllViews()
+        cards.forEachIndexed { index, card ->
+            val wrapper = if (reuse) container.getChildAt(index) as FrameLayout else null
+            val previous = wrapper?.getChildAt(0)
+            reusableContent = if (card.size == DashboardCardSize.CHART ||
+                card !in POST_CARD_TYPES && card != DashboardCardType.TOP_FOLLOWERS) previous else null
+            val content = try { createCardContent(card, account, stats, history, chartHistory, fullHistory) }
+                finally { reusableContent = null }
+            if (wrapper != null) {
+                if (content !== previous) {
+                    val params = previous?.layoutParams
+                    wrapper.removeView(previous)
+                    wrapper.addView(content, 0, params)
+                    val listener = object : View.OnLongClickListener {
+                        override fun onLongClick(view: View) = handleDashboardCardLongPress(card, wrapper)
+                        override fun onLongClickUseDefaultHapticFeedback(view: View) = false
+                    }
+                    attachCardLongPress(content, listener)
+                }
+                wrapper.layoutParams = dashboardCardLayoutParams(card,
+                    content.minimumHeight.takeIf { card == DashboardCardType.TOP_FOLLOWERS && it > 0 })
+            } else {
+                container.addView(createDashboardCardWrapper(card, content), dashboardCardLayoutParams(card,
+                    content.minimumHeight.takeIf { card == DashboardCardType.TOP_FOLLOWERS && it > 0 }))
             }
+        }
+        structures[page] = structure
 
         // Reorder animations use final positions, so half-width cards never stretch
         // or animate through the intermediate layout from removing the placeholder.
         container.layoutTransition = null
 
-        activity.syncController.maybeRefreshAnalytics(account)
-        activity.syncController.maybeRefreshStreak(account)
+        if (refreshRemote) {
+            activity.syncController.maybeRefreshAnalytics(account)
+            activity.syncController.maybeRefreshStreak(account)
+        }
     }
 
     private fun bindHistoryNotice(page: View, chartHistory: List<HistorySample>) {
@@ -357,11 +382,13 @@ internal class MainDashboardBinder(
 
     fun createCardPreview(card: DashboardCardType): View {
         val account = activity.selectedAccount
+        val snapshot = TwidgetStore.accountSnapshot(activity, account)
+        renderSnapshot = snapshot
         return createCardContent(
-            card, account, TwidgetStore.currentStats(activity, account),
-            TwidgetStore.rangedHistory(activity, account, HistoryRange.WEEK),
-            TwidgetStore.chartHistory(activity, account, HistoryRange.WEEK),
-            TwidgetStore.fullHistory(activity, account),
+            card, account, snapshot.stats,
+            TwidgetStore.rangedHistory(snapshot.history, HistoryRange.WEEK),
+            TwidgetStore.chartHistory(snapshot.history, HistoryRange.WEEK),
+            snapshot.history,
         )
     }
 
@@ -379,7 +406,7 @@ internal class MainDashboardBinder(
 
     private fun createInsightCard(card: DashboardCardType, stats: ProfileStats, history: List<HistorySample>): View {
         val spec = insightSpec(card, stats, history)
-        return LayoutInflater.from(activity).inflate(R.layout.metric_card_small_stat, null, false).apply {
+        return inflateCard(R.layout.metric_card_small_stat).apply {
             findViewById<ImageView>(R.id.metric_platform_icon).apply {
                 setImageResource(com.tjg.twidget.ui.AppAppearance.logoDrawable(context))
                 imageTintList = ColorStateList.valueOf(activity.getColor(R.color.oneui_text_secondary))
@@ -397,9 +424,16 @@ internal class MainDashboardBinder(
     }
 
     private fun createBriefCard(stats: ProfileStats, account: String): View {
-        val root = LayoutInflater.from(activity).inflate(R.layout.brief_dashboard_card, null, false)
+        val root = inflateCard(R.layout.brief_dashboard_card)
         val snapshot = BriefEngine.rebuild(activity, account)
-        val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(activity))
+        val presentation = BriefStore.presentation(activity, account, snapshot)
+        val summary = presentation?.summary() ?: run {
+            BriefEditorialSummary(
+                activity.getString(R.string.brief_widget_empty_title),
+                activity.getString(R.string.brief_widget_empty_body),
+                activity.getString(R.string.brief_widget_empty_body),
+            )
+        }
         val hero = snapshot.cards.firstOrNull() ?: com.tjg.twidget.brief.BriefCard(
             id = "empty",
             type = BriefCardType.SUMMARY,
@@ -407,7 +441,7 @@ internal class MainDashboardBinder(
             body = activity.getString(R.string.brief_categories_empty_body),
             score = 0,
         )
-        val iconRes = when (hero.type) {
+        val iconRes = when (presentation?.heroType ?: hero.type) {
             BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
             BriefCardType.STREAK -> R.drawable.ic_streak_fire
             BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community
@@ -447,7 +481,7 @@ internal class MainDashboardBinder(
         account.equals(TwidgetStore.settings(activity).username, ignoreCase = true)
 
     private fun createStreakCard(stats: ProfileStats): View =
-        StreakCardFactory.create(activity, ActivityClient.snapshot(activity, stats.userName))
+        StreakCardFactory.create(activity, ActivityClient.snapshot(activity, stats.userName), existing = reusableContent as? LinearLayout)
 
     private fun createTopFollowersCard(account: String): View {
         return TopFollowersCardBinder(
@@ -498,7 +532,7 @@ internal class MainDashboardBinder(
             ) { it.likes }
             else -> error("Compact cards do not have chart layouts.")
         }
-        return LayoutInflater.from(activity).inflate(layoutRes, null, false).also { root ->
+        return inflateCard(layoutRes).also { root ->
             root.findViewById<ImageView>(R.id.metric_platform_icon).setImageResource(com.tjg.twidget.ui.AppAppearance.logoDrawable(activity))
             bindMetric(
                 root,
@@ -506,7 +540,7 @@ internal class MainDashboardBinder(
                 deltaId,
                 chartId,
                 value,
-                TwidgetStore.todayDelta(activity, stats.userName, known, selector),
+                renderSnapshot?.todayDelta(known, selector) ?: 0,
                 chartHistory.filter(known),
                 fullHistory.filter(known),
                 selector,

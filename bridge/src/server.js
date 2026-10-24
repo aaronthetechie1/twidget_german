@@ -1,3 +1,4 @@
+import { rateLimit, requestToken, tokenMatches, ServiceBusyError, upstreamGate } from "./http-policy.js";
 import express from "express";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -5,9 +6,11 @@ import path from "node:path";
 import { Pool } from "pg";
 import { createClient as createRedisClient } from "redis";
 import { Rettiwt } from "rettiwt-api";
+import { ownFxPostEligible, weeklyWinners } from "./post-ranking.js";
+import { coachingFields, coachingReplies } from "./post-coaching.js";
 import { bangerScore } from "./banger-score.js";
 import { prepareAnalyticsImport } from "./analytics-import.js";
-import { prepareTopFollowersCache, shouldRefreshTopFollowers } from "./top-followers.js";
+import { createTopFollowersActivityRecorder, prepareTopFollowersCache, topFollowersRefreshKind } from "./top-followers.js";
 import {
   fetchTwitterApisFollowersPage,
   TopFollowersProviderError,
@@ -39,6 +42,13 @@ const historyInactiveAccountDays = envInteger("HISTORY_INACTIVE_ACCOUNT_DAYS", 0
 const historyPruneMs = envInteger("HISTORY_PRUNE_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersFreshMs = envInteger("TOP_FOLLOWERS_FRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
 const topFollowersRefreshMs = envInteger("TOP_FOLLOWERS_REFRESH_HOURS", 24, 1, 168) * 60 * 60 * 1000;
+const topFollowersFullScanDays = envInteger("TOP_FOLLOWERS_FULL_SCAN_DAYS", 7, 1, 90);
+const topFollowersFullScanMs = topFollowersFullScanDays * 24 * 60 * 60 * 1000;
+// followers_v2 ordering is unverified in this repo. Operators must confirm
+// newest-first ordering for their endpoint before opting in.
+const topFollowersHeadCheck = process.env.TOP_FOLLOWERS_HEAD_CHECK === "1";
+const topFollowersHeadPages = envInteger("TOP_FOLLOWERS_HEAD_PAGES", 1, 1, 5);
+const topFollowersActiveDays = envInteger("TOP_FOLLOWERS_ACTIVE_DAYS", 7, 1, 365);
 const topFollowersRetentionDays = envInteger("TOP_FOLLOWERS_RETENTION_DAYS", 30, 1, 365);
 const topFollowersDailyStarts = envInteger("TOP_FOLLOWERS_DAILY_SCAN_LIMIT", 50, 1, 10000);
 const topFollowersDailyStartsPerIp = envInteger("TOP_FOLLOWERS_DAILY_SCAN_LIMIT_PER_IP", 3, 1, 1000);
@@ -46,7 +56,7 @@ const topFollowersMaxConcurrent = envInteger("TOP_FOLLOWERS_MAX_CONCURRENT", 2, 
 const topFollowersMaxPages = envInteger("TOP_FOLLOWERS_MAX_PAGES", 6250, 1, 6250);
 const bangerPagesPerRequest = envInteger("BANGER_PAGES_PER_REQUEST", 5, 1, 20);
 const bangerMaxPosts = envInteger("BANGER_MAX_POSTS", 75000, 20, 100000);
-const bangerScoringVersion = 2;
+const bangerScoringVersion = 3;
 // Archive lookups fan one request out into many remote fetches, so self-hosters
 // must opt in deliberately. It is unsafe as a public-instance default.
 const waybackEnabled = process.env.WAYBACK_BACKFILL === "1";
@@ -68,7 +78,7 @@ const twitterApisFollowersEndpoint = String(process.env.TWITTERAPIS_FOLLOWERS_EN
 
 const redisClient = await connectRedis(redisUrl);
 const cache = new SharedJsonCache({ client: redisClient, prefix: "twidget:profile", maxEntries: maxCacheEntries });
-const analyticsCache = new SharedJsonCache({ client: redisClient, prefix: "twidget:analytics", maxEntries: maxCacheEntries });
+const analyticsCache = new SharedJsonCache({ client: redisClient, prefix: "twidget:analytics:v2", maxEntries: maxCacheEntries });
 const requestLimiter = redisClient
   ? new RedisFixedWindowLimiter({ client: redisClient, prefix: "twidget:rate:all", windowMs: rateLimitWindowMs })
   : new LocalFixedWindowLimiter({ windowMs: rateLimitWindowMs, maxKeys: maxTrackedIps });
@@ -85,14 +95,16 @@ const topFollowersPerIpDailyLimiter = redisClient
   ? new RedisFixedWindowLimiter({ client: redisClient, prefix: "twidget:rate:top-followers-ip-daily", windowMs: 24 * 60 * 60 * 1000 })
   : new LocalFixedWindowLimiter({ windowMs: 24 * 60 * 60 * 1000, maxKeys: maxTrackedIps });
 const historyRepository = await createHistoryRepository();
+const recordTopFollowersActivity = createTopFollowersActivityRecorder(historyRepository);
 const oauthStates = new Map();
 const oauthSessions = new Map();
 const profileInFlight = new Map();
 const bangerInFlight = new Map();
 const topFollowersJobs = new Map();
 const topFollowersQueue = new Map();
+let shuttingDown = false;
 let topFollowersActive = 0;
-let upstreamActive = 0;
+const withUpstreamSlot = upstreamGate(maxConcurrentUpstream);
 
 // The follower-graph reconstruction feature is gone (removed 2026-07-08:
 // Rettiwt enumeration only ever returned ~1 page and the weekly-only app UI
@@ -186,6 +198,12 @@ app.use((req, res, next) => {
 
 const historyJsonBody = express.json({ limit: "64kb", strict: true });
 
+async function trackTopFollowersActivity(req, _res, next) {
+  const username = cleanUsername(req.params.username);
+  if (username) await recordTopFollowersActivity(username.toLowerCase());
+  next();
+}
+
 // Both in-memory maps would otherwise grow unbounded on a long-lived public
 // instance: expired cache entries are only ever overwritten, and each unique
 // client IP leaves a hits bucket behind. Sweep both periodically.
@@ -229,6 +247,11 @@ app.get("/health", async (_req, res) => {
         serverScans: Boolean(twitterApisApiKey),
         freshnessHours: topFollowersFreshMs / (60 * 60 * 1000),
         refreshHours: topFollowersRefreshMs / (60 * 60 * 1000),
+        fullScanDays: topFollowersFullScanDays,
+        headCheck: topFollowersHeadCheck,
+        headPages: topFollowersHeadPages,
+        providerOrderingVerified: false,
+        activeDays: topFollowersActiveDays,
         retentionDays: topFollowersRetentionDays,
       },
     },
@@ -407,10 +430,11 @@ app.get("/history/:username", async (req, res) => {
       return;
     }
   }
-  res.json({ userName: username, history: await historyFor(username, { touch: true }) });
+  const meta = await historyRepository.getMeta(key);
+  res.json({ userName: username, userId: meta.userId || "", history: await historyFor(username, { touch: true }) });
 });
 
-app.get("/history/:username/top-followers", async (req, res) => {
+app.get("/history/:username/top-followers", trackTopFollowersActivity, async (req, res) => {
   const username = cleanUsername(req.params.username);
   if (!username) {
     res.status(400).json({ error: "invalid_username" });
@@ -423,11 +447,17 @@ app.get("/history/:username/top-followers", async (req, res) => {
   }
   await historyRepository.getHistory(key, { touch: true });
   const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
+  const meta = await historyRepository.getMeta(key);
+  // Send the existing snapshot before doing any scan admission or provider work.
+  res.once("finish", () => {
+    void refreshTopFollowersOnReturn(key, username, snapshot, meta, req)
+      .catch((error) => console.warn(`Unable to refresh Top Followers for ${key}:`, error?.message || error));
+  });
   if (snapshot?.followers?.length) {
     res.json(topFollowersSnapshotResponse(username, snapshot, true));
     return;
   }
-  const cached = (await historyRepository.getMeta(key)).topFollowers;
+  const cached = meta.topFollowers;
   if (!cached || !Array.isArray(cached.top) || !cached.top.length) {
     res.status(404).json({ error: "top_followers_not_cached" });
     return;
@@ -435,7 +465,7 @@ app.get("/history/:username/top-followers", async (req, res) => {
   res.json({ userName: username, ...cached });
 });
 
-app.get("/history/:username/top-followers/all", async (req, res) => {
+app.get("/history/:username/top-followers/all", trackTopFollowersActivity, async (req, res) => {
   const username = cleanUsername(req.params.username);
   if (!username) {
     res.status(400).json({ error: "invalid_username" });
@@ -468,7 +498,7 @@ app.get("/history/:username/top-followers/all", async (req, res) => {
   });
 });
 
-app.get("/history/:username/top-followers/scan", async (req, res) => {
+app.get("/history/:username/top-followers/scan", trackTopFollowersActivity, async (req, res) => {
   const username = cleanUsername(req.params.username);
   if (!username) {
     res.status(400).json({ error: "invalid_username" });
@@ -485,7 +515,7 @@ app.get("/history/:username/top-followers/scan", async (req, res) => {
   res.json(topFollowersScanResponse(username, scan));
 });
 
-app.post("/history/:username/top-followers/scan", async (req, res) => {
+app.post("/history/:username/top-followers/scan", trackTopFollowersActivity, async (req, res) => {
   const username = cleanUsername(req.params.username);
   if (!username) {
     res.status(400).json({ error: "invalid_username" });
@@ -502,40 +532,66 @@ app.post("/history/:username/top-followers/scan", async (req, res) => {
   }
   const enrollmentMeta = await historyRepository.getMeta(key);
   if (!enrollmentMeta.topFollowersEnrolledAt) {
-    await historyRepository.setMeta(key, { ...enrollmentMeta, topFollowersEnrolledAt: Date.now() });
+    await historyRepository.patchMeta(key, { topFollowersEnrolledAt: Date.now() });
   }
   const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
   if (snapshot && Date.now() - snapshot.completedAt < topFollowersFreshMs) {
     res.json(topFollowersSnapshotResponse(username, snapshot, true));
     return;
   }
+  const result = await startClientTopFollowersScan(key, username, req);
+  if (result.error) {
+    res.setHeader("Retry-After", String(Math.ceil(result.retryMs / 1000)));
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  if (result.snapshot) {
+    res.json(topFollowersSnapshotResponse(username, result.snapshot, true));
+    return;
+  }
+  res.status(202).json(topFollowersScanResponse(username, result.scan));
+});
+
+async function refreshTopFollowersOnReturn(key, username, snapshot, meta, req) {
+  if (!twitterApisApiKey || (!meta.topFollowersEnrolledAt && !snapshot && !meta.topFollowers)) return;
+  if (!topFollowersRefreshDecision(snapshot || meta.topFollowers)) return;
+  await startClientTopFollowersScan(key, username, req);
+}
+
+function topFollowersRefreshDecision(snapshot, scan, now = Date.now()) {
+  return topFollowersRefreshKind({
+    snapshot, scan, now,
+    refreshMs: topFollowersRefreshMs,
+    fullScanMs: topFollowersFullScanMs,
+    headCheck: topFollowersHeadCheck,
+  });
+}
+
+// Both explicit starts and returning preview readers share all admission checks.
+async function startClientTopFollowersScan(key, username, req) {
   const existing = await historyRepository.getTopFollowersScan(key);
   if (existing?.status === "running") {
     if (!topFollowersJobs.has(key)) launchTopFollowersJob(key, username, existing);
-    res.status(202).json(topFollowersScanResponse(username, existing));
-    return;
+    return { scan: existing };
   }
+  const snapshot = await historyRepository.getTopFollowersSnapshot(key, { offset: 0, limit: 5 });
+  const kind = topFollowersRefreshDecision(snapshot, existing);
+  if (!kind) return snapshot ? { snapshot } : { scan: existing };
   if (topFollowersActive >= topFollowersMaxConcurrent) {
-    res.setHeader("Retry-After", "15");
-    res.status(503).json({ error: "top_followers_scan_capacity_reached" });
-    return;
+    return { status: 503, error: "top_followers_scan_capacity_reached", retryMs: 15_000 };
   }
   const clientDaily = await topFollowersPerIpDailyLimiter.take(req.ip || req.socket?.remoteAddress || "unknown");
   if (clientDaily.capacityReached || clientDaily.count > topFollowersDailyStartsPerIp) {
-    res.setHeader("Retry-After", String(Math.ceil(clientDaily.retryMs / 1000)));
-    res.status(429).json({ error: "top_followers_client_daily_limit_reached" });
-    return;
+    return { status: 429, error: "top_followers_client_daily_limit_reached", retryMs: clientDaily.retryMs };
   }
   const daily = await topFollowersDailyLimiter.take("all");
   if (daily.capacityReached || daily.count > topFollowersDailyStarts) {
-    res.setHeader("Retry-After", String(Math.ceil(daily.retryMs / 1000)));
-    res.status(429).json({ error: "top_followers_daily_limit_reached" });
-    return;
+    return { status: 429, error: "top_followers_daily_limit_reached", retryMs: daily.retryMs };
   }
-  const scan = await historyRepository.startTopFollowersScan(key, crypto.randomUUID());
+  const scan = await historyRepository.startTopFollowersScan(key, crypto.randomUUID(), Date.now(), kind);
   launchTopFollowersJob(key, username, scan);
-  res.status(202).json(topFollowersScanResponse(username, scan));
-});
+  return { scan };
+}
 
 app.post("/history/:username/top-followers", requireTopFollowersPublisher, historyJsonBody, async (req, res) => {
   const username = cleanUsername(req.params.username);
@@ -554,8 +610,7 @@ app.post("/history/:username/top-followers", requireTopFollowersPublisher, histo
     return;
   }
   const meta = await historyRepository.getMeta(key);
-  await historyRepository.setMeta(key, {
-    ...meta,
+  await historyRepository.patchMeta(key, {
     topFollowers: cached,
     topFollowersEnrolledAt: meta.topFollowersEnrolledAt || Date.now(),
   });
@@ -612,6 +667,28 @@ app.post("/history/:username/analytics-import", historyJsonBody, async (req, res
     sendUpstreamFailure(res, "profile_fetch_failed", error);
   }
 });
+
+// Public callers can move only ID-bound records. Legacy attestation stays behind admin auth.
+async function handleAccountRename(req, res, allowLegacy) {
+  const old = cleanUsername(req.params.username).toLowerCase();
+  const next = cleanUsername(req.body?.username).toLowerCase();
+  const userId = stringValue(req.body?.userId);
+  if (!old || !next || old === next || !/^[0-9]+$/.test(userId)) return res.status(400).json({ error: "invalid_handle_change" });
+  try {
+    const profile = await fetchProfileLimited(next);
+    if (profile.userId !== userId || profile.userName.toLowerCase() !== next || profile.isPrivate === true) {
+      return res.status(409).json({ error: "destination_identity_conflict" });
+    }
+    const result = await historyRepository.renameAccount(old, next, userId, { allowLegacy });
+    res.json({ ...result, userName: next, userId });
+  } catch (error) {
+    if (["source_identity_unverified", "destination_identity_conflict"].includes(error.message)) return res.status(409).json({ error: error.message });
+    console.error("Account handle migration failed:", error.message);
+    res.status(503).json({ error: "handle_migration_failed" });
+  }
+}
+app.post("/history/:username/handle", historyJsonBody, (req, res) => handleAccountRename(req, res, false));
+app.post("/admin/history/:username/handle", historyJsonBody, (req, res) => handleAccountRename(req, res, req.body?.attestLegacyIdentity === true));
 
 app.delete("/admin/history/:username", async (req, res) => {
   const username = cleanUsername(req.params.username);
@@ -707,9 +784,7 @@ async function computeAnalytics(username) {
   const shares = posts.map((post) => post.reposts + post.quotes);
   const totalViews = sum(views);
   const totalEngagements = sum(engagements);
-  const best = maxBy(posts, (post) => post.engagements);
-  const maturePosts = posts.filter((post) => post.ts > 0 && Date.now() - post.ts >= 24 * 60 * 60 * 1000);
-  const worst = minBy(maturePosts, (post) => post.engagements);
+  const { best, worst } = weeklyWinners(posts, activity.bestCandidates || posts);
 
   return {
     userName: username,
@@ -735,14 +810,15 @@ async function computeAnalytics(username) {
       medianShares: median(shares),
     },
     // Require two posts with a full day of exposure before naming a quietest one.
-    best: posts.length ? best : null,
-    worst: maturePosts.length >= 2 ? worst : null,
-    // Lets clients derive conservative, account-specific guidance without
-    // exposing replies or reposts (already excluded by fetchFxWeeklyPosts).
+    best,
+    worst,
+    // Original-post guidance stays separate from reply comparisons below.
     recentPosts: posts.slice(0, 50).map((post) => ({
       ...post,
       text: post.text.slice(0, 180),
     })),
+    // Replies remain separate from all original-post aggregates and streaks.
+    recentReplies: coachingReplies(activity.bestCandidates || []),
     // Original-post timestamps let clients build streaks without counting replies.
     activityTimestamps: posts.map((post) => post.ts),
     activityComplete: activity.complete,
@@ -762,7 +838,10 @@ async function refreshBanger(username) {
   }
   const meta = await historyRepository.getMeta(key);
   let state = normalizeBangerState(meta.banger);
-  if (state.version !== bangerScoringVersion) state = normalizeBangerState(null);
+  if (state.version !== bangerScoringVersion) {
+    // Revisit older pages for replies while retaining the previous winner.
+    state = { ...normalizeBangerState(null), post: state.post, score: state.post ? bangerScore(state.post) : 0 };
+  }
   // A raised BANGER_MAX_POSTS lets a previously capped scan resume from its cursor.
   if (state.capped && state.postsScanned < bangerMaxPosts) state.capped = false;
   let cursor = state.complete || state.capped ? "" : state.cursor;
@@ -777,7 +856,7 @@ async function refreshBanger(username) {
       break;
     }
     for (const status of page.results) {
-      if (!isOwnOriginalPost(status, key)) continue;
+      if (!ownFxPostEligible(status, key, { includeReplies: true })) continue;
       const post = normalizeFxStatus(status);
       if (post.views <= 0) continue;
       if (!state.complete && !state.capped) state.postsScanned += 1;
@@ -806,8 +885,7 @@ async function refreshBanger(username) {
   }
   state.version = bangerScoringVersion;
   state.updatedAt = Date.now();
-  meta.banger = state;
-  await historyRepository.setMeta(key, meta);
+  await historyRepository.patchMeta(key, { banger: state });
   return state;
 }
 
@@ -828,17 +906,6 @@ async function fetchFxStatusPage(username, cursor = "") {
     results: Array.isArray(json.results) ? json.results : [],
     cursor: stringValue(json.cursor?.bottom),
   };
-}
-
-function isOwnOriginalPost(status, requestedUsername) {
-  if (!status || status.type !== "status") return false;
-  if (stringValue(status.author?.screen_name).toLowerCase() !== requestedUsername) return false;
-  if (status.reposted_by || status.replying_to || status.in_reply_to_status_id || status.in_reply_to_status_id_str) return false;
-  const id = stringValue(status.id);
-  if (status.conversation_id != null && id && stringValue(status.conversation_id) !== id) return false;
-  const ts = timestampForStatus(status);
-  return ts > 0 && ts <= Date.now() + 5 * 60 * 1000 &&
-    stringValue(status.url).toLowerCase().includes(`/${requestedUsername}/status/`);
 }
 
 function normalizeBangerState(value) {
@@ -886,7 +953,10 @@ async function fetchFxWeeklyPosts(username, weekAgo) {
     .filter((status) => isWeeklyOwnPost(status, requested, weekAgo))
     .map(normalizeFxStatus)
     .sort((a, b) => b.ts - a.ts);
-  return { posts, complete: results.length < analyticsPostCount };
+  const bestCandidates = results
+    .filter(status => ownFxPostEligible(status, requested, { windowStart: weekAgo, includeReplies: true }))
+    .map(normalizeFxStatus);
+  return { posts, bestCandidates, complete: results.length < analyticsPostCount };
 }
 
 function normalizeFxStatus(status) {
@@ -899,6 +969,7 @@ function normalizeFxStatus(status) {
     id: stringValue(status.id),
     url: stringValue(status.url),
     text: textParts.text,
+    ...coachingFields(status),
     links: textParts.links,
     views: numberValue(status.views),
     likes,
@@ -916,16 +987,7 @@ function normalizeFxStatus(status) {
 }
 
 function isWeeklyOwnPost(status, requestedUsername, weekAgo) {
-  if (!status || status.type !== "status") return false;
-  if (stringValue(status.author?.screen_name).toLowerCase() !== requestedUsername) return false;
-  if (status.reposted_by) return false;
-  if (status.replying_to || status.in_reply_to_status_id || status.in_reply_to_status_id_str) return false;
-
-  const id = stringValue(status.id);
-  if (stringValue(status.url).toLowerCase().includes(`/${requestedUsername}/status/`) === false) return false;
-
-  const ts = timestampForStatus(status);
-  return ts >= weekAgo && ts <= Date.now() + 5 * 60 * 1000 && (!id || status.conversation_id == null || stringValue(status.conversation_id) === id);
+  return ownFxPostEligible(status, requestedUsername, { windowStart: weekAgo });
 }
 
 function timestampForStatus(status) {
@@ -1043,6 +1105,16 @@ server.maxRequestsPerSocket = envInteger("MAX_REQUESTS_PER_SOCKET", 100, 1, 1000
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => {
     console.log(`${signal} received, shutting down`);
+    shuttingDown = true;
+    clearInterval(refreshTimer);
+    clearTimeout(bootRefreshTimer);
+    clearInterval(pruneTimer);
+    topFollowersQueue.clear();
+    // close() flushes the JSON checkpoint synchronously before its first await.
+    // Flush now as well as on socket drain, including during a stalled request.
+    if (historyRepository.backendName() === "json") {
+      void historyRepository.close().catch((error) => console.error("Shutdown checkpoint failed:", error));
+    }
     server.closeIdleConnections?.();
     server.close(async () => {
       await Promise.allSettled([
@@ -1100,6 +1172,7 @@ async function refreshKnownAccounts() {
 async function scheduleTopFollowersRefreshes(accounts) {
   if (!twitterApisApiKey) return;
   const now = Date.now();
+  let dormant = 0;
   for (const key of accounts) {
     try {
       const [snapshot, scan, meta] = await Promise.all([
@@ -1112,14 +1185,24 @@ async function scheduleTopFollowersRefreshes(accounts) {
         launchTopFollowersJob(key, key, scan);
         continue;
       }
-      if (!shouldRefreshTopFollowers({ snapshot, scan, now, refreshMs: topFollowersRefreshMs })) continue;
-      const started = await historyRepository.startTopFollowersScan(key, crypto.randomUUID());
+      if (!meta.topFollowersLastSeenAt) {
+        meta.topFollowersLastSeenAt = meta.topFollowersEnrolledAt || now;
+        await historyRepository.recordTopFollowersActivity(key, meta.topFollowersLastSeenAt);
+      }
+      if (now - meta.topFollowersLastSeenAt > topFollowersActiveDays * 24 * 60 * 60 * 1000) {
+        dormant += 1;
+        continue;
+      }
+      const kind = topFollowersRefreshDecision(snapshot || meta.topFollowers, scan, now);
+      if (!kind) continue;
+      const started = await historyRepository.startTopFollowersScan(key, crypto.randomUUID(), now, kind);
       launchTopFollowersJob(key, key, started);
-      console.log(`Daily Top Followers refresh queued for ${key}`);
+      console.log(`Top Followers ${kind} refresh queued for ${key}`);
     } catch (error) {
       console.warn(`Unable to queue daily Top Followers refresh for ${key}:`, error?.message || error);
     }
   }
+  console.log(`Top Followers refresh skipped ${dormant} dormant accounts`);
 }
 
 async function pruneHistory() {
@@ -1140,13 +1223,13 @@ async function pruneHistory() {
 }
 
 function launchTopFollowersJob(key, username, scan) {
-  if (topFollowersJobs.has(key) || topFollowersQueue.has(key)) return;
+  if (shuttingDown || topFollowersJobs.has(key) || topFollowersQueue.has(key)) return;
   topFollowersQueue.set(key, { username, scan });
   drainTopFollowersQueue();
 }
 
 function drainTopFollowersQueue() {
-  while (topFollowersActive < topFollowersMaxConcurrent && topFollowersQueue.size) {
+  while (!shuttingDown && topFollowersActive < topFollowersMaxConcurrent && topFollowersQueue.size) {
     const next = topFollowersQueue.entries().next().value;
     if (!next) return;
     const [key, { username, scan }] = next;
@@ -1180,8 +1263,17 @@ async function runTopFollowersJobWithLock(key, username, scan) {
 async function runTopFollowersJob(key, username, initial) {
   let scan = initial;
   try {
-    while (scan.pages < topFollowersMaxPages) {
+    const pageLimit = scan.kind === "head" ? topFollowersHeadPages : topFollowersMaxPages;
+    // A crash can occur after checkpointing the terminal page but before
+    // publishing. Its empty cursor means completion, not a new first page.
+    if (scan.pages > 0 && !scan.cursor) {
+      await historyRepository.completeTopFollowersScan(key, scan.scanId);
+      return;
+    }
+    while (scan.pages < pageLimit) {
+      if (shuttingDown) return;
       const page = await withUpstreamSlot(() => fetchTopFollowersProviderPage(username, scan.cursor));
+      if (shuttingDown) return;
       if (!page.users.length) {
         if (!scan.scanned) throw new Error("top_followers_unavailable");
         await historyRepository.completeTopFollowersScan(key, scan.scanId);
@@ -1196,11 +1288,15 @@ async function runTopFollowersJob(key, username, initial) {
         page.nextCursor,
       );
       if (!scan) return;
-      if (!page.nextCursor) {
+      if (!page.nextCursor || (scan.kind === "head" && scan.pages >= pageLimit)) {
         scan = await historyRepository.completeTopFollowersScan(key, scan.scanId);
         console.log(`Top Followers scan completed for ${key}: ${scan?.scanned || 0} followers across ${scan?.pages || 0} pages`);
         return;
       }
+    }
+    if (scan.kind === "head") {
+      await historyRepository.completeTopFollowersScan(key, scan.scanId);
+      return;
     }
     throw new Error("top_followers_page_limit_reached");
   } catch (error) {
@@ -1251,6 +1347,8 @@ function topFollowersScanResponse(username, scan) {
     startedAt: scan.startedAt,
     updatedAt: scan.updatedAt,
     completedAt: scan.completedAt,
+    fullCompletedAt: scan.fullCompletedAt,
+    scanKind: scan.kind,
     ...(scan.error ? { error: scan.error } : {}),
   };
 }
@@ -1335,6 +1433,7 @@ async function fetchProfile(username) {
 function mockProfile(username) {
   const clean = cleanUsername(username) || "example";
   return {
+    userId: ["example", "renamed"].includes(clean) ? "123456" : String([...clean].reduce((id, char) => id * 31n + BigInt(char.charCodeAt(0)), 1n)),
     fullName: `Mock ${clean}`,
     userName: clean,
     followersCount: 1234,
@@ -1368,6 +1467,7 @@ async function fetchFxProfile(username) {
     throw new Error(`FxTwitter returned no user (${stringValue(json.message) || "unknown"})`);
   }
   return {
+    userId: stringValue(user.id),
     fullName: stringValue(user.name) || username,
     userName: (stringValue(user.screen_name) || username).replace(/^@+/, ""),
     followersCount: numberValue(user.followers),
@@ -1444,6 +1544,7 @@ function normalizeUser(user, fallbackUsername) {
   const statuses = findDeep(user, ["statusesCount", "statusCount", "tweetCount", "tweetsCount", "statuses_count", "listed_count"]);
   const likes = findDeep(user, ["likeCount", "likesCount", "favouritesCount", "favoritesCount", "favourites_count", "favorites_count"]);
   return {
+    userId: stringValue(firstDefined(user.userId, user.id_str, user.rest_id, user.id)),
     fullName: stringValue(firstDefined(findDeep(user, ["fullName", "name", "displayName", "display_name"]), fallbackUsername)),
     userName: stringValue(firstDefined(findDeep(user, ["userName", "username", "screenName", "screen_name", "handle"]), fallbackUsername)).replace(/^@+/, ""),
     followersCount: numberValue(followers),
@@ -1506,6 +1607,7 @@ async function fetchXMe(accessToken) {
 function normalizeXUser(user) {
   const metrics = user.public_metrics || {};
   const normalized = {
+    userId: stringValue(user.id),
     fullName: stringValue(user.name || user.username),
     userName: stringValue(user.username).replace(/^@+/, ""),
     followersCount: numberValue(metrics.followers_count),
@@ -1529,10 +1631,15 @@ function normalizeXUser(user) {
 
 async function withHistory(profile) {
   const username = cleanUsername(profile.userName);
+  const meta = await historyRepository.getMeta(username.toLowerCase());
+  const owned = Boolean(profile.userId && meta.userId === profile.userId);
   return {
     ...profile,
     syncedAt: Date.now(),
-    history: await historyFor(username),
+    historyUserId: owned ? meta.userId : "",
+    // Keep legacy handle-keyed history available to older clients without
+    // asserting ownership. ID-aware clients still require historyUserId.
+    history: owned || !meta.userId ? await historyFor(username) : [],
   };
 }
 
@@ -1552,17 +1659,20 @@ async function recordHistorySample(profile, { allowNew = false } = {}) {
       key,
       [historySampleFor(profile, Date.now())],
       maxHistoryAccounts,
+      profile.userId,
     );
     return registered ? historyRepository.getHistory(key) : null;
   }
-  return storeSamples(key, [historySampleFor(profile, Date.now())], { touchAccess: false });
+  const meta = await historyRepository.getMeta(key);
+  if (meta.userId && meta.userId !== profile.userId) return [];
+  return storeSamples(key, [historySampleFor(profile, Date.now())], { touchAccess: false, expectedUserId: profile.userId || "" });
 }
 
 // Merge new samples into an account's history, one per calendar day. New
 // samples win by default; preferExisting keeps recorded daily closes intact
 // when merging coarser data such as Wayback anchors.
-async function storeSamples(key, samples, { preferExisting = false, touchAccess = true } = {}) {
-  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess });
+async function storeSamples(key, samples, { preferExisting = false, touchAccess = true, expectedUserId } = {}) {
+  return historyRepository.storeSamples(key, samples, { preferExisting, touchAccess, requireExisting: true, expectedUserId });
 }
 
 async function historyFor(username, { touch = false } = {}) {
@@ -1627,11 +1737,11 @@ async function backfillFromWayback(username) {
       await sleep(500);
     }
     if (samples.length) await storeSamples(key, samples, { preferExisting: true, touchAccess: false });
-    await historyRepository.setMeta(key, { ...existingMeta, waybackAt: Date.now(), waybackSamples: samples.length });
+    await historyRepository.patchMeta(key, { waybackAt: Date.now(), waybackSamples: samples.length });
     console.log(`Wayback backfill for ${key}: ${samples.length} of ${snapshots.length} snapshots usable`);
   } catch (error) {
     console.warn(`Wayback backfill failed for ${key}:`, error);
-    await historyRepository.setMeta(key, { ...existingMeta, waybackAt: Date.now(), waybackSamples: 0 });
+    await historyRepository.patchMeta(key, { waybackAt: Date.now(), waybackSamples: 0 });
   } finally {
     waybackInFlight.delete(key);
     await releaseLock();
@@ -1793,42 +1903,6 @@ function cleanupOAuthMaps() {
   }
 }
 
-function rateLimit(limiter, max) {
-  return async (req, res, next) => {
-    const key = req.ip || req.socket?.remoteAddress || "unknown";
-    try {
-      const result = await limiter.take(key);
-      if (result.capacityReached) {
-        res.setHeader("Retry-After", String(Math.ceil(result.retryMs / 1000)));
-        res.status(503).json({ error: "rate_limiter_capacity_reached" });
-        return;
-      }
-      const resetSeconds = Math.max(1, Math.ceil(result.retryMs / 1000));
-      res.setHeader("RateLimit-Limit", String(max));
-      res.setHeader("RateLimit-Remaining", String(Math.max(0, max - result.count)));
-      res.setHeader("RateLimit-Reset", String(resetSeconds));
-      if (result.count > max) {
-        res.setHeader("Retry-After", String(resetSeconds));
-        res.status(429).json({ error: "rate_limited" });
-        return;
-      }
-      next();
-    } catch (error) {
-      // A configured shared limiter must fail closed. Falling back locally
-      // during a Redis outage would multiply the request budget per replica.
-      console.warn("Rate limiter unavailable:", error?.message || error);
-      res.setHeader("Retry-After", "5");
-      res.status(503).json({ error: "rate_limiter_unavailable" });
-    }
-  };
-}
-
-function requestToken(req) {
-  const authorization = String(req.get("authorization") || "");
-  const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
-  return String(bearer || req.get("x-rettiwt-api-key") || "").trim();
-}
-
 function requireTopFollowersPublisher(req, res, next) {
   if (!topFollowersPublishToken) {
     res.status(404).json({ error: "not_found" });
@@ -1842,29 +1916,9 @@ function requireTopFollowersPublisher(req, res, next) {
   next();
 }
 
-function tokenMatches(received, expected) {
-  const left = Buffer.from(String(received));
-  const right = Buffer.from(String(expected));
-  return left.length === right.length && left.length > 0 && crypto.timingSafeEqual(left, right);
-}
-
 async function takeHistoryRegistrationSlot() {
   const result = await historyRegistrationLimiter.take("all");
   return !result.capacityReached && result.count <= historyRegistrationsPerHour;
-}
-
-class ServiceBusyError extends Error {}
-
-async function withUpstreamSlot(task) {
-  if (upstreamActive >= maxConcurrentUpstream) {
-    throw new ServiceBusyError("Upstream concurrency limit reached");
-  }
-  upstreamActive += 1;
-  try {
-    return await task();
-  } finally {
-    upstreamActive -= 1;
-  }
 }
 
 function sendUpstreamFailure(res, code, error) {

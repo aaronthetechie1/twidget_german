@@ -1,7 +1,7 @@
 package com.tjg.twidget.notices
 
 import android.content.Intent
-import android.graphics.Typeface
+import android.util.TypedValue
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -18,6 +18,8 @@ import com.tjg.twidget.ui.startRightSidePopOverActivity
 import com.tjg.twidget.update.AppUpdateManager
 import com.tjg.twidget.update.ReleaseNotice
 import dev.oneuiproject.oneui.layout.ToolbarLayout
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout
+import dev.oneuiproject.oneui.widget.Separator
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -93,13 +95,29 @@ class NoticesActivity : FoldablePopOverActivity() {
         if (notices.isEmpty()) {
             if (!refresh.isRefreshing) content.addView(emptyState())
         } else {
-            notices.forEach { content.addView(noticeCard(it)) }
+            notices.filter { it.upcoming }.takeIf { it.isNotEmpty() }?.let { upcoming ->
+                content.addView(section(R.string.notices_upcoming))
+                upcoming.forEach { content.addView(noticeCard(it)) }
+            }
+            val published = notices.filterNot { it.upcoming }
+            val latest = published.firstOrNull { !it.prerelease } ?: published.firstOrNull()
+            latest?.let {
+                content.addView(section(R.string.notices_latest_version))
+                content.addView(noticeCard(it))
+            }
+            published.filter { it !== latest }.takeIf { it.isNotEmpty() }?.let { older ->
+                content.addView(section(R.string.notices_older_releases))
+                older.forEach { content.addView(noticeCard(it)) }
+            }
         }
         TwidgetFonts.applyTo(content)
     }
 
     private fun noticeCard(notice: ReleaseNotice): View = card().apply {
-        background = AppCompatResources.getDrawable(context, R.drawable.metric_card_clickable_bg)
+        tag = notice.tag
+        val feedback = TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackground, feedback, true)
+        foreground = AppCompatResources.getDrawable(context, feedback.resourceId)
         isClickable = true
         isFocusable = true
         contentDescription = getString(R.string.notices_open_changelog, notice.title)
@@ -113,30 +131,29 @@ class NoticesActivity : FoldablePopOverActivity() {
         addView(LinearLayout(this@NoticesActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(titleText(notice.title), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(TextView(this@NoticesActivity).apply {
+                text = notice.title.removePrefix("Twidget ")
+                textSize = 18f
+                includeFontPadding = false
+                setTextColor(getColor(R.color.oneui_text_primary))
+                TwidgetFonts.setRole(this, TwidgetFonts.Role.CODE)
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             if (notice.prerelease || notice.upcoming) {
                 addView(TextView(this@NoticesActivity).apply {
-                    setText(if (notice.upcoming) R.string.notices_upcoming else R.string.notices_beta)
-                    textSize = 12f
-                    typeface = Typeface.create("sec", Typeface.BOLD)
-                    setTextColor(getColor(R.color.oneui_accent))
-                    setPadding(dp(8), 0, 0, 0)
-                })
+                    NoticeReleaseBadge.bind(this, notice)
+                }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
             }
         })
         addView(metaText(releaseMeta(notice)))
-        val body = ReleaseNoticeText.plainText(notice.body)
+        val body = ReleaseNoticeText.summary(notice.body)
         addView(TextView(this@NoticesActivity).apply {
             text = body.ifBlank { getString(R.string.notices_no_details) }
             textSize = 14f
-            maxLines = 4
+            maxLines = 3
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setLineSpacing(dp(2).toFloat(), 1f)
-            setTextColor(getColor(R.color.oneui_text_primary))
-            setPadding(0, dp(12), 0, 0)
-        })
-        addView(metaText(getString(R.string.notices_view_changelog)).apply {
-            setTextColor(getColor(R.color.oneui_accent))
+            includeFontPadding = false
+            setTextColor(getColor(R.color.oneui_text_secondary))
+            setPadding(0, dp(8), 0, 0)
         })
     }
 
@@ -146,7 +163,7 @@ class NoticesActivity : FoldablePopOverActivity() {
             DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
                 .format(Instant.parse(notice.publishedAt).atZone(ZoneId.systemDefault()))
         }.getOrNull()
-        return listOfNotNull(notice.tag, date).joinToString(" · ")
+        return date.orEmpty()
     }
 
     private fun emptyState(): View = card().apply {
@@ -162,14 +179,20 @@ class NoticesActivity : FoldablePopOverActivity() {
         })
     }
 
-    private fun card(): LinearLayout = LinearLayout(this).apply {
+    private fun section(label: Int): View = Separator(this).apply {
+        setText(label)
+    }
+
+    private fun card(): LinearLayout = RoundedLinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        background = AppCompatResources.getDrawable(context, R.drawable.schedule_card_bg)
-        setPadding(dp(18), dp(16), dp(18), dp(16))
+        roundedCorners = androidx.appcompat.util.SeslRoundedCorner.ROUNDED_CORNER_ALL
+        roundedCornersColor = getColor(R.color.oneui_bg)
+        setBackgroundColor(getColor(R.color.oneui_card_bg))
+        setPadding(dp(20), dp(20), dp(20), dp(20))
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { setMargins(dp(6), 0, dp(6), dp(10)) }
+        ).apply { bottomMargin = dp(10) }
     }
 
     private fun titleText(value: String): TextView = TextView(this).apply {
@@ -182,10 +205,11 @@ class NoticesActivity : FoldablePopOverActivity() {
 
     private fun metaText(value: String): TextView = TextView(this).apply {
         text = value
-        textSize = 13f
+        textSize = 14f
+        includeFontPadding = false
         TwidgetFonts.setRole(this, TwidgetFonts.Role.SUMMARY)
         setTextColor(getColor(R.color.oneui_text_secondary))
-        setPadding(0, dp(6), 0, 0)
+        setPadding(0, dp(8), 0, 0)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

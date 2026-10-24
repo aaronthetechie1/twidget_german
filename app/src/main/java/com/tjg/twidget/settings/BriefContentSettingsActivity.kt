@@ -9,10 +9,11 @@ class BriefContentSettingsActivity : FoldablePopOverActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preference_screen)
-        applyEdgeToEdgeInsets(findViewById(R.id.preference_toolbar_layout))
+        applyPreferenceScreenInsets(findViewById(R.id.preference_toolbar_layout))
         findViewById<ToolbarLayout>(R.id.preference_toolbar_layout).apply {
             setTitle(getString(R.string.brief_manage_content))
             setNavigationButtonOnClickListener { onBackPressedDispatcher.onBackPressed() }
+            if (savedInstanceState == null) setExpanded(true, false)
         }
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()

@@ -19,9 +19,9 @@ import androidx.core.content.ContextCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.brief.BriefCard
 import com.tjg.twidget.brief.BriefCardType
-import com.tjg.twidget.brief.BriefEditorialSummary
 import com.tjg.twidget.brief.BriefStrings
 import com.tjg.twidget.brief.BriefSnapshot
+import com.tjg.twidget.brief.BriefStore
 import com.tjg.twidget.data.TwidgetStore
 import com.tjg.twidget.followers.TopFollowersStore
 import com.tjg.twidget.ui.ProfileImageLoader
@@ -69,11 +69,11 @@ internal object BriefWidgetArtworkRenderer {
     @DrawableRes
     fun supportingIcon(type: BriefCardType): Int = when (type) {
         BriefCardType.SUMMARY -> R.drawable.ic_twidget_notification
-        BriefCardType.GROWTH -> R.drawable.ic_import_analytics
+        BriefCardType.GROWTH, BriefCardType.FOLLOWER_CONTEXT -> R.drawable.ic_import_analytics
         BriefCardType.SLOWDOWN -> OneUiIconR.drawable.ic_oui_time_outline
         BriefCardType.INACTIVITY -> OneUiIconR.drawable.ic_oui_compose_edit
         BriefCardType.MILESTONE -> R.drawable.ic_milestone_goals
-        BriefCardType.POST, BriefCardType.WORST_POST -> OneUiIconR.drawable.ic_oui_equalizer_2
+        BriefCardType.POST, BriefCardType.WORST_POST, BriefCardType.POST_CONTEXT -> OneUiIconR.drawable.ic_oui_equalizer_2
         BriefCardType.TOP_FOLLOWER -> OneUiIconR.drawable.ic_oui_community
         BriefCardType.STREAK -> R.drawable.ic_streak_fire
         BriefCardType.SCHEDULE_GUIDE -> OneUiIconR.drawable.ic_oui_calendar_task
@@ -104,14 +104,15 @@ internal object BriefWidgetArtworkRenderer {
             canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius,
                 Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
         }
-        val card = snapshot?.cards?.firstOrNull() ?: BriefCard(
+        val presentation = BriefStore.presentation(context, account, snapshot, strings)
+        val card = BriefCard(
             id = "empty",
-            type = BriefCardType.SUMMARY,
+            type = presentation?.heroType ?: BriefCardType.SUMMARY,
             title = context.getString(R.string.brief_widget_empty_title),
             body = context.getString(R.string.brief_widget_empty_body),
             score = 0,
         )
-        val summary = snapshot?.let { BriefEditorialSummary.from(it, strings) }
+        val summary = presentation?.summary()
         val displayCard = card.copy(
             title = summary?.title ?: card.title,
             body = summary?.shortDescription ?: card.body,
@@ -395,14 +396,14 @@ internal object BriefWidgetArtworkRenderer {
         BriefCardType.SLOWDOWN -> Color.rgb(255, 177, 66) to Color.rgb(235, 84, 96)
         BriefCardType.INACTIVITY -> Color.rgb(139, 92, 246) to Color.rgb(77, 162, 255)
         BriefCardType.MILESTONE -> Color.rgb(255, 193, 7) to Color.rgb(255, 111, 97)
-        BriefCardType.POST -> Color.rgb(56, 122, 255) to Color.rgb(44, 201, 188)
+        BriefCardType.POST, BriefCardType.POST_CONTEXT -> Color.rgb(56, 122, 255) to Color.rgb(44, 201, 188)
         BriefCardType.WORST_POST -> Color.rgb(255, 177, 66) to Color.rgb(139, 92, 246)
         BriefCardType.TOP_FOLLOWER -> Color.rgb(69, 188, 255) to Color.rgb(75, 207, 122)
         BriefCardType.STREAK -> Color.rgb(255, 155, 60) to Color.rgb(238, 73, 92)
         BriefCardType.SCHEDULE_GUIDE -> Color.rgb(46, 204, 113) to Color.rgb(56, 122, 255)
         BriefCardType.POST_FOLLOW_THROUGH -> Color.rgb(56, 122, 255) to Color.rgb(44, 201, 188)
         BriefCardType.POSTING_GUIDE -> Color.rgb(139, 92, 246) to Color.rgb(56, 122, 255)
-        BriefCardType.SUMMARY -> Color.rgb(77, 162, 255) to Color.rgb(139, 92, 246)
+        BriefCardType.SUMMARY, BriefCardType.FOLLOWER_CONTEXT -> Color.rgb(77, 162, 255) to Color.rgb(139, 92, 246)
     }
 
     private fun compactBody(body: String): String {
@@ -418,7 +419,7 @@ internal object BriefWidgetArtworkRenderer {
                 TwidgetStore.FONT_SYSTEM -> typeface = TwidgetFonts.system(weight)
                 TwidgetStore.FONT_GOOGLE_SANS_FLEX -> {
                     typeface = TwidgetFonts.googleSansFlex(context)
-                    setFontVariationSettings("'wght' $weight, 'wdth' 100, 'ROND' 100, 'GRAD' 0, 'slnt' 0, 'opsz' 18")
+                    setFontVariationSettings("'wght' $weight, 'wdth' 100, 'ROND' 100, 'slnt' 0")
                 }
                 else -> {
                     typeface = TwidgetFonts.oneUiSansVariable(context)

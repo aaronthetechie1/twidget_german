@@ -1,6 +1,6 @@
 {
   "name": "twidget-bridge",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Optional Twidget bridge service; version tracks the Android app release.",
   "private": true,
   "type": "module",
@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "check": "node --check src/server.js && node --check src/infrastructure.js && node --check src/analytics-import.js && node --check src/top-followers.js && node --check scripts/migrate-history-to-postgres.mjs",
+    "check": "node scripts/check-syntax.mjs",
+    "benchmark:local": "node scripts/benchmark-local-history.mjs",
     "history:migrate": "node scripts/migrate-history-to-postgres.mjs",
     "test": "node --test"
   },

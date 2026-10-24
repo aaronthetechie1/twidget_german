@@ -48,6 +48,9 @@ internal class MainDrawerController(
     private val downloadingDrawerAvatarUrls = mutableSetOf<String>()
     private var showingEditNavigation = false
     private var expandedBeforeEditing = false
+    private var hiddenBeforeEditing = false
+    private var lastHeader: List<Any?>? = null
+    private var lastRenderedTitle: String? = null
     private var lastDrawerClosedState: Boolean? = null
 
     fun setupDrawerChrome() {
@@ -135,13 +138,29 @@ internal class MainDrawerController(
         activity.findViewById<DrawerLayout>(drawerLayoutId).apply {
             if (isEditMode()) {
                 renderEditModeNavigation(this)
-                setTitle(activity.getString(R.string.edit_dashboard))
-                setSubtitle("")
+                val header = listOf(activity.getString(R.string.edit_dashboard), "")
+                if (lastHeader != header) {
+                    setTitle(header[0])
+                    setSubtitle(header[1])
+                    lastHeader = header
+                    lastRenderedTitle = header[0]
+                }
             } else {
                 renderDrawerNavigation(this)
                 val name = stats.fullName.ifBlank { "@${stats.userName}" }
-                setTitle(VerifiedBadge.decorate(activity, name, stats.isVerified, stats.isPrivate, dp(26)))
-                setSubtitle("@${stats.userName} · ${TwidgetStore.lastSyncedText(activity, stats)}")
+                val expandedSubtitle = TwidgetStore.lastSyncedText(activity, stats)
+                val collapsedSubtitle = "@${stats.userName}"
+                val header = listOf(name, stats.isVerified, stats.isPrivate, expandedSubtitle, collapsedSubtitle)
+                if (lastHeader != header || collapsedTitle?.toString() != lastRenderedTitle) {
+                    if (lastHeader?.take(3) != header.take(3) || collapsedTitle?.toString() != lastRenderedTitle) {
+                        val title = VerifiedBadge.decorate(activity, name, stats.isVerified, stats.isPrivate, dp(26))
+                        setTitle(title)
+                        lastRenderedTitle = title.toString()
+                    }
+                    this.expandedSubtitle = expandedSubtitle
+                    this.collapsedSubtitle = collapsedSubtitle
+                    lastHeader = header
+                }
             }
         }
     }
@@ -165,11 +184,14 @@ internal class MainDrawerController(
     private fun renderEditModeNavigation(layout: DrawerLayout) {
         if (!showingEditNavigation) {
             expandedBeforeEditing = layout.isExpanded
+            hiddenBeforeEditing = layout.appBarLayout.seslIsHided()
             // Change the title and app-bar geometry together. Animating the old
             // collapsing title while replacing it with the edit title makes both
             // headers briefly appear and moves the dashboard underneath the hold.
             layout.setExpanded(expanded = false, animate = false)
-            layout.isExpandable = false
+            // Keep the app bar's measured height and scroll ranges intact.
+            // Removing expansion rebuilds them and loses the dashboard offset.
+            layout.appBarLayout.seslAllowStartNestedScroll(false)
             showingEditNavigation = true
         }
         layout.showNavigationButton = true
@@ -194,8 +216,10 @@ internal class MainDrawerController(
 
     private fun renderDrawerNavigation(layout: DrawerLayout) {
         if (showingEditNavigation) {
-            layout.isExpandable = true
-            layout.setExpanded(expanded = expandedBeforeEditing, animate = false)
+            layout.appBarLayout.seslAllowStartNestedScroll(true)
+            val scrollY = activity.findViewById<androidx.core.widget.NestedScrollView>(R.id.dashboard_scroll)?.scrollY ?: 0
+            layout.setExpanded(expanded = expandedBeforeEditing && scrollY == 0, animate = false)
+            if (hiddenBeforeEditing && scrollY > 0) layout.appBarLayout.seslSetHide(true, false)
             showingEditNavigation = false
         }
         layout.showNavigationButton = true
@@ -251,7 +275,7 @@ internal class MainDrawerController(
 
     private fun drawerAccountIcon(stats: ProfileStats): Pair<Drawable, Boolean> {
         val iconSize = activity.resources.getDimensionPixelSize(OneUiDesignR.dimen.oui_des_drawer_menu_item_icon_size)
-        ProfileImageLoader.cachedCircularBitmap(activity, stats.profileImage, iconSize)?.let { bitmap ->
+        ProfileImageLoader.memoryCircularBitmap(stats.profileImage, iconSize)?.let { bitmap ->
             return BitmapDrawable(activity.resources, bitmap).apply {
                 setTintList(null)
                 clearColorFilter()
@@ -268,7 +292,7 @@ internal class MainDrawerController(
         synchronized(downloadingDrawerAvatarUrls) {
             if (!downloadingDrawerAvatarUrls.add(url)) return
         }
-        AppExecutors.execute(onRejected = {
+        AppExecutors.executeImage(onRejected = {
             synchronized(downloadingDrawerAvatarUrls) {
                 downloadingDrawerAvatarUrls.remove(url)
             }

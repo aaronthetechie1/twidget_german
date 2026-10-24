@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="review_refresh_action" type="id" />
+    <item type="id" name="review_library_card" />
+    <item type="id" name="review_quoted_tweet_card" />
+</resources>

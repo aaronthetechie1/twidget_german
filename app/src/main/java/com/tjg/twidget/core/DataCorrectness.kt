@@ -15,12 +15,14 @@ internal object ProviderFallback {
         val directError = try {
             return direct()
         } catch (error: Exception) {
+            if (error is java.util.concurrent.CancellationException || Thread.currentThread().isInterrupted) throw error
             error
         }
         if (fallback == null) throw directError
         return try {
             fallback()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            if (error is java.util.concurrent.CancellationException || Thread.currentThread().isInterrupted) throw error
             // The direct provider is the selected source, so preserve its
             // actionable error when an optional fallback also fails.
             throw directError
@@ -45,14 +47,22 @@ internal object FxPostPolicy {
         requestedUsername: String,
         windowStart: Long,
         now: Long,
+    ): Boolean = isOwnInWindow(status, requestedUsername, windowStart, now)
+
+    fun isOwnInWindow(
+        status: FxStatusCandidate,
+        requestedUsername: String,
+        windowStart: Long,
+        now: Long,
+        includeReplies: Boolean = false,
     ): Boolean {
         val username = requestedUsername.trim().trimStart('@').lowercase(Locale.US)
         if (status.type != "status") return false
         if (status.authorUsername.lowercase(Locale.US) != username) return false
-        if (status.isRepost || status.isReply) return false
+        if (status.isRepost || (!includeReplies && status.isReply)) return false
         if (!status.url.lowercase(Locale.US).contains("/$username/status/")) return false
         if (status.timestamp !in windowStart..(now + 5 * 60 * 1000L)) return false
-        return status.conversationId.isBlank() || status.id.isBlank() ||
+        return includeReplies || status.conversationId.isBlank() || status.id.isBlank() ||
             status.conversationId == status.id
     }
 }

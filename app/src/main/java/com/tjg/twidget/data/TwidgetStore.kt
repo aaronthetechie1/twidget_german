@@ -10,7 +10,7 @@ import com.tjg.twidget.core.AppLocales
 import com.tjg.twidget.core.HistoryMigrationPolicy
 import com.tjg.twidget.env.BuildVars
 import com.tjg.twidget.schedule.ScheduleAccountCleanup
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import com.tjg.twidget.main.MilestonePolicy
 import com.tjg.twidget.main.MilestoneSettings
 import com.tjg.twidget.update.AppVersion
@@ -35,10 +35,15 @@ data class ProfileStats(
     val isPrivate: Boolean? = null,
     val syncedAt: Long = System.currentTimeMillis(),
     val history: List<HistorySample> = emptyList(),
+    // In-memory request ownership only; never serialized into a profile or shared history.
+    val accountGeneration: Long? = null,
     val followersKnown: Boolean = true,
     val followingKnown: Boolean = true,
     val postsKnown: Boolean = true,
     val likesKnown: Boolean = true,
+    val userId: String = "",
+    val requestedUsername: String? = null,
+    val historyUserId: String = "",
 )
 
 data class HistorySample(
@@ -194,12 +199,13 @@ object TwidgetStore {
             xApiSecret = SecureCredentialStore.read(context, SecureCredentialStore.X_API_SECRET),
             refreshOnLaunch = prefs.getBoolean(KEY_REFRESH_ON_LAUNCH, true),
             refreshIntervalMinutes = prefs.getInt(KEY_REFRESH_INTERVAL, 15).coerceIn(15, 240),
-            widgetTapAction = prefs.getString(KEY_TAP_ACTION, TAP_REFRESH) ?: TAP_REFRESH,
+            widgetTapAction = prefs.getString(KEY_TAP_ACTION, TAP_APP) ?: TAP_APP,
             dataSource = prefs.getString(KEY_DATA_SOURCE, DATA_SOURCE_FXTWITTER) ?: DATA_SOURCE_FXTWITTER,
             shareHistory = prefs.getBoolean(KEY_SHARE_HISTORY, false),
         )
     }
 
+    @Synchronized
     fun saveSettings(context: Context, settings: TwidgetSettings) {
         val previous = this.settings(context)
         val username = normalizeUsername(settings.username)
@@ -222,6 +228,10 @@ object TwidgetStore {
             .putBoolean(KEY_SHARE_HISTORY, settings.shareHistory)
             .apply()
         if (username.isNotBlank()) addAccount(context, username)
+        if (previous.username != username || previous.shareHistory != settings.shareHistory ||
+            bridgeEndpoint(previous) != bridgeEndpoint(settings)) {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context, force = true)
+        }
         if (previous.dataSource != settings.dataSource || previous.shareHistory != settings.shareHistory) {
             accounts(context).forEach { BangerScanWorker.enqueue(context, it) }
         }
@@ -380,6 +390,7 @@ object TwidgetStore {
             normalizeUsername(prefs.getString(KEY_USERNAME, "").orEmpty()).isNotBlank()
     }
 
+    @Synchronized
     fun completeOnboarding(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         val current = settings(context)
@@ -402,6 +413,7 @@ object TwidgetStore {
         if (cleanUsername.isNotBlank()) addAccount(context, cleanUsername)
     }
 
+    @Synchronized
     fun addOnboardingAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         if (cleanUsername.isBlank()) return
@@ -411,29 +423,48 @@ object TwidgetStore {
         addAccount(context, cleanUsername)
     }
 
-    fun widgetSettings(context: Context, appWidgetId: Int = 0): TwidgetWidgetSettings {
+    fun widgetSettings(
+        context: Context, appWidgetId: Int = 0,
+        kind: com.tjg.twidget.widget.WidgetKind = com.tjg.twidget.widget.WidgetKind.forWidget(context, appWidgetId),
+    ): TwidgetWidgetSettings {
         val prefs = prefs(context)
-        val suffix = if (appWidgetId > 0) "_$appWidgetId" else ""
-        val style = com.tjg.twidget.widget.WidgetStyle.resolve(prefs.getString("widget_style$suffix", prefs.getString("widget_style", null)))
+        val defaults = kind.defaultsSuffix
+        val suffix = if (appWidgetId > 0) "_$appWidgetId" else defaults
+        fun string(key: String, fallback: String): String =
+            prefs.getString("$key$suffix", prefs.getString("$key$defaults", prefs.getString(key, fallback))) ?: fallback
+        fun integer(key: String, fallback: Int): Int =
+            prefs.getInt("$key$suffix", prefs.getInt("$key$defaults", prefs.getInt(key, fallback)))
+        fun boolean(key: String, fallback: Boolean): Boolean =
+            prefs.getBoolean("$key$suffix", prefs.getBoolean("$key$defaults", prefs.getBoolean(key, fallback)))
+        val style = com.tjg.twidget.widget.WidgetStyle.resolve(string("widget_style", ""))
         return TwidgetWidgetSettings(
-            tintAlpha = prefs.getInt("widget_tint_alpha$suffix", prefs.getInt("widget_tint_alpha", 205)).coerceIn(30, 245),
-            tintColor = prefs.getInt("widget_tint_color$suffix", prefs.getInt("widget_tint_color", 0x00FFFFFF)),
-            logo = prefs.getString("widget_logo$suffix", prefs.getString("widget_logo", if (appWidgetId == 0) com.tjg.twidget.ui.AppAppearance.logo(context) else LOGO_X)) ?: LOGO_X,
-            tapAction = prefs.getString("widget_tap_action$suffix", prefs.getString(KEY_TAP_ACTION, TAP_REFRESH)) ?: TAP_REFRESH,
-            accountUsername = prefs.getString("widget_account$suffix", "") ?: "",
-            colorMode = prefs.getString("widget_color_mode$suffix", prefs.getString("widget_color_mode", COLOR_MODE_SYSTEM)) ?: COLOR_MODE_SYSTEM,
-            fontFamily = normalizeWidgetFont(
-                prefs.getString("widget_font_family$suffix", prefs.getString("widget_font_family", style.defaultFont)),
-            ),
-            showDelta = prefs.getBoolean("widget_show_delta$suffix", prefs.getBoolean("widget_show_delta", true)),
-            language = prefs.getString("widget_language$suffix", prefs.getString("widget_language", "DEFAULT")) ?: "DEFAULT",
+            tintAlpha = integer("widget_tint_alpha", 205).coerceIn(30, 245),
+            tintColor = integer("widget_tint_color", 0x00FFFFFF),
+            logo = string("widget_logo", com.tjg.twidget.ui.AppAppearance.logo(context)),
+            tapAction = string("widget_tap_action", prefs.getString(KEY_TAP_ACTION, TAP_APP) ?: TAP_APP),
+            accountUsername = string("widget_account", ""),
+            colorMode = string("widget_color_mode", COLOR_MODE_SYSTEM),
+            fontFamily = normalizeWidgetFont(string("widget_font_family", style.defaultFont)),
+            showDelta = boolean("widget_show_delta", true),
+            language = string("widget_language", "DEFAULT"),
             style = style,
-            containedFooter = prefs.getBoolean("widget_contained_footer$suffix", prefs.getBoolean("widget_contained_footer", false)),
+            containedFooter = boolean("widget_contained_footer", false),
         )
     }
 
-    fun saveWidgetSettings(context: Context, appWidgetId: Int, settings: TwidgetWidgetSettings) {
-        val suffix = if (appWidgetId > 0) "_$appWidgetId" else ""
+    fun saveWidgetSettings(
+        context: Context, appWidgetId: Int, settings: TwidgetWidgetSettings,
+        kind: com.tjg.twidget.widget.WidgetKind = com.tjg.twidget.widget.WidgetKind.forWidget(context, appWidgetId),
+    ) {
+        // Preserve the previous shared defaults for other types before changing Followers.
+        // This also migrates old installations lazily without changing existing widget overrides.
+        if (appWidgetId <= 0 && kind == com.tjg.twidget.widget.WidgetKind.FOLLOWERS) {
+            com.tjg.twidget.widget.WidgetKind.entries.filter { it != kind }.forEach { other ->
+                if (!prefs(context).contains("widget_style${other.defaultsSuffix}"))
+                    saveWidgetSettings(context, 0, widgetSettings(context, kind = other), other)
+            }
+        }
+        val suffix = if (appWidgetId > 0) "_$appWidgetId" else kind.defaultsSuffix
         prefs(context).edit()
             .putInt("widget_tint_alpha$suffix", settings.tintAlpha.coerceIn(30, 245))
             .putInt("widget_tint_color$suffix", settings.tintColor)
@@ -455,7 +486,29 @@ object TwidgetStore {
         else -> FONT_ONE_UI_SANS
     }
 
+    @Synchronized
+    fun recoverAccountMigration(context: Context) { AccountHandleMigration.recover(context) }
+
+    @Synchronized
+    fun canonicalAccount(context: Context, username: String): String {
+        recoverAccountMigration(context)
+        val clean = normalizeUsername(username)
+        return prefs(context).getString(AccountHandleMigration.REDIRECT_PREFIX + clean.lowercase(Locale.US), clean) ?: clean
+    }
+
+    internal fun <T> withAccountGeneration(context: Context, username: String, generation: Long, write: () -> T): T = synchronized(this) {
+        recoverAccountMigration(context)
+        check(!prefs(context).getBoolean(removedAccountKey(username), false) && accountGeneration(context, username) == generation) {
+            "The account changed while data was loading. Refresh the current handle."
+        }
+        write()
+    }
+
+    internal fun verifiedProfileHistory(profile: ProfileStats): List<HistorySample> =
+        if (profile.userId.isNotBlank() && profile.historyUserId == profile.userId) profile.history else emptyList()
+
     fun accounts(context: Context): List<String> {
+        recoverAccountMigration(context)
         val saved = prefs(context).getString(KEY_ACCOUNTS, null)?.let { encoded ->
             runCatching {
                 val array = JSONArray(encoded)
@@ -469,11 +522,16 @@ object TwidgetStore {
             .distinctBy { it.lowercase(Locale.US) }
     }
 
+    @Synchronized
     fun addAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
         if (cleanUsername.isBlank()) return
         val existing = accounts(context)
         val isNew = existing.none { it.equals(cleanUsername, ignoreCase = true) }
+        val wasRemoved = prefs(context).getBoolean(removedAccountKey(cleanUsername), false)
+        if (wasRemoved) prefs(context).edit().remove(removedAccountKey(cleanUsername))
+            .remove(AccountHandleMigration.REDIRECT_PREFIX + cleanUsername.lowercase(Locale.US)).apply()
+        if (!isNew) return
         val next = (existing + cleanUsername).distinctBy { it.lowercase(Locale.US) }
         prefs(context).edit()
             .putString(KEY_ACCOUNTS, JSONArray(next).toString())
@@ -481,11 +539,14 @@ object TwidgetStore {
         if (isNew) BangerScanWorker.enqueue(context, cleanUsername)
     }
 
+    @Synchronized
     fun removeAccount(context: Context, username: String) {
         val cleanUsername = normalizeUsername(username)
-        if (cleanUsername.isBlank()) return
+        if (cleanUsername.isBlank() || accounts(context).none { it.equals(cleanUsername, true) }) return
         val remaining = accounts(context).filterNot { it.equals(cleanUsername, ignoreCase = true) }
         val edit = prefs(context).edit()
+            .putBoolean(removedAccountKey(cleanUsername), true)
+            .putLong(accountGenerationKey(cleanUsername), accountGeneration(context, cleanUsername) + 1L)
             .putString(KEY_ACCOUNTS, JSONArray(remaining).toString())
         // Widgets pinned to the deleted account revert to the default account.
         prefs(context).all.forEach { (key, value) ->
@@ -501,11 +562,81 @@ object TwidgetStore {
         com.tjg.twidget.followers.TopFollowersStore.clear(context, cleanUsername)
         BangerClient.clear(context, cleanUsername)
         BangerScanWorker.clear(context, cleanUsername)
+        AccountHandleMigration.removeSourceData(context, cleanUsername)
+        val cleanEdit = prefs(context).edit()
+        prefs(context).all.keys.filter { AccountHandleMigration.mainKey(it, cleanUsername, cleanUsername) != null }.forEach(cleanEdit::remove)
+        cleanEdit.apply()
         ScheduleAccountCleanup.removeAccountSchedules(context, cleanUsername)
         val current = settings(context)
         if (current.username.equals(cleanUsername, ignoreCase = true)) {
             saveSettings(context, current.copy(username = remaining.firstOrNull().orEmpty()))
         }
+    }
+
+    /** Called after a live lookup. Legacy accounts require an explicit user-requested change. */
+    @Synchronized
+    fun migrateAccount(
+        context: Context,
+        oldUsername: String,
+        profile: ProfileStats,
+        expectedGeneration: Long,
+        allowLegacy: Boolean = false,
+    ) {
+        recoverAccountMigration(context)
+        val old = normalizeUsername(oldUsername)
+        val next = normalizeUsername(profile.userName)
+        require(next.matches(Regex("[A-Za-z0-9_]{1,15}"))) { "Enter a valid X handle." }
+        require(accounts(context).any { it.equals(old, true) } &&
+            accountGeneration(context, old) == expectedGeneration &&
+            !prefs(context).getBoolean(removedAccountKey(old), false)) { "The saved account changed. Try again." }
+        if (old.equals(next, true)) return
+        val previous = currentStats(context, old)
+        require((previous.userId.isNotBlank() && previous.userId == profile.userId) ||
+            (allowLegacy && previous.userId.isBlank())) { "The new handle belongs to a different X account." }
+        require(profile.syncedAt >= previous.syncedAt) { "The profile lookup is older than your saved data. Try again." }
+        require(statsJson(context, next) == null && historyJson(context, next) == null) {
+            "That handle already has saved data. Your existing accounts have been kept."
+        }
+        val store = prefs(context)
+        AccountHandleMigration.assertDestinationEmpty(context, next)
+        val values = linkedMapOf<String, Any?>()
+        val removed = linkedSetOf<String>()
+        store.all.forEach { (key, value) ->
+            AccountHandleMigration.mainKey(key, old, next)?.let { destination ->
+                values[destination] = value
+                removed.add(key)
+            }
+            if ((key == KEY_USERNAME || key.startsWith("widget_account")) && value is String &&
+                normalizeUsername(value).equals(old, true)) values[key] = next
+        }
+        // A rename must not run age-based archive compaction over the source records.
+        val sourceHistory = historyJson(context, old)?.let { encoded ->
+            val array = JSONArray(encoded)
+            List(array.length()) { historyFromJson(array.getJSONObject(it)) }
+        }.orEmpty()
+        val history = mergeByDay(assignTimestamps(sourceHistory) + verifiedProfileHistory(profile) + sampleFor(profile), compactArchive = false)
+        values[profileKey(next)] = statsToJson(profile.copy(userName = next)).toString()
+        values[historyKey(next)] = JSONArray(history.map(::historyToJson)).toString()
+        removed.addAll(listOf(profileKey(old), historyKey(old), removedAccountKey(next), AccountHandleMigration.REDIRECT_PREFIX + next.lowercase(Locale.US)))
+        values[KEY_ACCOUNTS] = JSONArray(accounts(context).map { if (it.equals(old, true)) next else it }.distinctBy { it.lowercase(Locale.US) }).toString()
+        values[removedAccountKey(old)] = true
+        values[accountGenerationKey(old)] = expectedGeneration + 1L
+        values[accountGenerationKey(next)] = accountGeneration(context, next) + 1L
+        store.all.forEach { (key, value) ->
+            if (key.startsWith(AccountHandleMigration.REDIRECT_PREFIX) && value is String && value.equals(old, true)) values[key] = next
+        }
+        values[AccountHandleMigration.REDIRECT_PREFIX + old.lowercase(Locale.US)] = next
+        if (settings(context).shareHistory && profile.userId.isNotBlank()) {
+            values["bridge_handle_migration_${old.lowercase(Locale.US)}"] = JSONObject()
+                .put("old", old).put("next", next).put("userId", profile.userId).toString()
+        }
+        AccountHandleMigration.begin(context, old, next, values, removed)
+        com.tjg.twidget.bridge.BridgeHandleMigrationWorker.enqueueIfPending(context)
+        com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context, force = true)
+        BangerScanWorker.clear(context, old)
+        androidx.work.WorkManager.getInstance(context.applicationContext)
+            .cancelUniqueWork("twidget-top-followers-bridge-${old.lowercase(Locale.US)}")
+        BangerScanWorker.enqueue(context, next)
     }
 
     fun dashboardCards(context: Context): List<String> {
@@ -561,6 +692,13 @@ object TwidgetStore {
         return saved ?: fallbackStats(context, cleanUsername)
     }
 
+    @Synchronized
+    fun accountGeneration(context: Context, username: String): Long =
+        prefs(context).getLong(accountGenerationKey(username), 0L)
+
+    private fun accountGenerationKey(username: String) = "account_generation_${normalizeUsername(username).lowercase(Locale.US)}"
+    private fun removedAccountKey(username: String) = "account_removed_${normalizeUsername(username).lowercase(Locale.US)}"
+
     // Recent real daily samples (last week), used by the widgets.
     fun history(context: Context, username: String = settings(context).username): List<HistorySample> =
         fullHistory(context, username).filterNot { it.estimated }.takeLast(7)
@@ -568,20 +706,36 @@ object TwidgetStore {
     // Every stored sample, oldest first: real daily closes and archive
     // anchors, plus bridge-estimated reconstruction samples (est flag). Demo
     // samples are merged in only before onboarding and never persisted.
-    fun fullHistory(context: Context, username: String = settings(context).username): List<HistorySample> {
-        val cleanUsername = normalizeUsername(username).ifBlank { settings(context).username }
-        val stats = currentStats(context, cleanUsername)
-        val saved = savedHistory(context, cleanUsername)
-        val onboarded = isOnboarded(context)
-        val samples = if (onboarded) saved else mergeByDay(demoHistory() + saved)
-        if (samples.isEmpty() && stats.syncedAt <= 0L) return emptyList()
-        val backfilled = flatBackfillProfileMetrics(samples, stats)
-            .ifEmpty { listOf(sampleFor(stats)) }
-        return backfilled
+    data class AccountSnapshot(val stats: ProfileStats, val history: List<HistorySample>, val deltaBaseline: HistorySample?) {
+        fun todayDelta(known: (HistorySample) -> Boolean, selector: (HistorySample) -> Long): Long {
+            val baseline = deltaBaseline ?: return 0
+            val current = sampleFor(stats)
+            return if (known(current) && known(baseline)) selector(current) - selector(baseline) else 0
+        }
     }
 
+    @Synchronized
+    fun accountSnapshot(context: Context, username: String): AccountSnapshot {
+        val clean = normalizeUsername(username).ifBlank { settings(context).username }
+        val stats = currentStats(context, clean)
+        val saved = savedHistory(context, clean)
+        val samples = if (isOnboarded(context)) saved else mergeByDay(demoHistory() + saved)
+        val history = if (samples.isEmpty() && stats.syncedAt <= 0L) emptyList()
+            else flatBackfillProfileMetrics(samples, stats).ifEmpty { listOf(sampleFor(stats)) }
+        val yesterday = startOfDay(System.currentTimeMillis()) - DAY_MILLIS
+        val baseline = history.lastOrNull { it.timestamp == yesterday && !it.estimated } ?: todayOpen(context, clean)
+        return AccountSnapshot(stats, history, baseline)
+    }
+
+    fun fullHistory(context: Context, username: String = settings(context).username): List<HistorySample> =
+        accountSnapshot(context, username).history
+
     fun rangedHistory(context: Context, username: String, range: HistoryRange): List<HistorySample> {
-        val all = fullHistory(context, username).filterNot { it.estimated }
+        return rangedHistory(fullHistory(context, username), range)
+    }
+
+    fun rangedHistory(history: List<HistorySample>, range: HistoryRange): List<HistorySample> {
+        val all = history.filterNot { it.estimated }
         if (range == HistoryRange.ALL_TIME) return all.ifEmpty { listOfNotNull(all.lastOrNull()) }
         return all.filter { it.timestamp >= rangeStart(all, range) }
             .ifEmpty { listOfNotNull(all.lastOrNull()) }
@@ -599,7 +753,7 @@ object TwidgetStore {
     }
 
     fun saveChartRange(context: Context, username: String, metricId: String, range: HistoryRange) {
-        val clean = normalizeUsername(username).ifBlank { settings(context).username }
+        val clean = canonicalAccount(context, username).ifBlank { settings(context).username }
         prefs(context).edit()
             .putString(chartRangeKey(clean, metricId), range.name)
             .apply()
@@ -611,7 +765,10 @@ object TwidgetStore {
     // interpolation flagged `estimated` so the chart can draw them lighter.
     // Buckets before the first real data point are dropped, not invented.
     fun chartHistory(context: Context, username: String, range: HistoryRange): List<HistorySample> {
-        val all = fullHistory(context, username)
+        return chartHistory(fullHistory(context, username), range)
+    }
+
+    fun chartHistory(all: List<HistorySample>, range: HistoryRange): List<HistorySample> {
         if (all.isEmpty()) return all
         val monthly = when (range) {
             HistoryRange.YEAR -> true
@@ -710,8 +867,38 @@ object TwidgetStore {
         }
     }
 
+    @Synchronized
     fun saveStats(context: Context, stats: ProfileStats) {
         val username = normalizeUsername(stats.userName).ifBlank { settings(context).username }
+        val requested = stats.requestedUsername ?: username
+        if (prefs(context).getBoolean(removedAccountKey(requested), false)) return
+        if (stats.accountGeneration != null && stats.accountGeneration != accountGeneration(context, requested)) return
+        val previous = currentStats(context, requested)
+        require(previous.userId.isBlank() || stats.userId.isBlank() || previous.userId == stats.userId) {
+            "This handle now belongs to a different X account. Change the saved handle to keep your data."
+        }
+        if (!requested.equals(username, true)) {
+            migrateAccount(context, requested, stats, accountGeneration(context, requested))
+            return
+        } else if (stats.userId.isNotBlank()) {
+            val matching = accounts(context).filterNot { it.equals(username, true) }
+                .filter { currentStats(context, it).userId == stats.userId }
+            require(matching.size <= 1) { "Multiple saved accounts have this X ID." }
+            matching.singleOrNull()?.let {
+                migrateAccount(context, it, stats, accountGeneration(context, it))
+                return
+            }
+        }
+        if (prefs(context).getBoolean(removedAccountKey(username), false)) return
+        val existingStats = statsJson(context, username)?.let { runCatching { statsFromJson(JSONObject(it)) }.getOrNull() }
+        if (existingStats != null && stats.syncedAt < existingStats.syncedAt) {
+            // A late response may still add archive anchors. Already stored observations win on overlap.
+            val saved = savedHistory(context, username)
+            val merged = mergeByDay(stats.history + sampleFor(stats) + saved)
+            if (merged != saved) prefs(context).edit()
+                .putString(historyKey(username), JSONArray(merged.map { historyToJson(it) }).toString()).apply()
+            return
+        }
         addAccount(context, username)
         recordTodayOpen(context, username, stats)
         val saved = savedHistory(context, username)
@@ -720,11 +907,15 @@ object TwidgetStore {
         // of every number.
         val next = mergeByDay(saved + stats.history + sampleFor(stats))
         prefs(context).edit()
-            .putString(profileKey(username), statsToJson(stats.copy(userName = username)).toString())
+            .putString(profileKey(username), statsToJson(stats.copy(userName = username, userId = stats.userId.ifBlank { existingStats?.userId.orEmpty() })).toString())
             .putString(historyKey(username), JSONArray(next.map { historyToJson(it) }).toString())
             .apply()
+        if (username.equals(settings(context).username, true)) {
+            com.tjg.twidget.bridge.PrimaryProfileReporter.enqueue(context)
+        }
     }
 
+    @Synchronized
     fun importFollowerHistory(context: Context, username: String, samples: List<HistorySample>): Int {
         val cleanUsername = normalizeUsername(username)
         require(cleanUsername.isNotBlank()) { "An account is required." }
@@ -792,6 +983,7 @@ object TwidgetStore {
 
     private fun todayOpenKey(username: String) = "today_open_${normalizeUsername(username)}"
 
+    @Synchronized
     fun migrateStoredHistories(context: Context) {
         val prefs = prefs(context)
         if (prefs.getInt(KEY_HISTORY_MIGRATION_VERSION, 0) >= HISTORY_MIGRATION_VERSION) return
@@ -819,6 +1011,7 @@ object TwidgetStore {
         clearCachedStats(context)
     }
 
+    @Synchronized
     fun clearCachedStats(context: Context, username: String = settings(context).username) {
         val cleanUsername = normalizeUsername(username)
         prefs(context).edit()
@@ -888,7 +1081,7 @@ object TwidgetStore {
     }
 
     fun saveMilestoneSettings(context: Context, username: String, milestone: MilestoneSettings) {
-        val clean = normalizeUsername(username).ifBlank { settings(context).username }
+        val clean = canonicalAccount(context, username).ifBlank { settings(context).username }
         prefs(context).edit()
             .putLong(milestoneTargetKey(clean), milestone.target ?: 0L)
             .putString(milestoneLabelKey(clean), milestone.labelRaw)
@@ -933,7 +1126,7 @@ object TwidgetStore {
     // One sample per calendar day (the newest wins), oldest first. Daily
     // resolution for the recent window; older samples (Wayback anchors) thin
     // to one per month instead of being evicted by a hard cap.
-    private fun mergeByDay(samples: List<HistorySample>): List<HistorySample> {
+    private fun mergeByDay(samples: List<HistorySample>, compactArchive: Boolean = true): List<HistorySample> {
         val merged = linkedMapOf<Long, HistorySample>()
         samples.sortedBy { it.timestamp }.forEach { sample ->
             val day = startOfDay(sample.timestamp)
@@ -942,6 +1135,7 @@ object TwidgetStore {
             if (current != null && !current.estimated && sample.estimated) return@forEach
             merged[day] = sample
         }
+        if (!compactArchive) return merged.values.toList()
         val cutoff = startOfDay(System.currentTimeMillis()) - MAX_HISTORY_DAYS * DAY_MILLIS
         val (older, recent) = merged.values.partition { it.timestamp < cutoff }
         if (older.isEmpty()) return recent
@@ -993,6 +1187,7 @@ object TwidgetStore {
     }.timeInMillis
 
     private fun statsToJson(stats: ProfileStats): JSONObject = JSONObject()
+        .put("userId", stats.userId)
         .put("fullName", stats.fullName)
         .put("userName", stats.userName)
         .put("followersCount", stats.followersCount)
@@ -1012,6 +1207,7 @@ object TwidgetStore {
         .put("likesKnown", stats.likesKnown)
 
     private fun statsFromJson(json: JSONObject): ProfileStats = ProfileStats(
+        userId = json.optString("userId", ""),
         fullName = json.optString("fullName", ""),
         userName = json.optString("userName", ""),
         followersCount = json.optLong("followersCount", 0),
@@ -1105,7 +1301,7 @@ object TwidgetStore {
 
     private fun demoStats(): ProfileStats = ProfileStats(
         fullName = "That Josh Guy",
-        userName = "thatjoshguy69",
+        userName = "thatjoshguy",
         followersCount = 7_671,
         followingsCount = 321,
         statusesCount = 2_104,

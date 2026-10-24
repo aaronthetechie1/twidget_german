@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/brief_refresh_state"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginTop="20dp" android:orientation="vertical" android:visibility="gone">
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/brief_refresh_loading"
+        android:layout_width="40dp" android:layout_height="40dp"
+        android:layout_gravity="center_horizontal" android:layout_margin="24dp"
+        android:contentDescription="@string/brief_refreshing" />
+    <LinearLayout android:id="@+id/brief_refresh_error"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@drawable/brief_card_background"
+        android:padding="19dp" android:visibility="gone">
+        <TextView android:id="@+id/brief_refresh_error_title"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textColor="@color/oneui_text_primary" android:textSize="18sp" android:textStyle="bold" />
+        <TextView android:id="@+id/brief_refresh_error_body"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" android:textColor="@color/oneui_text_secondary" android:textSize="14sp" />
+        <androidx.appcompat.widget.AppCompatButton android:id="@+id/brief_refresh_error_action"
+            style="@style/OneUI.ContainedButton"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:textAllCaps="false"
+            android:theme="@style/OneUI.ContainedPrimaryColorButtonTheme" />
+    </LinearLayout>
+</LinearLayout>

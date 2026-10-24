@@ -6,6 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReleaseNoticeTextTest {
+    @Test fun cardSummaryUsesTheIntroInsteadOfChangelogHeadings() {
+        assertEquals("Widgets that fit your device.", ReleaseNoticeText.summary(
+            "# Twidget v1.3.0\n\n**Widgets** that fit your\ndevice.\n\n### Added\n- Swipeable previews"
+        ))
+        assertEquals("Adaptive widgets. Better dashboards.", ReleaseNoticeText.summary(
+            "## Added\n- Adaptive widgets.\n- Better dashboards."
+        ))
+        assertEquals("", ReleaseNoticeText.summary("# Changelog\n\n## Added"))
+    }
+
     @Test
     fun releaseMarkdownBecomesReadableCardText() {
         val markdown = """

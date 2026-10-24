@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_preview_posted">Tu as publié ce tweet %1$s.</string>
+    <string name="review_preview_replied">Tu as répondu %1$s.</string>
+    <string name="review_preview_just_now">à l’instant</string>
+    <string name="review_preview_invite">Examine les résultats de ce tweet et ce que tu pourrais essayer ensuite.</string>
+    <string name="review_preview_invite_reply">Examine les résultats de cette réponse et ce que tu pourrais essayer ensuite.</string>
+    <string name="review_preview_counts">%1$s avait %2$s et %3$s lors de l’avis.</string>
+    <string name="review_preview_interactions">%1$s avait %2$s interactions publiques lors de l’avis ; les vues n’étaient pas disponibles.</string>
+    <string name="review_preview_both_higher">Ce post a reçu plus de vues et d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_both_lower">Ce post a reçu moins de vues et d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_more_views_fewer_interactions">Ce post a reçu plus de vues, mais moins d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_fewer_views_more_interactions">Ce post a reçu moins de vues, mais plus d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_higher_reach">Ce post a reçu plus de vues que tes tweets similaires.</string>
+    <string name="review_preview_lower_reach">Ce post a reçu moins de vues que tes tweets similaires.</string>
+    <string name="review_preview_more_interactions">Ce post a reçu plus d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_fewer_interactions">Ce post a reçu moins d’interactions que tes tweets similaires.</string>
+    <string name="review_preview_typical">Ses vues et interactions étaient proches de tes tweets similaires.</string>
+    <string name="review_preview_typical_interactions">Ses interactions étaient proches de tes tweets similaires.</string>
+    <plurals name="review_preview_minutes">
+        <item quantity="one">il y a %1$s minute</item>
+        <item quantity="other">il y a %1$s minutes</item>
+    </plurals>
+    <plurals name="review_preview_hours">
+        <item quantity="one">il y a %1$s heure</item>
+        <item quantity="other">il y a %1$s heures</item>
+    </plurals>
+    <plurals name="review_preview_days">
+        <item quantity="one">il y a %1$s jour</item>
+        <item quantity="other">il y a %1$s jours</item>
+    </plurals>
+    <plurals name="review_preview_weeks">
+        <item quantity="one">il y a %1$s semaine</item>
+        <item quantity="other">il y a %1$s semaines</item>
+    </plurals>
+    <plurals name="review_preview_months">
+        <item quantity="one">il y a %1$s mois</item>
+        <item quantity="other">il y a %1$s mois</item>
+    </plurals>
+    <plurals name="review_preview_years">
+        <item quantity="one">il y a %1$s an</item>
+        <item quantity="other">il y a %1$s ans</item>
+    </plurals>
+    <string name="review_preview_subject_tweet">Ton tweet</string>
+    <string name="review_preview_subject_reply">Ta réponse</string>
+    <plurals name="review_preview_view_count">
+        <item quantity="one">%1$s vue</item>
+        <item quantity="other">%1$s vues</item>
+    </plurals>
+    <plurals name="review_preview_interaction_count">
+        <item quantity="one">%1$s interaction publique</item>
+        <item quantity="other">%1$s interactions publiques</item>
+    </plurals>
+</resources>

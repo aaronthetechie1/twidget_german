@@ -1,5 +1,7 @@
 package com.tjg.twidget.schedule
 
+import com.tjg.twidget.core.json
+
 import android.content.Context
 import android.net.Uri
 import com.tjg.twidget.core.HttpTransport

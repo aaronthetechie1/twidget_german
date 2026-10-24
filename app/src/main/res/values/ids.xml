@@ -8,4 +8,5 @@
     <item name="drawer_avatar_render_guard" type="id" />
     <item name="schedule_link_preview_pending" type="id" />
     <item name="history_notice_dismiss" type="id" />
+    <item name="preview_widget" type="id" />
 </resources>

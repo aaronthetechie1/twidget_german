@@ -33,12 +33,7 @@
             <FrameLayout
                 android:id="@+id/main_content_host"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
-
-                <include
-                    android:id="@+id/main_launch_skeleton"
-                    layout="@layout/main_launch_skeleton" />
-            </FrameLayout>
+                android:layout_height="match_parent" />
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <FrameLayout

@@ -2,7 +2,6 @@ package com.tjg.twidget.settings
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import com.tjg.twidget.R
@@ -70,7 +69,7 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
 
         screen.addPreference(spacerCategory())
         val provider = BriefSettingsStore.provider(context)
-        screen.addPreference(ListPreference(context).apply {
+        screen.addPreference(SettingsListPreference(context).apply {
             key = "brief_provider_pref"
             title = getString(R.string.brief_provider)
             entries = arrayOf(
@@ -93,12 +92,11 @@ class BriefSettingsPreferenceFragment : InsetPreferenceFragment() {
         screen.addPreference(Preference(context).apply {
             key = "brief_cloud_api_key_pref"
             title = getString(R.string.brief_ai_studio_key)
-            isVisible = provider != BriefProviderMode.LOCAL
             val current = BriefSettingsStore.cloudApiKey(context)
             summary = if (current.isBlank()) null else getString(R.string.brief_cloud_key_configured)
             setOnPreferenceClickListener {
                 BriefApiKeyDialog.show(requireActivity(), required = false) { key ->
-                    BriefStore.resetAi(context, account)
+                    if (BriefSettingsStore.provider(context) != BriefProviderMode.LOCAL) BriefStore.resetAi(context, account)
                     summary = if (key.isBlank()) null else {
                         getString(R.string.brief_cloud_key_configured)
                     }

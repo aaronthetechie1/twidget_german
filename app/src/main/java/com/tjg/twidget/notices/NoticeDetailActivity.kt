@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.tjg.twidget.R
 import com.tjg.twidget.main.AboutActivity
 import com.tjg.twidget.ui.FoldablePopOverActivity
+import com.tjg.twidget.ui.TwidgetFonts
 import com.tjg.twidget.ui.startLeftSidePopOverActivity
 import com.tjg.twidget.update.ReleaseNotice
 import dev.oneuiproject.oneui.widget.RoundedNestedScrollView
@@ -48,12 +49,12 @@ class NoticeDetailActivity : FoldablePopOverActivity() {
             return
         }
 
-        findViewById<TextView>(R.id.notice_detail_title).text = notice.title
-        findViewById<TextView>(R.id.notice_detail_meta).text = releaseMeta(notice)
-        findViewById<TextView>(R.id.notice_detail_beta).apply {
-            setText(if (notice.upcoming) R.string.notices_upcoming else R.string.notices_beta)
-            visibility = if (notice.prerelease || notice.upcoming) View.VISIBLE else View.GONE
+        findViewById<TextView>(R.id.notice_detail_title).apply {
+            text = notice.title.removePrefix("Twidget ")
+            TwidgetFonts.setRole(this, TwidgetFonts.Role.CODE)
         }
+        findViewById<TextView>(R.id.notice_detail_meta).text = releaseMeta(notice)
+        NoticeReleaseBadge.bind(findViewById(R.id.notice_detail_beta), notice)
         findViewById<TextView>(R.id.notice_detail_body).apply {
             text = if (notice.body.isBlank()) {
                 getString(R.string.notices_no_details)
@@ -82,7 +83,7 @@ class NoticeDetailActivity : FoldablePopOverActivity() {
             DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
                 .format(Instant.parse(notice.publishedAt).atZone(ZoneId.systemDefault()))
         }.getOrNull()
-        return listOfNotNull(notice.tag, date).joinToString(" · ")
+        return date.orEmpty()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

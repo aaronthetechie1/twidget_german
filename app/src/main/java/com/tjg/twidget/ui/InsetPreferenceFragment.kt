@@ -8,6 +8,8 @@ import androidx.preference.SeslPreferenceCaption
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import androidx.recyclerview.widget.RecyclerView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import dev.oneuiproject.oneui.preference.InsetPreferenceCategory
 
 /**
@@ -21,6 +23,39 @@ abstract class InsetPreferenceFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
         // The trailing inset draws the bottom rounding instead.
         listView.seslSetLastRoundedCorner(false)
+        // SESL's transparent fade uses an unclipped layer on One UI. Preference
+        // card backgrounds can leak through that layer below their rounded ends.
+        // Fade into the same opaque surface as the preference container instead.
+        val pageColor = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(androidx.appcompat.R.attr.roundedCornerColor, pageColor, true)
+        listView.seslSetFadingEdgeColor(pageColor.data)
+        // SESL also fills the navigation padding after drawing the fade. Match
+        // the page surface so that padding cannot become a separate card strip.
+        listView.seslSetFillBottomColor(pageColor.data)
+        val bottomPadding = listView.paddingBottom
+        val leftPadding = listView.paddingLeft
+        val topPadding = listView.paddingTop
+        val rightPadding = listView.paddingRight
+        val cardBackground = listView.background
+        listView.clipToPadding = false
+        // Keep the scrolling surface behind navigation, while allowing the last
+        // row to scroll clear of gestures, buttons, and a bottom display cutout.
+        // The activity handles IME height; do not add navigation padding twice.
+        // Listen on the fragment root, leaving SESL's list fade listener intact.
+        ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.navigationBars() or
+                WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val navigationPadding = (safe.bottom - ime.bottom).coerceAtLeast(0)
+            // Preference rows share the list's card-coloured background. Keep
+            // it beneath the rows, while exposing the page beneath navigation.
+            listView.background = android.graphics.drawable.InsetDrawable(
+                cardBackground, 0, 0, 0, bottomPadding + navigationPadding)
+            listView.setPadding(leftPadding, topPadding,
+                rightPadding, bottomPadding + navigationPadding)
+            insets
+        }
+        ViewCompat.requestApplyInsets(view)
         listView.addOnChildAttachStateChangeListener(
             object : RecyclerView.OnChildAttachStateChangeListener {
                 override fun onChildViewAttachedToWindow(view: View) {

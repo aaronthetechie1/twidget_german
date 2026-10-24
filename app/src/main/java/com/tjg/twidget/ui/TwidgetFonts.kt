@@ -31,11 +31,12 @@ object TwidgetFonts {
 
     /** App typography from Figma 279:10249. Widget renderers retain their own axes. */
     @android.annotation.SuppressLint("ResourceType") // The font is a binary resource, readable as a raw stream on API 26–28.
+    @Synchronized
     private fun googleAppTypeface(context: Context, weight: Int, italic: Boolean, width: Int = 100,
         roundness: Int = if (weight >= 700) 100 else 0): Typeface {
         val axes = GoogleAxes(weight.coerceIn(1, 1000), italic, width, roundness)
         return googleWeightedTypefaces.getOrPut(axes) {
-            val variations = "'wght' ${axes.weight}, 'wdth' $width, 'ROND' $roundness, 'GRAD' 0, 'slnt' ${if (italic) -10 else 0}, 'opsz' 18"
+            val variations = "'wght' ${axes.weight}, 'wdth' $width, 'ROND' $roundness, 'slnt' ${if (italic) -10 else 0}"
             if (Build.VERSION.SDK_INT >= 29) {
                 // Set outlines AND font metadata together, so Android neither loses
                 // the weight on rebinding nor adds synthetic bold to variable bold.
@@ -49,7 +50,7 @@ object TwidgetFonts {
             } else {
                 // Android 8–9 lack the public resource Font builder. Use a cached
                 // copy of the bundled face with the same explicit axes and metadata.
-                val file = java.io.File(context.cacheDir, "google-sans-flex-${com.tjg.twidget.BuildConfig.VERSION_CODE}.ttf")
+                val file = java.io.File(context.cacheDir, "google-sans-flex-four-axes-${com.tjg.twidget.BuildConfig.VERSION_CODE}.ttf")
                 if (!file.exists()) context.resources.openRawResource(R.font.google_sans_flex).use { source ->
                     file.outputStream().use { source.copyTo(it) }
                 }
@@ -62,7 +63,8 @@ object TwidgetFonts {
     internal fun cardValueTypeface(context: Context, width: Int): Typeface =
         googleAppTypeface(context, 400, false, width, 100)
 
-    enum class Role { LABEL, SUMMARY, DASHBOARD_VALUE, STREAK_VALUE, CHART_DELTA }
+    enum class Role { LABEL, SUMMARY, DASHBOARD_VALUE, STREAK_VALUE, CHART_DELTA, CODE }
+    private var codeTypeface: Typeface? = null
 
     fun setRole(view: TextView, role: Role) {
         view.setTag(R.id.app_font_role, role)
@@ -72,7 +74,10 @@ object TwidgetFonts {
     private data class TextBaseline(
         val weight: Int, val italic: Boolean, val size: Float,
         var appliedFace: Typeface? = null, var appliedSize: Float = size,
+        var binding: FontBinding? = null,
     )
+
+    private data class FontBinding(val font: AppAppearance.Font, val role: Any?, val tag: Any?, val id: Int, val toolbar: Boolean)
 
     fun forApp(context: Context, weight: Int = 400, italic: Boolean = false): Typeface =
         forApp(context, AppAppearance.font(context), weight, italic)
@@ -100,6 +105,7 @@ object TwidgetFonts {
         }
     }
 
+    @Synchronized
     fun oneUiSans(context: Context, weight: Int = 400, italic: Boolean = false): Typeface {
         val key = weight.coerceIn(1, 1_000) to italic
         return weightedTypefaces.getOrPut(key) {
@@ -139,11 +145,13 @@ object TwidgetFonts {
      * Returns the untouched variable face for Canvas artwork. Widget renderers apply `wght` once on Paint;
      * creating a weighted Typeface first can make some Android renderers embolden the same axis twice.
      */
+    @Synchronized
     fun oneUiSansVariable(context: Context): Typeface =
         baseTypeface ?: (ResourcesCompat.getFont(context, R.font.one_ui_sans)
             ?: Typeface.DEFAULT).also { baseTypeface = it }
 
     /** Returns the untouched Google Sans Flex variable face for Canvas artwork. */
+    @Synchronized
     fun googleSansFlex(context: Context): Typeface =
         googleTypeface ?: (ResourcesCompat.getFont(context, R.font.google_sans_flex)
             ?: Typeface.DEFAULT).also { googleTypeface = it }
@@ -151,7 +159,16 @@ object TwidgetFonts {
     /** Watch each window once, including dialog and popup windows inflated by AppCompat. */
     fun observeWindow(root: View) {
         if (root.getTag(R.id.app_font_observer) != null) return
-        val listener = ViewTreeObserver.OnGlobalLayoutListener { applyTo(root) }
+        var scheduled = false
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            if (!scheduled) {
+                scheduled = true
+                root.postOnAnimation {
+                    scheduled = false
+                    if (root.isAttachedToWindow && root.getTag(R.id.app_font_observer) != null) applyTo(root)
+                }
+            }
+        }
         root.setTag(R.id.app_font_observer, listener)
         root.viewTreeObserver.addOnGlobalLayoutListener(listener)
         root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -172,9 +189,13 @@ object TwidgetFonts {
         if (view is CardValueTextView) return
         if (view is TextView) {
             val current = view.typeface ?: Typeface.DEFAULT
+            val stored = view.getTag(R.id.app_font_baseline) as? TextBaseline
+            val binding = FontBinding(font, view.getTag(R.id.app_font_role), view.tag, view.id,
+                view.parent is androidx.appcompat.widget.Toolbar)
+            // Discovery still sees dynamically added rows, but unchanged text needs no lookup or font work.
+            if (stored != null && stored.binding == binding && current === stored.appliedFace && view.textSize == stored.appliedSize) return
             val name = runCatching { view.resources.getResourceEntryName(view.id) }.getOrDefault("")
             val isExpandedHeader = name == "collapsing_appbar_extended_title"
-            val stored = view.getTag(R.id.app_font_baseline) as? TextBaseline
             val baseline = if (stored != null && current === stored.appliedFace && view.textSize == stored.appliedSize) stored
             else TextBaseline(
                 if (isExpandedHeader && !hasSystemOneUiSans) 700
@@ -192,7 +213,10 @@ object TwidgetFonts {
                 summary -> 400
                 else -> baseline.weight
             }
-            val desired = if (view.getTag(R.id.app_font_role) == Role.CHART_DELTA)
+            val desired = if (view.getTag(R.id.app_font_role) == Role.CODE)
+                codeTypeface ?: (ResourcesCompat.getFont(view.context, R.font.google_sans_code)
+                    ?: Typeface.MONOSPACE).also { codeTypeface = it }
+                else if (view.getTag(R.id.app_font_role) == Role.CHART_DELTA)
                 forApp(view.context, font, 400, baseline.italic)
                 else if (view.getTag(R.id.app_font_role) in setOf(Role.DASHBOARD_VALUE, Role.STREAK_VALUE))
                 googleAppTypeface(view.context, 400, false, if (view.getTag(R.id.app_font_role) == Role.STREAK_VALUE) 130 else 124, 100)
@@ -204,6 +228,7 @@ object TwidgetFonts {
             if (current !== desired) view.typeface = desired
             baseline.appliedFace = view.typeface
             baseline.appliedSize = view.textSize
+            baseline.binding = binding
         }
         if (view is ViewGroup) {
             for (index in 0 until view.childCount) applyTo(view.getChildAt(index), font)

@@ -237,10 +237,11 @@ class TopFollowersSearchInstrumentedTest {
                     }
                     settle()
                     capture("followers-search-keyboard-$mode")
+                    capture("followers-search-before-keyboard-assert-$mode")
                     scenario.onActivity { activity ->
                         val search = activity.findViewById<SearchView>(R.id.top_followers_browse_search)
                         val insets = ViewCompat.getRootWindowInsets(search)!!
-                        assertTrue("Focused mic uses the filled icon", search.findViewById<View>(androidx.appcompat.R.id.search_voice_btn).isSelected)
+                        assertTrue("Focused mic uses the filled icon (IME=${insets.isVisible(WindowInsetsCompat.Type.ime())}, focused=${search.hasFocus()}, current=${activity.currentFocus?.javaClass?.simpleName})", search.findViewById<View>(androidx.appcompat.R.id.search_voice_btn).isSelected)
                         assertTrue("Focused search should expand", search.width > compactWidth)
                         assertTrue("Keyboard must be shown", insets.isVisible(WindowInsetsCompat.Type.ime()))
                         val bounds = Rect()

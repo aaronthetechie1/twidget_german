@@ -5,214 +5,143 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 
-class ScheduleStore(context: Context) {
+/** Durable schedule mutations are serialized and committed once per transaction. */
+class ScheduleStore(
+    context: Context,
+    private val preferences: SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
+) {
     private val appContext = context.applicationContext
-    private val preferences: SharedPreferences =
-        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private var cachedRaw: String? = null
+    private var cachedPosts: List<ScheduledPost> = emptyList()
+    private var loaded = false
 
-    fun create(post: ScheduledPost): ScheduledPost = synchronized(lock) {
-        val posts = readAllLocked().toMutableList()
+    fun create(post: ScheduledPost): ScheduledPost = transaction { posts ->
         require(posts.none { it.id == post.id }) { "A schedule with this ID already exists" }
         posts += post
-        writeAllLocked(posts)
         post
     }
 
-    fun upsert(post: ScheduledPost): ScheduledPost = synchronized(lock) {
-        val posts = readAllLocked().toMutableList()
-        val previous = posts.toList()
+    fun upsert(post: ScheduledPost): ScheduledPost = transaction { posts ->
         val index = posts.indexOfFirst { it.id == post.id }
-        if (index < 0) {
-            posts += post
-        } else {
-            posts[index] = post
-        }
-        writeAllLocked(posts)
-        releaseUnusedLocalMedia(previous, posts)
+        if (index < 0) posts += post else posts[index] = post
         post
     }
 
-    fun get(id: String): ScheduledPost? = synchronized(lock) {
-        readActiveStateLocked().firstOrNull { it.id == id }
+    fun get(id: String): ScheduledPost? = snapshot().firstOrNull { it.id == id }
+    fun list(): List<ScheduledPost> = ScheduleQueuePolicy.order(snapshot().filter { it.deletedAt == null })
+    fun listTrash(): List<ScheduledPost> = snapshot().filter { it.deletedAt != null }.sortedByDescending { it.deletedAt }
+    fun listForAccount(account: String): List<ScheduledPost> = list().filter { it.belongsTo(account) }
+    fun listTrashForAccount(account: String): List<ScheduledPost> = listTrash().filter { it.belongsTo(account) }
+
+    /** Reads never write, purge files, or release URI grants. Call maintain on a background thread. */
+    fun snapshot(): List<ScheduledPost> = synchronized(lock) {
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(appContext)
+        activeSnapshot(readAllLocked(), System.currentTimeMillis())
     }
 
-    fun list(): List<ScheduledPost> = synchronized(lock) {
-        sortPosts(readActiveStateLocked().filter { it.deletedAt == null })
-    }
+    fun maintain() = transaction { Unit }
 
-    fun listTrash(): List<ScheduledPost> = synchronized(lock) {
-        sortTrashPosts(readAllLocked().filter { it.deletedAt != null })
-    }
+    fun moveToTrash(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? =
+        update(id) { it.copy(deletedAt = nowMillis, updatedAt = nowMillis) }
+    fun restoreFromTrash(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? =
+        update(id) { if (it.deletedAt == null) it else it.copy(deletedAt = null, updatedAt = nowMillis) }
+    fun cancel(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? =
+        update(id) { it.copy(status = ScheduleStatus.CANCELLED, updatedAt = nowMillis, errorMessage = null) }
 
-    fun listForAccount(account: String): List<ScheduledPost> {
-        val normalized = normalizeAccount(account)
-        return synchronized(lock) {
-            sortPosts(
-                readActiveStateLocked().filter {
-                    it.deletedAt == null &&
-                        (
-                            normalizeAccount(it.accountId.orEmpty()) == normalized ||
-                                normalizeAccount(it.accountUsername) == normalized
-                            )
-                },
-            )
-        }
+    fun setPinned(ids: Set<String>, pinned: Boolean, now: Long = System.currentTimeMillis()) = transaction { posts ->
+        posts.replaceAll { if (it.id in ids && ScheduleQueuePolicy.canPin(it.status)) it.copy(pinned = pinned, updatedAt = now) else it }
     }
-
-    fun listTrashForAccount(account: String): List<ScheduledPost> {
-        val normalized = normalizeAccount(account)
-        return synchronized(lock) {
-            sortTrashPosts(
-                readAllLocked().filter {
-                    it.deletedAt != null &&
-                        (
-                            normalizeAccount(it.accountId.orEmpty()) == normalized ||
-                                normalizeAccount(it.accountUsername) == normalized
-                            )
-                },
-            )
-        }
+    fun trash(ids: Set<String>, now: Long = System.currentTimeMillis()) = transaction { posts ->
+        posts.replaceAll { if (it.id in ids) it.copy(deletedAt = now, updatedAt = now) else it }
     }
-
-    fun moveToTrash(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? = synchronized(lock) {
-        val posts = readAllLocked().toMutableList()
-        val index = posts.indexOfFirst { it.id == id }
-        if (index < 0) return@synchronized null
-        val updated = posts[index].copy(deletedAt = nowMillis, updatedAt = nowMillis)
-        posts[index] = updated
-        writeAllLocked(posts)
-        updated
+    fun restore(ids: Set<String>, now: Long = System.currentTimeMillis()) = transaction { posts ->
+        posts.replaceAll { if (it.id in ids) it.copy(deletedAt = null, updatedAt = now) else it }
     }
-
-    fun restoreFromTrash(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? = synchronized(lock) {
-        val posts = readAllLocked().toMutableList()
-        val index = posts.indexOfFirst { it.id == id }
-        if (index < 0) return@synchronized null
-        val current = posts[index]
-        if (current.deletedAt == null) return@synchronized current
-        val restored = current.copy(deletedAt = null, updatedAt = nowMillis)
-        posts[index] = restored
-        writeAllLocked(posts)
-        restored
+    fun remove(id: String): Boolean = removeAll(setOf(id)).isNotEmpty()
+    fun removeAll(ids: Set<String>): List<ScheduledPost> = transaction { posts ->
+        val removed = posts.filter { it.id in ids }
+        posts.removeAll { it.id in ids }
+        removed
     }
-
-    fun remove(id: String): Boolean = synchronized(lock) {
-        val posts = readAllLocked()
-        val removed = posts.firstOrNull { it.id == id } ?: return@synchronized false
-        val remaining = posts.filterNot { it.id == id }
-        writeAllLocked(remaining)
-        releaseUnusedLocalMedia(posts, remaining)
-        ScheduleChecklistProgress.clear(appContext, removed.id)
-        true
-    }
-
-    fun removeForAccount(account: String): List<ScheduledPost> = synchronized(lock) {
-        val normalized = normalizeAccount(account)
-        val posts = readAllLocked()
-        val removed = posts.filter {
-            normalizeAccount(it.accountId.orEmpty()) == normalized ||
-                normalizeAccount(it.accountUsername) == normalized
-        }
-        if (removed.isEmpty()) return@synchronized emptyList()
-        val remaining = posts - removed.toSet()
-        writeAllLocked(remaining)
-        releaseUnusedLocalMedia(posts, remaining)
-        removed.forEach {
-            ScheduleChecklistProgress.clear(appContext, it.id)
-        }
+    fun removeForAccount(account: String): List<ScheduledPost> = transaction { posts ->
+        val removed = posts.filter { it.belongsTo(account) }
+        posts.removeAll(removed.toSet())
         removed
     }
 
-    fun cancel(id: String, nowMillis: Long = System.currentTimeMillis()): ScheduledPost? = synchronized(lock) {
-        val posts = readAllLocked().toMutableList()
+    private fun update(id: String, transform: (ScheduledPost) -> ScheduledPost): ScheduledPost? = transaction { posts ->
         val index = posts.indexOfFirst { it.id == id }
-        if (index < 0) return@synchronized null
-        val cancelled = posts[index].copy(
-            status = ScheduleStatus.CANCELLED,
-            updatedAt = nowMillis,
-            errorMessage = null,
-        )
-        posts[index] = cancelled
+        if (index < 0) null else transform(posts[index]).also { posts[index] = it }
+    }
+
+    /** Caller must not do network work inside this edit; notifications run after the successful commit. */
+    internal fun <T> transaction(edit: (MutableList<ScheduledPost>) -> T): T = synchronized(lock) {
+        com.tjg.twidget.data.TwidgetStore.recoverAccountMigration(appContext)
+        val previous = readAllLocked()
+        val posts = activeSnapshot(previous, System.currentTimeMillis()).toMutableList()
+        val result = edit(posts)
+        posts.replaceAll { post ->
+            val canonical = com.tjg.twidget.data.TwidgetStore.canonicalAccount(appContext, post.accountUsername)
+            if (canonical.equals(post.accountUsername, true)) post else post.copy(
+                accountUsername = canonical,
+                accountId = if (post.accountId?.equals(post.accountUsername, true) == true) canonical else post.accountId,
+            )
+        }
+        if (posts == previous) return@synchronized result
         writeAllLocked(posts)
-        cancelled
+        releaseUnusedLocalMedia(previous, posts)
+        val retained = posts.mapTo(hashSetOf()) { it.id }
+        previous.filterNot { it.id in retained }.forEach { ScheduleChecklistProgress.clear(appContext, it.id) }
+        result
     }
 
     private fun readAllLocked(): List<ScheduledPost> {
-        val raw = runCatching { preferences.getString(KEY_POSTS, null) }.getOrNull()
-            ?: return emptyList()
-        val decoded = runCatching { ScheduleJsonCodec.decodeList(raw) }.getOrElse {
-            if (!preferences.contains(KEY_CORRUPT_BACKUP)) {
-                preferences.edit().putString(KEY_CORRUPT_BACKUP, raw).commit()
-            }
-            emptyList()
+        val raw = preferences.getString(KEY_POSTS, null)
+        if (!loaded || raw != cachedRaw) {
+            cachedPosts = raw?.let { runCatching { ScheduleJsonCodec.decodeList(it) }.getOrNull() }.orEmpty()
+            cachedRaw = raw
+            loaded = true
         }
-        return purgeExpiredTrashLocked(decoded)
+        return cachedPosts
     }
 
-    private fun readActiveStateLocked(nowMillis: Long = System.currentTimeMillis()): List<ScheduledPost> {
-        val posts = readAllLocked()
-        val reconciled = posts.map { BufferScheduleFallbackPolicy.reconcile(it, nowMillis) }
-        if (reconciled != posts) writeAllLocked(reconciled)
-        return reconciled
-    }
-
-    private fun purgeExpiredTrashLocked(posts: List<ScheduledPost>): List<ScheduledPost> {
-        val cutoff = System.currentTimeMillis() - ScheduleTrashPolicy.RETENTION_MS
-        val expired = posts.filter { post ->
-            post.deletedAt != null && post.deletedAt < cutoff
-        }
-        if (expired.isEmpty()) return posts
-        val expiredIds = expired.map(ScheduledPost::id).toSet()
-        val remaining = posts.filterNot { it.id in expiredIds }
-        writeAllLocked(remaining)
-        releaseUnusedLocalMedia(posts, remaining)
-        expired.forEach { ScheduleChecklistProgress.clear(appContext, it.id) }
-        return remaining
-    }
+    private fun activeSnapshot(posts: List<ScheduledPost>, now: Long): List<ScheduledPost> = posts
+        .filter { it.deletedAt == null || it.deletedAt >= now - ScheduleTrashPolicy.RETENTION_MS }
+        .map { BufferScheduleFallbackPolicy.reconcile(it, now) }
 
     private fun writeAllLocked(posts: List<ScheduledPost>) {
-        check(preferences.edit().putString(KEY_POSTS, ScheduleJsonCodec.encodeList(posts)).commit()) {
-            "Unable to persist schedules"
-        }
+        val encoded = ScheduleJsonCodec.encodeList(posts)
+        val editor = preferences.edit().putString(KEY_POSTS, encoded)
+        // Preserve corrupt storage before any mutation overwrites it; ordinary reads remain pure.
+        val raw = cachedRaw
+        if (raw != null && !preferences.contains(KEY_CORRUPT_BACKUP) &&
+            runCatching { ScheduleJsonCodec.decodeList(raw) }.isFailure) editor.putString(KEY_CORRUPT_BACKUP, raw)
+        check(editor.commit()) { "Unable to persist schedules" }
+        cachedRaw = encoded
+        cachedPosts = posts.toList()
+        loaded = true
     }
 
-    private fun normalizeAccount(account: String): String =
-        account.trim().trimStart('@').lowercase()
+    private fun ScheduledPost.belongsTo(account: String): Boolean =
+        listOf(accountId.orEmpty(), accountUsername).any {
+            ScheduleAccountMapping.normalize(it) == ScheduleAccountMapping.normalize(account)
+        }
 
-    private fun sortPosts(posts: List<ScheduledPost>): List<ScheduledPost> =
-        ScheduleQueuePolicy.order(posts)
-
-    private fun sortTrashPosts(posts: List<ScheduledPost>): List<ScheduledPost> =
-        posts.sortedByDescending { it.deletedAt ?: 0L }
-
-    private fun releaseUnusedLocalMedia(
-        previous: Collection<ScheduledPost>,
-        next: Collection<ScheduledPost>,
-    ) {
+    private fun releaseUnusedLocalMedia(previous: Collection<ScheduledPost>, next: Collection<ScheduledPost>) {
         val retained = next.flatMap { it.localMediaUris() }.toSet()
-        previous.flatMap { it.localMediaUris() }
-            .toSet()
-            .filterNot(retained::contains)
-            .forEach(::releaseUri)
-    }
-
-    private fun ScheduledPost.localMediaUris(): Set<String> =
-        thread.flatMap { item -> item.media.filterIsInstance<LocalUriMedia>().map(LocalUriMedia::uri) }.toSet()
-
-    private fun releaseUri(value: String) {
-        if (ScheduleOwnedMedia.delete(appContext, value)) return
-        runCatching {
-            appContext.contentResolver.releasePersistableUriPermission(
-                Uri.parse(value),
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+        previous.flatMap { it.localMediaUris() }.toSet().filterNot(retained::contains).forEach { value ->
+            if (!ScheduleOwnedMedia.delete(appContext, value)) runCatching {
+                appContext.contentResolver.releasePersistableUriPermission(Uri.parse(value), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
         }
     }
+    private fun ScheduledPost.localMediaUris(): Set<String> =
+        thread.flatMap { it.media.filterIsInstance<LocalUriMedia>().map(LocalUriMedia::uri) }.toSet()
 
     companion object {
         const val PREFS_NAME = "twidget_schedules"
         private const val KEY_POSTS = "posts"
         private const val KEY_CORRUPT_BACKUP = "posts_corrupt_backup"
-        private val lock = Any()
+        private val lock = com.tjg.twidget.data.TwidgetStore
     }
 }

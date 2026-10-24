@@ -74,6 +74,15 @@ object ReleaseNoticesStore {
 }
 
 object ReleaseNoticeText {
+    fun summary(markdown: String): String {
+        val blocks = ReleaseNoticeMarkdown.parseBlocks(markdown)
+        val paragraph = blocks.firstOrNull { it.kind == ReleaseNoticeMarkdown.LineKind.PARAGRAPH }
+        val text = paragraph?.content ?: blocks.filter {
+            it.kind == ReleaseNoticeMarkdown.LineKind.BULLET || it.kind == ReleaseNoticeMarkdown.LineKind.ORDERED
+        }.take(3).joinToString(" ") { it.content }
+        return plainText(text).replace(Regex("\\s+"), " ").trim()
+    }
+
     fun plainText(markdown: String): String = markdown
         .replace(Regex("(?m)^#{1,6}\\s*"), "")
         .replace(Regex("!\\[([^]]*)]\\([^)]+\\)"), "$1")

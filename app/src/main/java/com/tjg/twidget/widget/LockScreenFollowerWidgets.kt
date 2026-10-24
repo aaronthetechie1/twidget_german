@@ -118,7 +118,7 @@ object LockScreenFollowerViews {
     // In-app preview of the lock screen artwork (onboarding, widget settings);
     // white text, meant to be shown over a dark wallpaper-like backdrop.
     fun previewArt(context: Context, wide: Boolean, settings: TwidgetWidgetSettings? = null): Bitmap =
-        renderArt(context, wide, monotone = false, widgetSettings = settings ?: TwidgetStore.widgetSettings(context))
+        renderArt(context, wide, monotone = false, widgetSettings = settings ?: TwidgetStore.widgetSettings(context, kind = WidgetKind.LOCK_SCREEN))
 
     // Samsung's facewidget host recolors TextViews (setAppWidgetColorFilter) on
     // the lock screen, which turned the counts invisible on its white capsule.
@@ -133,7 +133,7 @@ object LockScreenFollowerViews {
             setViewVisibility(R.id.lockscreen_art, android.view.View.VISIBLE)
             setImageViewBitmap(
                 R.id.lockscreen_art,
-                renderArt(context, wide, monotone, TwidgetStore.widgetSettings(context, appWidgetId)),
+                renderArt(context, wide, monotone, TwidgetStore.widgetSettings(context, appWidgetId, WidgetKind.LOCK_SCREEN)),
             )
             setOnClickPendingIntent(
                 R.id.lockscreen_follower_root,

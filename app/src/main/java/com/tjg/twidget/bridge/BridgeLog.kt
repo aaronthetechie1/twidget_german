@@ -2,7 +2,7 @@ package com.tjg.twidget.bridge
 
 import android.content.Context
 import com.tjg.twidget.data.TwidgetStore
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import org.json.JSONArray
 import org.json.JSONObject
 

@@ -21,6 +21,8 @@
             <category android:name="android.intent.category.APP_BROWSER" />
         </intent>
         <package android:name="com.twitter.android" />
+        <!-- Invalidate local generation capabilities when AICore is updated. -->
+        <package android:name="com.google.android.aicore" />
         <!-- Samsung Gallery, preferred media picker on One UI. -->
         <package android:name="com.sec.android.gallery3d" />
     </queries>
@@ -232,6 +234,16 @@
             android:exported="false" />
 
         <activity
+            android:name=".brief.BriefTweetReviewActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
+            android:name=".brief.BriefReviewListActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
             android:name=".brief.BriefOnboardingActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
@@ -261,6 +273,11 @@
 
         <activity
             android:name=".settings.BriefDebugLogActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="false" />
+
+        <activity
+            android:name=".brief.BriefReviewDebugActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false" />
 

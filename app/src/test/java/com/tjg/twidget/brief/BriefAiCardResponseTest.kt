@@ -30,6 +30,21 @@ class BriefAiCardResponseTest {
     )
 
     @Test
+    fun measuredContextAcceptsModelWrittenDescriptionsFromItsEvidence() {
+        for (type in listOf(BriefCardType.POST_CONTEXT, BriefCardType.FOLLOWER_CONTEXT)) {
+            val card = BriefCard("context", type, "Recorded context", "300 recorded views so far. This is a sample.", 70)
+            val result = BriefAiCardResponse.apply(
+                source.copy(cards = listOf(card)),
+                """[{"i":"context","t":"Your recent activity","b":"A snapshot of your recent activity, with 300 views recorded so far."}]""",
+                BriefProviderUsed.LOCAL,
+                strings,
+            )
+            assertEquals("A snapshot of your recent activity, with 300 views recorded so far.", result.snapshot?.cards?.single()?.body)
+            assertEquals(true, result.snapshot?.cards?.single()?.narrativeGenerated)
+        }
+    }
+
+    @Test
     fun compactNanoResponseRewritesCardsWithoutOverridingEngineOrder() {
         val result = BriefAiCardResponse.apply(
             source,
@@ -99,7 +114,7 @@ class BriefAiCardResponseTest {
     }
 
     @Test
-    fun inventedCompactFactsFallBackWithoutDiscardingTheAiSummary() {
+    fun inventedCompactFactsRejectTheSummaryInsteadOfShowingATemplate() {
         val result = BriefAiCardResponse.apply(
             source,
             """[{"i":"__brief_summary__","t":"Momentum is building","b":"Your posting rhythm is active.","s":"Up 99 followers today."}]""",
@@ -107,11 +122,7 @@ class BriefAiCardResponseTest {
             strings,
         )
 
-        assertNotNull(result.snapshot)
-        assertEquals(
-            "You gained 2 followers today and 10 followers this week. Your posting rhythm is active.",
-            result.snapshot?.shortDescription,
-        )
+        assertNull(result.snapshot)
     }
 
     @Test

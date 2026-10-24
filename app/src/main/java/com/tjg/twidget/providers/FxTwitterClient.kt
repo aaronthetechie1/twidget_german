@@ -3,7 +3,7 @@ package com.tjg.twidget.providers
 import com.tjg.twidget.core.HttpTransport
 import com.tjg.twidget.core.NetworkResponseParsers
 import com.tjg.twidget.data.ProfileStats
-import com.tjg.twidget.schedule.json
+import com.tjg.twidget.core.json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import org.json.JSONObject
@@ -21,6 +21,15 @@ object FxTwitterClient {
         val encoded = URLEncoder.encode(username.trim().trimStart('@'), StandardCharsets.UTF_8.name())
         val json = JSONObject(read("$BASE_URL/$encoded"))
         return NetworkResponseParsers.parseFxTwitterUser(json, username)
+    }
+
+    fun fetchProfileById(userId: String): ProfileStats {
+        require(userId.matches(Regex("[0-9]+")))
+        val profile = NetworkResponseParsers.parseFxTwitterUser(
+            JSONObject(read("$BASE_URL/2/profile/id:$userId")), "",
+        )
+        require(profile.userId == userId) { "X account identity could not be verified." }
+        return profile
     }
 
     private fun read(url: String): String {

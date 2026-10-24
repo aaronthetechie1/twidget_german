@@ -74,7 +74,8 @@ CI provides these downloads in each run's **Artifacts** section:
 
 | Workflow | GitHub distribution | Play distribution |
 | --- | --- | --- |
-| Debug Build + Play Build (pushes to main/staging) | Existing production-signed debug APK/AAB and rolling GitHub release | Unsigned validation AAB in `twidget-play-validation-unsigned`; do not upload |
+| Debug Build (currently disabled) | CI artifacts only; public rolling debug releases are retired | — |
+| Play Build (pushes to main/staging) | — | Unsigned validation AAB in `twidget-play-validation-unsigned`; do not upload |
 | Pre-release | Signed beta APK/AAB on the GitHub pre-release | Signed beta APK/AAB in `twidget-play-<version>-beta.<number>` |
 | Release | Signed release APK/AAB on the GitHub release | Signed release APK/AAB in `twidget-play-<version>` |
 
@@ -106,7 +107,7 @@ allocation. Never upload an unreleased stable build as a beta.
 
 ### Automatic Google Play publishing
 
-GitHub debug releases remain unchanged and are never submitted to Play. Once
+Debug builds are never submitted to Play. Once
 enabled, **Pre-release** publishes its GitHub pre-release, then submits the same
 version's signed Play AAB to open testing (API track `beta`). **Release** publishes
 its GitHub release, then submits its signed Play AAB to `production` at 100%.
@@ -183,10 +184,11 @@ Do not create the stable tag manually unless recovering a failed workflow; the
 workflow owns the tag and published asset.
 
 Each semantic version reserves Play Store version-code slots in release order:
-beta builds use 80–98, trusted debug builds use 98, and the stable build uses
-99. This lets a production-signed debug APK install over any beta of the same
-version while keeping the stable release as the final upgrade. Do not publish
-debug AABs to Play; the debug slot is for local and workflow testing only.
+beta builds use 80–97 and stable uses 99. The separate debug package uses fixed
+version code `100300198`, independent of the release version. Its version name
+is `<version>-dev.YYYYMMDD.HHmm` using Europe/London build-start time. Rebuilds
+in the same minute share a label. It cannot replace beta or stable. Do not
+publish debug AABs to Play.
 
 ## Discord release notifications
 
@@ -215,18 +217,26 @@ updating the GitHub secret before the next release.
 
 ## Local verification
 
-Trusted debug builds from `main` and manual runs of the **Debug Build** workflow
-are signed with the production certificate. Pull-request builds retain the
-checked-in debug certificate so pull-request code never receives production
-signing credentials. To build an interchangeable debug APK locally, use:
+Debug builds always use the checked-in development key and install as
+**Twidget Debug** (`com.tjg.twidget.debug`). The launcher icon uses blue bars on a white-to-pale-blue
+background gradient, matching the inverted-palette Figma mockup. Stable/beta retain `com.tjg.twidget` and production signing.
+There is no production-signing override for debug builds, and the debug workflow
+has no release-signing credentials or public publishing job. The workflow remains
+disabled following retirement of the public debug channel.
+
+Build and install on a connected device with:
 
 ```bash
-./gradlew assembleGithubDebug -PsignDebugWithRelease=true
+./gradlew assembleGithubDebug
+adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
+# Or build and install in one step:
+./gradlew installGithubDebug
 ```
 
-This keeps the `-debug.N` version name but makes the APK signature compatible
-with beta and stable builds. It is a debuggable production-signed artifact and
-must not be published or shared.
+The two packages have independent data and widgets. The debug app's APK updater
+is disabled; update it through ADB or Android Studio. Buffer OAuth uses the same
+`twidget://oauth/buffer` callback scheme, so Android may ask which installed app
+should handle the callback; select the app that started the login.
 
 ```bash
 ./gradlew testGithubDebugUnitTest assembleGithubDebug lintGithubDebug \

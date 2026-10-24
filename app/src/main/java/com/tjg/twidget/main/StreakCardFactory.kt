@@ -34,29 +34,61 @@ internal object StreakCardPolicy {
 }
 
 internal object StreakCardFactory {
-    fun create(
-        context: Context,
-        snapshot: StreakSnapshot,
-        titleOverride: String? = null,
-        detailOverride: String? = null,
-    ): LinearLayout {
+    /** The Brief has a wide treatment; the dashboard keeps its compact counter. */
+    fun createBrief(context: Context, snapshot: StreakSnapshot): LinearLayout {
         val state = StreakCardPolicy.state(snapshot)
+        val days = snapshot.streak.coerceAtLeast(0)
+        val title = context.resources.getQuantityString(R.plurals.streak_days, days, days)
+        return (android.view.LayoutInflater.from(context).inflate(R.layout.brief_card_streak, null, false) as LinearLayout).apply {
+            background = background(context, state)
+            findViewById<com.tjg.twidget.ui.CardValueTextView>(R.id.brief_streak_value).apply {
+                text = title
+                configure(80f, 109)
+            }
+            findViewById<TextView>(R.id.brief_streak_state).apply {
+                text = context.getString(label(state))
+                typeface = com.tjg.twidget.ui.TwidgetFonts.oneUiSans(context, 700)
+                setTextColor(Color.rgb(132, 132, 135))
+            }
+            contentDescription = "${context.getString(label(state))}. $title"
+        }
+    }
+
+    private fun label(state: StreakCardState): Int = when (state) {
+        StreakCardState.SAFE -> R.string.streak_card_steady
+        StreakCardState.RECORD -> R.string.streak_card_record
+        StreakCardState.NEEDS_ACTIVITY, StreakCardState.EXPIRING -> R.string.streak_card_save
+        StreakCardState.REVIVE -> R.string.streak_card_restart
+    }
+
+    private fun background(context: Context, state: StreakCardState): GradientDrawable {
         val night = context.resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val endColor = when (state) {
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val end = when (state) {
             StreakCardState.SAFE -> if (night) 0xFF003263.toInt() else 0xFFC3E1FF.toInt()
             StreakCardState.RECORD -> if (night) 0xFF004C45.toInt() else 0xFFB2FBF5.toInt()
             StreakCardState.NEEDS_ACTIVITY, StreakCardState.EXPIRING ->
                 if (night) 0xFF601F00.toInt() else 0xFFFFD5C0.toInt()
             StreakCardState.REVIVE -> if (night) 0xFF470000.toInt() else 0xFFFFC8C8.toInt()
         }
-        val labelRes = when (state) {
-            StreakCardState.SAFE -> R.string.streak_card_steady
-            StreakCardState.RECORD -> R.string.streak_card_record
-            StreakCardState.NEEDS_ACTIVITY, StreakCardState.EXPIRING -> R.string.streak_card_save
-            StreakCardState.REVIVE -> R.string.streak_card_restart
+        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(if (night) 0xFF171719.toInt() else Color.WHITE, end)).apply {
+            cornerRadius = dp(context, 28).toFloat()
         }
+    }
+
+    fun create(
+        context: Context,
+        snapshot: StreakSnapshot,
+        titleOverride: String? = null,
+        detailOverride: String? = null,
+        existing: LinearLayout? = null,
+    ): LinearLayout {
+        val state = StreakCardPolicy.state(snapshot)
+        val night = context.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val labelRes = label(state)
         val detail = detailOverride ?: when (state) {
             StreakCardState.SAFE, StreakCardState.RECORD -> context.getString(R.string.streak_safe_until_tomorrow)
             StreakCardState.NEEDS_ACTIVITY -> context.getString(R.string.streak_post_to_continue)
@@ -67,14 +99,11 @@ internal object StreakCardFactory {
         val title = titleOverride
             ?: context.resources.getQuantityString(R.plurals.streak_days, dayCount, dayCount)
 
-        return (android.view.LayoutInflater.from(context).inflate(
+        return (existing ?: android.view.LayoutInflater.from(context).inflate(
             R.layout.metric_card_small_stat, null, false,
         ) as LinearLayout).apply {
             minimumHeight = dp(context, DashboardCardSize.HALF.heightDp)
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(if (night) 0xFF171719.toInt() else Color.WHITE, endColor)).apply {
-                cornerRadius = dp(context, 28).toFloat()
-            }
+            background = background(context, state)
             findViewById<ImageView>(R.id.metric_platform_icon).apply {
                 setImageResource(R.drawable.ic_streak_fire)
                 imageTintList = ColorStateList.valueOf(Color.rgb(132, 132, 135))
@@ -102,7 +131,7 @@ internal object StreakCardFactory {
                 text = context.resources.getQuantityString(R.plurals.dashboard_streak_days, dayCount)
                 setTextColor(Color.rgb(132, 132, 135))
             }
-            addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (existing == null) addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
                 if (right - left != oldRight - oldLeft) {
                     findViewById<TextView>(R.id.metric_label).apply {
                         val available = (right - left - paddingLeft - paddingRight - dp(context, 22)).coerceAtLeast(1)

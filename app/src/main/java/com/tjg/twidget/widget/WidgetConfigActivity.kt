@@ -1,5 +1,7 @@
 package com.tjg.twidget.widget
 
+import androidx.viewpager.widget.ViewPager
+import androidx.viewpager.widget.PagerAdapter
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -36,7 +38,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private var tintAlpha = 205
     private var tintColor = 0x00FFFFFF
     private var logo = TwidgetStore.LOGO_X
-    private var tapAction = TwidgetStore.TAP_REFRESH
+    private var tapAction = TwidgetStore.TAP_APP
     private var accountUsername = ""
     private var colorMode = TwidgetStore.COLOR_MODE_SYSTEM
     private var widgetStyle = WidgetStyle.ONE_UI
@@ -48,10 +50,14 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private var isLockWidget = false
     private var isLockWide = false
     private var isBriefWidget = false
+    private var widgetKind = WidgetKind.FOLLOWERS
+    private var editingDefaults = false
+    private val previewPages = mutableListOf<FrameLayout>()
     private val accountRadios = mutableListOf<Pair<String, RadioButton>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hasEntered = savedInstanceState != null
         setResult(RESULT_CANCELED)
         appWidgetId = intent?.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -61,13 +67,39 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         isLockWide = intent?.getBooleanExtra(EXTRA_LOCKSCREEN_WIDE, false) == true
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(appWidgetId)?.provider?.className.orEmpty()
-        isBriefWidget = providerClass == TwidgetBriefWidget::class.java.name
+        val requestedKind = intent?.getStringExtra(EXTRA_DEFAULT_KIND)
+        editingDefaults = requestedKind != null || appWidgetId <= 0
+        widgetKind = WidgetKind.entries.firstOrNull { it.name == requestedKind }
+            ?: if (isLockWidget) WidgetKind.LOCK_SCREEN else WidgetKind.fromProvider(providerClass)
+        isBriefWidget = widgetKind == WidgetKind.BRIEF
+        isLockWidget = widgetKind == WidgetKind.LOCK_SCREEN
         if (providerClass.startsWith("com.tjg.twidget.LockScreenFollower")) {
             isLockWidget = true
             isLockWide = providerClass == com.tjg.twidget.LockScreenFollowerWideWidget::class.java.name
         }
         setContentView(R.layout.activity_widget_config)
         WidgetConfigChrome.install(findViewById(R.id.widget_config_root))
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackStarted(backEvent: androidx.activity.BackEventCompat) {
+                backGestureActive = true
+                findViewById<WallpaperPreviewLayout>(R.id.preview_container).setBackProgress(backEvent.progress)
+            }
+
+            override fun handleOnBackProgressed(backEvent: androidx.activity.BackEventCompat) {
+                findViewById<WallpaperPreviewLayout>(R.id.preview_container).setBackProgress(backEvent.progress)
+            }
+
+            override fun handleOnBackCancelled() {
+                backGestureActive = false
+                revealWallpaperPreview()
+            }
+
+            override fun handleOnBackPressed() {
+                backGestureActive = false
+                setResult(RESULT_CANCELED)
+                finish()
+            }
+        })
         val buttonBar = findViewById<View>(R.id.config_button_bar)
         val baseButtonMargin = (16 * resources.displayMetrics.density).toInt()
         applyEdgeToEdgeInsets(findViewById(R.id.widget_config_root)) { navigationBarInset ->
@@ -76,9 +108,10 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         if (isLockWidget) {
             // Lock screen artwork is monotone white — opacity, tint, font, and
             // tap action don't apply there; account and logo do.
-            listOf(R.id.widget_style_row, R.id.opacity_block, R.id.tint_row, R.id.font_row, R.id.tap_separator, R.id.tap_action_card)
+            listOf(R.id.opacity_block, R.id.tint_row, R.id.font_row, R.id.tap_separator, R.id.tap_action_card)
                 .forEach { findViewById<View>(it).visibility = View.GONE }
-            findViewById<CardItemView>(R.id.logo_row).showTopDivider = false
+            findViewById<View>(R.id.preview_container).layoutParams =
+                findViewById<View>(R.id.preview_container).layoutParams.apply { height = dp(220) }
         } else if (isBriefWidget) {
             // Brief chooses its account, copy, icon and tap destination from the
             // current dynamic card. Its glass appearance and font remain user
@@ -92,13 +125,13 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                 R.id.tap_action_card,
             ).forEach { findViewById<View>(it).visibility = View.GONE }
         }
-        val settings = TwidgetStore.widgetSettings(this, appWidgetId)
+        val settings = TwidgetStore.widgetSettings(this, appWidgetId, widgetKind)
         tintAlpha = settings.tintAlpha
         currentLevel = closestOpacityLevel(tintAlpha)
         tintAlpha = OPACITY_PRESETS[currentLevel]
         tintColor = settings.tintColor
         logo = if (getSharedPreferences(TwidgetStore.PREFS, MODE_PRIVATE).contains("widget_logo_$appWidgetId"))
-            settings.logo else TwidgetStore.widgetSettings(this).logo
+            settings.logo else TwidgetStore.widgetSettings(this, kind = widgetKind).logo
         tapAction = settings.tapAction
         accountUsername = settings.accountUsername
         colorMode = settings.colorMode
@@ -108,6 +141,20 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         containedFooter = savedInstanceState?.getBoolean("contained_footer", settings.containedFooter) ?: settings.containedFooter
         language = settings.language
         if (isBriefWidget) accountUsername = ""
+        savedInstanceState?.let {
+            tintAlpha = it.getInt("tint_alpha", tintAlpha)
+            currentLevel = closestOpacityLevel(tintAlpha)
+            tintColor = it.getInt("tint_color", tintColor)
+            logo = it.getString("logo", logo)
+            tapAction = it.getString("tap_action", tapAction)
+            accountUsername = it.getString("account", accountUsername)
+            colorMode = it.getString("color_mode", colorMode)
+            widgetStyle = WidgetStyle.resolve(it.getString("style", widgetStyle.storedValue))
+            fontFamily = it.getString("font", fontFamily)
+            showDelta = it.getBoolean("show_delta", showDelta)
+            language = it.getString("language", language)
+        }
+        installStylePager()
         bindControls()
         if (!isBriefWidget) buildAccountRows()
         render()
@@ -115,6 +162,16 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("contained_footer", containedFooter)
+        outState.putInt("tint_alpha", tintAlpha)
+        outState.putInt("tint_color", tintColor)
+        outState.putString("logo", logo)
+        outState.putString("tap_action", tapAction)
+        outState.putString("account", accountUsername)
+        outState.putString("color_mode", colorMode)
+        outState.putString("style", widgetStyle.storedValue)
+        outState.putString("font", fontFamily)
+        outState.putBoolean("show_delta", showDelta)
+        outState.putString("language", language)
         super.onSaveInstanceState(outState)
     }
 
@@ -124,20 +181,103 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         return true
     }
 
+    private var hasEntered = false
+    private var exitRequested = false
+    private var backGestureActive = false
+
+    override fun onEnterAnimationComplete() {
+        super.onEnterAnimationComplete()
+        hasEntered = true
+        revealWallpaperPreview()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && hasEntered) revealWallpaperPreview()
+    }
+
+    private fun revealWallpaperPreview() {
+        if (exitRequested || backGestureActive) return
+        val preview = findViewById<WallpaperPreviewLayout>(R.id.preview_container) ?: return
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        preview.fadeInWallpaper()
+    }
+
+    private fun hideWallpaperPreview() {
+        findViewById<WallpaperPreviewLayout>(R.id.preview_container)?.showWallpaper = false
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        val background = TypedValue()
+        theme.resolveAttribute(androidx.appcompat.R.attr.roundedCornerColor, background, true)
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(background.data))
+    }
+
+    override fun onPause() {
+        if (!exitRequested) {
+            findViewById<WallpaperPreviewLayout>(R.id.preview_container)?.fadeOutWallpaper {
+                if (!hasWindowFocus()) hideWallpaperPreview()
+            }
+        }
+        super.onPause()
+    }
+
+    override fun finish() {
+        if (exitRequested) return
+        exitRequested = true
+        val preview = findViewById<WallpaperPreviewLayout>(R.id.preview_container)
+        if (preview == null) {
+            super.finish()
+            return
+        }
+        preview.fadeOutWallpaper {
+            hideWallpaperPreview()
+            super.finish()
+        }
+    }
+
+    private fun installStylePager() {
+        val pager = findViewById<ViewPager>(R.id.widget_style_pager)
+        val styles = if (isLockWidget) listOf(WidgetStyle.ONE_UI) else WidgetStyle.entries
+        previewPages.clear()
+        styles.forEachIndexed { index, _ ->
+            previewPages.add(FrameLayout(this).apply {
+                addView(FrameLayout(context).apply {
+                    if (index == 0) id = R.id.preview_widget
+                }, FrameLayout.LayoutParams(dp(162), dp(176), Gravity.CENTER))
+            })
+        }
+        pager.adapter = object : PagerAdapter() {
+            override fun getCount() = previewPages.size
+            override fun isViewFromObject(view: View, item: Any) = view === item
+            override fun instantiateItem(container: ViewGroup, position: Int): Any =
+                previewPages[position].also { container.addView(it) }
+            override fun destroyItem(container: ViewGroup, position: Int, item: Any) {
+                container.removeView(item as View)
+            }
+            override fun getPageTitle(position: Int) = styleLabel(styles[position])
+        }
+        pager.offscreenPageLimit = 1
+        pager.setCurrentItem(styles.indexOf(widgetStyle).coerceAtLeast(0), false)
+        pager.addOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
+            override fun onPageSelected(position: Int) {
+                val previous = widgetStyle
+                widgetStyle = styles[position]
+                if (fontFamily == previous.defaultFont) fontFamily = widgetStyle.defaultFont
+                render()
+            }
+        })
+        findViewById<View>(R.id.widget_style_indicator).apply {
+            visibility = if (isLockWidget) View.GONE else View.VISIBLE
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            setOnClickListener { pager.setCurrentItem(1 - pager.currentItem, true) }
+        }
+    }
+
     private fun bindControls() {
         WidgetOpacityControl.bind(findViewById(R.id.opacity_block), tintAlpha) { alpha ->
             tintAlpha = alpha
             currentLevel = closestOpacityLevel(alpha)
             render()
-        }
-        findViewById<CardItemView>(R.id.widget_style_row).setOnClickListener { anchor ->
-            val styles = WidgetStyle.entries
-            showDropDown(anchor, styles.map { styleLabel(it) }, styles.indexOf(widgetStyle)) { index ->
-                val previous = widgetStyle
-                widgetStyle = styles[index]
-                if (fontFamily == previous.defaultFont) fontFamily = widgetStyle.defaultFont
-                render()
-            }
         }
         findViewById<CardItemView>(R.id.tint_row).setOnClickListener { pickColorMode(it) }
         findViewById<CardItemView>(R.id.logo_row).setOnClickListener { pickLogo(it) }
@@ -290,10 +430,11 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         ) View.VISIBLE else View.GONE
         findViewById<View>(R.id.contained_footer_summary).visibility = findViewById<View>(R.id.contained_footer_row).visibility
         findViewById<SwitchItemView>(R.id.contained_footer_row).isChecked = containedFooter
-        findViewById<CardItemView>(R.id.widget_style_row).summary = styleLabel(widgetStyle)
         findViewById<View>(R.id.opacity_block).visibility =
             if (isLockWidget || widgetStyle == WidgetStyle.MATERIAL) View.GONE else View.VISIBLE
         findViewById<CardItemView>(R.id.font_row).showTopDivider = findViewById<View>(R.id.opacity_block).visibility == View.VISIBLE
+        findViewById<CardItemView>(R.id.language_row).showTopDivider = !isLockWidget
+        findViewById<CardItemView>(R.id.logo_row).showTopDivider = true
         findViewById<CardItemView>(R.id.tint_row).summary = colorModeLabel(colorMode)
         findViewById<CardItemView>(R.id.font_row).summary = fontLabel(fontFamily)
         findViewById<CardItemView>(R.id.language_row)?.summary = languageLabel(language)
@@ -313,12 +454,22 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
             }
         }
 
-        val preview = findViewById<FrameLayout>(R.id.preview_widget)
+        findViewById<TextView>(R.id.widget_style_indicator).apply {
+            text = "${styleLabel(widgetStyle)}\n${if (widgetStyle == WidgetStyle.ONE_UI) "●  ○" else "○  ●"}"
+            contentDescription = "${getString(R.string.widget_style)}: ${styleLabel(widgetStyle)}"
+        }
+        previewPages.forEachIndexed { index, page ->
+            renderPreview(page.getChildAt(0) as FrameLayout,
+                if (isLockWidget) widgetStyle else WidgetStyle.entries[index])
+        }
+    }
+
+    private fun renderPreview(preview: FrameLayout, style: WidgetStyle) {
         preview.removeAllViews()
         preview.setPadding(0, 0, 0, 0)
 
         val selectedAccount = accountUsername.ifBlank { TwidgetStore.settings(this).username }
-        val previewSettings = TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, selectedAccount, colorMode, fontFamily, showDelta, language, widgetStyle, containedFooter)
+        val previewSettings = TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, selectedAccount, colorMode, if (fontFamily == widgetStyle.defaultFont) style.defaultFont else fontFamily, showDelta, language, style, containedFooter)
 
         if (isLockWidget) {
             preview.background = null
@@ -335,7 +486,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         }
 
         if (isBriefWidget) {
-            val spec = homePreviewSpec()
+            val spec = homePreviewSpec(style)
             val widthDp = spec.widthDp
             val heightDp = spec.heightDp
             val darkPreview = isDarkPreview()
@@ -357,8 +508,8 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
                         account = selectedAccount,
                         snapshot = BriefStore.read(this@WidgetConfigActivity, selectedAccount),
                         dark = darkPreview,
-                        fontFamily = fontFamily,
-                        style = widgetStyle,
+                        fontFamily = previewSettings.fontFamily,
+                        style = style,
                     ),
                 )
             }, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -366,7 +517,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
         }
 
         val stats = TwidgetStore.currentStats(this, selectedAccount)
-        val previewSpec = homePreviewSpec()
+        val previewSpec = homePreviewSpec(style)
         // Match the live widget's resolved color mode. The old tint-color
         // shortcut treated System/Dark as a light card whenever the stored
         // tint happened to be white, leaving white artwork with no contrast.
@@ -468,7 +619,22 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
 
     private fun saveAndFinish() {
         tintAlpha = OPACITY_PRESETS[currentLevel]
-        TwidgetStore.saveWidgetSettings(this, appWidgetId, TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, accountUsername, colorMode, fontFamily, showDelta, language, widgetStyle, containedFooter))
+        TwidgetStore.saveWidgetSettings(this, if (editingDefaults) 0 else appWidgetId,
+            TwidgetWidgetSettings(tintAlpha, tintColor, logo, tapAction, accountUsername, colorMode, fontFamily, showDelta, language, widgetStyle, containedFooter), widgetKind)
+        if (editingDefaults) {
+            WidgetPreviews.publish(this)
+            when (widgetKind) {
+                WidgetKind.FOLLOWERS -> TwidgetWidget.updateAll(this)
+                WidgetKind.BRIEF -> TwidgetBriefWidget.updateAll(this)
+                WidgetKind.LOCK_SCREEN -> {
+                    LockScreenFollowerViews.updateAll(this)
+                    LockScreenFollowerServiceBoxReceiver.refresh(this)
+                }
+            }
+            setResult(RESULT_OK)
+            finish()
+            return
+        }
         if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
             val manager = AppWidgetManager.getInstance(this)
             if (isLockWidget) {
@@ -500,18 +666,18 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     }
 
     private fun isDarkPreview(): Boolean = widgetUsesDarkTheme(colorMode)
-    private fun homePreviewSpec(): HomePreviewSpec {
-        val options = AppWidgetManager.getInstance(this).getAppWidgetOptions(appWidgetId)
+    private fun homePreviewSpec(style: WidgetStyle = widgetStyle): HomePreviewSpec {
+        val options = if (appWidgetId > 0) AppWidgetManager.getInstance(this).getAppWidgetOptions(appWidgetId) else Bundle()
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val oneUi = com.tjg.twidget.ui.TwidgetFonts.hasSystemOneUiSans
         val width = options.getInt(if (!oneUi && landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH
-            else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, if (isBriefWidget) 352 else 162).coerceAtLeast(100)
+            else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, if (isBriefWidget || editingDefaults) 352 else 162).coerceAtLeast(100)
         val height = options.getInt(if (!oneUi && !landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT
             else AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 176).coerceAtLeast(56)
         val mode = if (oneUi && !options.isEmpty) TwidgetWidget.layoutMode(options)
             else TwidgetWidget.layoutModeForAosp(width, height)
         return HomePreviewSpec(mode, width, height,
-            if (widgetStyle == WidgetStyle.MATERIAL || height > 110) 26f else height / 2f)
+            if (style == WidgetStyle.MATERIAL || height > 110) 26f else height / 2f)
     }
 
     private fun previewScale(widthDp: Int): Float = minOf(1f,
@@ -533,6 +699,7 @@ class WidgetConfigActivity : EdgeToEdgeActivity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        const val EXTRA_DEFAULT_KIND = "com.tjg.twidget.extra.DEFAULT_WIDGET_KIND"
         const val EXTRA_LOCKSCREEN_WIDGET = "com.tjg.twidget.extra.LOCKSCREEN_WIDGET"
         const val EXTRA_LOCKSCREEN_WIDE = "com.tjg.twidget.extra.LOCKSCREEN_WIDE"
         private val OPACITY_PRESETS = WidgetOpacityControl.presets

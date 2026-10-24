@@ -1,6 +1,7 @@
 package com.tjg.twidget.brief
 
 import com.tjg.twidget.R
+import com.tjg.twidget.analytics.PostAgeComparison
 import com.tjg.twidget.analytics.PostAnalytics
 import com.tjg.twidget.analytics.PostSummary
 import com.tjg.twidget.schedule.ScheduleStatus
@@ -88,7 +89,7 @@ internal object BriefGuidePolicy {
         now: Long = System.currentTimeMillis(),
     ): BriefCard? {
         analytics ?: return null
-        if (analytics.recentPosts.size < 3) return null
+        if (analytics.cachedAt > now || analytics.recentPosts.size < 3) return null
         val matched = schedules.asSequence()
             .filter { it.status == ScheduleStatus.PUBLISHED }
             .mapNotNull { schedule ->
@@ -104,10 +105,12 @@ internal object BriefGuidePolicy {
             ?: return null
         val (schedule, match) = matched
 
-        val viewRatio = ratio(match.views.toDouble(), analytics.medianViews)
-        val engagementRatio = ratio(match.engagements.toDouble(), analytics.medianEngagements)
-        val strong = maxOf(viewRatio, engagementRatio) >= 1.35
-        val quiet = viewRatio <= 0.7 && engagementRatio <= 0.8
+        if ((PostAgeComparison.age(match, analytics) ?: 0L) < DAY_MS) return null
+        val baseline = PostAgeComparison.baseline(match, analytics) ?: return null
+        val viewRatio = baseline.ratio(match, PostSummary::views)
+        val engagementRatio = baseline.ratio(match, PostSummary::engagements)
+        val strong = maxOf(viewRatio ?: 0.0, engagementRatio ?: 0.0) >= 1.35
+        val quiet = viewRatio != null && engagementRatio != null && viewRatio <= 0.7 && engagementRatio <= 0.8
         if (!strong && !quiet) return null
         return BriefCard(
             id = "follow-through-${match.timestamp.takeIf { it > 0L } ?: match.url.hashCode()}",
@@ -143,13 +146,18 @@ internal object BriefGuidePolicy {
         now: Long = System.currentTimeMillis(),
     ): BriefCard? {
         analytics ?: return null
-        val posts = analytics.recentPosts.filter {
-            it.timestamp > 0L && now - it.timestamp in DAY_MS..(analytics.windowDays * DAY_MS)
+        val posts = analytics.recentPosts.distinctBy(PostSummary::url).filter {
+            PostAgeComparison.valid(it) && it.authorUserName.equals(analytics.userName, ignoreCase = true) &&
+                analytics.cachedAt <= now &&
+                (PostAgeComparison.age(it, analytics) ?: 0L) >= DAY_MS
         }
         if (posts.size < 4) return null
         followUpCard(posts, analytics, now, strings)?.let { return it }
-        postingWindowCard(posts, strings)?.let { return it }
-        return formatExperimentCard(posts, strings)
+        // Group advice needs age overlap too: an older media cohort must not
+        // win just because its counts have had longer to accumulate.
+        val comparable = PostAgeComparison.cohort(posts, analytics)
+        postingWindowCard(comparable, strings)?.let { return it }
+        return formatExperimentCard(comparable, strings)
     }
 
     private fun followUpCard(
@@ -158,13 +166,17 @@ internal object BriefGuidePolicy {
         now: Long,
         strings: BriefStrings,
     ): BriefCard? {
-        val post = posts.filter { now - it.timestamp in DAY_MS..FOLLOW_UP_WINDOW_MS }
-            .maxByOrNull { performance(it) } ?: return null
-        val performanceRatio = maxOf(
-            ratio(post.views.toDouble(), analytics.medianViews),
-            ratio(post.engagements.toDouble(), analytics.medianEngagements),
-        )
-        if (performanceRatio < 1.6) return null
+        val post = posts.asSequence()
+            .filter { now - it.timestamp in DAY_MS..FOLLOW_UP_WINDOW_MS }
+            .mapNotNull { post ->
+                val baseline = PostAgeComparison.baseline(post, analytics) ?: return@mapNotNull null
+                val performanceRatio = maxOf(
+                    baseline.ratio(post, PostSummary::views) ?: 0.0,
+                    baseline.ratio(post, PostSummary::engagements) ?: 0.0,
+                )
+                (post to performanceRatio).takeIf { performanceRatio >= 1.6 }
+            }
+            .maxByOrNull { (_, ratio) -> ratio }?.first ?: return null
         return BriefCard(
             id = "posting-follow-up-${post.timestamp}",
             type = BriefCardType.POSTING_GUIDE,
@@ -200,9 +212,9 @@ internal object BriefGuidePolicy {
             }
         }.filterValues { it.size >= 2 }
         if (groups.size < 2) return null
-        val averages = groups.mapValues { (_, values) -> values.map(::performance).average() }
-        val winner = averages.maxByOrNull(Map.Entry<PostingWindow, Double>::value) ?: return null
-        val others = averages.filterKeys { it != winner.key }.values.average()
+        val medians = groups.mapValues { (_, values) -> medianPerformance(values) }
+        val winner = medians.maxByOrNull(Map.Entry<PostingWindow, Double>::value) ?: return null
+        val others = medians.filterKeys { it != winner.key }.values.average()
         if (others <= 0.0 || winner.value / others < 1.35) return null
         val label = strings.text(winner.key.labelRes)
         return BriefCard(
@@ -220,11 +232,11 @@ internal object BriefGuidePolicy {
         val withMedia = posts.filter { it.media.isNotEmpty() }
         val textOnly = posts.filter { it.media.isEmpty() }
         if (withMedia.size < 2 || textOnly.size < 2) return null
-        val mediaAverage = withMedia.map(::performance).average()
-        val textAverage = textOnly.map(::performance).average()
-        if (mediaAverage <= 0.0 || textAverage <= 0.0) return null
-        val mediaWins = mediaAverage > textAverage
-        val ratio = if (mediaWins) mediaAverage / textAverage else textAverage / mediaAverage
+        val mediaMedian = medianPerformance(withMedia)
+        val textMedian = medianPerformance(textOnly)
+        if (mediaMedian <= 0.0 || textMedian <= 0.0) return null
+        val mediaWins = mediaMedian > textMedian
+        val ratio = if (mediaWins) mediaMedian / textMedian else textMedian / mediaMedian
         if (ratio < 1.5) return null
         return BriefCard(
             id = "posting-format-${if (mediaWins) "media" else "text"}",
@@ -241,9 +253,11 @@ internal object BriefGuidePolicy {
         )
     }
 
-    private fun performance(post: PostSummary): Double = when {
-        post.views > 0L -> post.views.toDouble()
-        else -> post.engagements.toDouble()
+    private fun medianPerformance(posts: List<PostSummary>): Double {
+        val values = posts.map { it.views.toDouble() }.sorted()
+        val middle = values.size / 2
+        return if (values.size % 2 == 1) values[middle]
+        else values[middle - 1] / 2.0 + values[middle] / 2.0
     }
 
     private fun timestampsMatch(left: Long, right: Long): Boolean =
@@ -261,7 +275,4 @@ internal object BriefGuidePolicy {
         .replace(Regex("https?://\\S+"), "")
         .replace(Regex("\\s+"), " ")
         .trim()
-
-    private fun ratio(value: Double, baseline: Double): Double =
-        if (baseline > 0.0 && baseline.isFinite()) value / baseline else 1.0
 }

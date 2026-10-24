@@ -30,7 +30,7 @@ class WidgetStylesInstrumentedTest {
             WidgetStyle.ONE_UI to false, WidgetStyle.ONE_UI to true).withIndex()) {
             val (style, dark) = pair
             val settings = TwidgetWidgetSettings(80, 0, TwidgetStore.LOGO_TWITTER, TwidgetStore.TAP_REFRESH,
-                "thatjoshguy69", "system", style.defaultFont, false, "en", style)
+                "thatjoshguy", "system", style.defaultFont, false, "en", style)
             val colors = WidgetColors.resolve(context, settings, dark)
             if (style == WidgetStyle.MATERIAL) {
                 assertEquals(255, Color.alpha(colors.background))
@@ -43,7 +43,7 @@ class WidgetStylesInstrumentedTest {
             sizes.forEach { (w, h) ->
                 val mode = if (h <= 110) { if (w < 230) TwidgetWidget.LAYOUT_MODE_COMPACT_2X1 else TwidgetWidget.LAYOUT_MODE_COMPACT_STRIP }
                     else if (w < 230) TwidgetWidget.LAYOUT_MODE_COMPACT_SQUARE else TwidgetWidget.LAYOUT_MODE_LARGE
-                val art = WidgetArtworkRenderer.render(context, px(w), px(h), ProfileStats("Test", "thatjoshguy69", 7671, 0, 0, 0),
+                val art = WidgetArtworkRenderer.render(context, px(w), px(h), ProfileStats("Test", "thatjoshguy", 7671, 0, 0, 0),
                     settings, mode, dark, drawBackground = true)
                 canvas.drawBitmap(art, px(x).toFloat(), px(y).toFloat(), null)
                 art.recycle()
@@ -110,11 +110,7 @@ class WidgetStylesInstrumentedTest {
                     assertEquals(2f, preview.layoutParams.width.toFloat() / preview.layoutParams.height, .02f)
                 }
                 instrumentation.runOnMainSync {
-                    val row = activity.findViewById<android.view.View>(com.tjg.twidget.R.id.widget_style_row)
-                    val scroll = activity.findViewById<androidx.core.widget.NestedScrollView>(com.tjg.twidget.R.id.widget_settings_scroll)
-                    val rect = android.graphics.Rect(0, 0, row.width, row.height)
-                    scroll.offsetDescendantRectToMyCoords(row, rect)
-                    scroll.scrollTo(0, rect.top - (40 * context.resources.displayMetrics.density).toInt())
+                    activity.findViewById<androidx.core.widget.NestedScrollView>(com.tjg.twidget.R.id.widget_settings_scroll).scrollTo(0, 0)
                 }
                 instrumentation.waitForIdleSync()
                 instrumentation.uiAutomation.takeScreenshot().let { screenshot ->
@@ -124,19 +120,7 @@ class WidgetStylesInstrumentedTest {
                     screenshot.recycle()
                 }
                 instrumentation.runOnMainSync {
-                    val row = activity.findViewById<android.view.View>(com.tjg.twidget.R.id.widget_style_row)
-                    assertTrue(row.findViewById<android.view.View>(dev.oneuiproject.oneui.design.R.id.cardview_container).performClick())
-                }
-                instrumentation.waitForIdleSync()
-                instrumentation.runOnMainSync {
-                    fun findList(view: android.view.View): android.widget.AdapterView<*>? {
-                        if (view is android.widget.AdapterView<*>) return view
-                        if (view is android.view.ViewGroup) for (i in 0 until view.childCount) findList(view.getChildAt(i))?.let { return it }
-                        return null
-                    }
-                    val list = android.view.inspector.WindowInspector.getGlobalWindowViews().firstNotNullOfOrNull { findList(it) }
-                    assertNotNull("Style popup is visible", list)
-                    list!!.performItemClick(list.getChildAt(0), 0, list.adapter.getItemId(0))
+                    activity.findViewById<androidx.viewpager.widget.ViewPager>(com.tjg.twidget.R.id.widget_style_pager).setCurrentItem(0, false)
                     assertEquals(android.view.View.VISIBLE, activity.findViewById<android.view.View>(com.tjg.twidget.R.id.opacity_block).visibility)
                 }
                 instrumentation.waitForIdleSync()
