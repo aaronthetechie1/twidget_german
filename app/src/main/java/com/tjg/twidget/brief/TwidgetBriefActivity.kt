@@ -88,6 +88,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var backgroundAnimator: ValueAnimator? = null
     private var loadingStatusIndex = 0
     private var loadingStatusRunnable: Runnable? = null
+    private val loadingStatusAppearInterpolator = PathInterpolator(0.22f, 0f, 0.18f, 1f)
+    private val loadingStatusDisappearInterpolator = PathInterpolator(0.42f, 0f, 1f, 1f)
     private var providerSetupRequired = false
     private var apiKeyPromptShown = false
     private var apiKeyDialog: AlertDialog? = null
@@ -377,6 +379,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun startLoadingStatusRotation() {
         if (loadingStatusRunnable != null) return
         val statusView = findViewById<TextView>(R.id.brief_loading_status)
+        val offset = 10f * resources.displayMetrics.density
         val messageIds = intArrayOf(
             R.string.brief_loading_status_analyzing,
             R.string.brief_loading_status_insights,
@@ -392,16 +395,26 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 if (ValueAnimator.areAnimatorsEnabled() && statusView.alpha > 0f) {
                     statusView.animate()
                         .alpha(0f)
-                        .setDuration(180L)
+                        .translationY(-offset)
+                        .setDuration(220L)
+                        .setInterpolator(loadingStatusDisappearInterpolator)
                         .withEndAction {
                             if (loadingStatusRunnable !== this) return@withEndAction
                             statusView.text = message
-                            statusView.animate().alpha(1f).setDuration(260L).start()
+                            statusView.alpha = 0f
+                            statusView.translationY = offset
+                            statusView.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setDuration(420L)
+                                .setInterpolator(loadingStatusAppearInterpolator)
+                                .start()
                         }
                         .start()
                 } else {
                     statusView.text = message
                     statusView.alpha = 1f
+                    statusView.translationY = 0f
                 }
                 statusView.postDelayed(this, 2_800L)
             }
@@ -416,6 +429,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         loadingStatusRunnable = null
         statusView.animate().cancel()
         statusView.alpha = 0f
+        statusView.translationY = 0f
     }
 
     private fun bindChrome() {
