@@ -3,8 +3,8 @@
     <string name="review_preview_posted">Vas publicar això %1$s.</string>
     <string name="review_preview_replied">Vas respondre %1$s.</string>
     <string name="review_preview_just_now">ara mateix</string>
-    <string name="review_preview_invite">Analitza el rendiment d'aquest tuit i què provar després.</string>
-    <string name="review_preview_invite_reply">Analitza el rendiment d'aquesta resposta i què provar després.</string>
+    <string name="review_preview_invite">Analitza el rendiment d\'aquest tuit i què provar després.</string>
+    <string name="review_preview_invite_reply">Analitza el rendiment d\'aquesta resposta i què provar després.</string>
     <string name="review_preview_counts">%1$s tenia %2$s i %3$s en analitzar-ho.</string>
     <string name="review_preview_interactions">%1$s tenia %2$s interaccions públiques en analitzar-ho; les visualitzacions no estaven disponibles.</string>
     <string name="review_preview_both_higher">Va rebre més visualitzacions i interaccions que els teus tuits similars.</string>
@@ -19,36 +19,44 @@
     <string name="review_preview_typical_interactions">Les seves interaccions van ser semblants a les dels teus tuits similars.</string>
     <plurals name="review_preview_minutes">
         <item quantity="one">fa %1$s minut</item>
+        <item quantity="many">fa %1$s minuts</item>
         <item quantity="other">fa %1$s minuts</item>
     </plurals>
     <plurals name="review_preview_hours">
         <item quantity="one">fa %1$s hora</item>
+        <item quantity="many">fa %1$s hores</item>
         <item quantity="other">fa %1$s hores</item>
     </plurals>
     <plurals name="review_preview_days">
         <item quantity="one">fa %1$s dia</item>
+        <item quantity="many">fa %1$s dies</item>
         <item quantity="other">fa %1$s dies</item>
     </plurals>
     <plurals name="review_preview_weeks">
         <item quantity="one">fa %1$s setmana</item>
+        <item quantity="many">fa %1$s setmanes</item>
         <item quantity="other">fa %1$s setmanes</item>
     </plurals>
     <plurals name="review_preview_months">
         <item quantity="one">fa %1$s mes</item>
+        <item quantity="many">fa %1$s mesos</item>
         <item quantity="other">fa %1$s mesos</item>
     </plurals>
     <plurals name="review_preview_years">
         <item quantity="one">fa %1$s any</item>
+        <item quantity="many">fa %1$s anys</item>
         <item quantity="other">fa %1$s anys</item>
     </plurals>
     <string name="review_preview_subject_tweet">El teu tuit</string>
     <string name="review_preview_subject_reply">La teva resposta</string>
     <plurals name="review_preview_view_count">
         <item quantity="one">%1$s visualització</item>
+        <item quantity="many">%1$s visualitzacions</item>
         <item quantity="other">%1$s visualitzacions</item>
     </plurals>
     <plurals name="review_preview_interaction_count">
         <item quantity="one">%1$s interacció pública</item>
+        <item quantity="many">%1$s interaccions públiques</item>
         <item quantity="other">%1$s interaccions públiques</item>
     </plurals>
 </resources>

@@ -313,7 +313,7 @@
     <string name="about_developer_section">Creado por</string>
     <string name="about_credits_section">Gracias a</string>
     <string name="about_projects_section">Proyectos de código abierto</string>
-    <string name="about_tjg_summary">Creador de Twidget. Se tomó demaiados Red Bulls durante el proceso.</string>
+    <string name="about_tjg_summary">Creador de Twidget. Se tomó demasiados Red Bulls durante el proceso.</string>
     <string name="about_kingowen_summary">Colaborador, motivador y generador de ideas.</string>
     <string name="about_aaron_summary">Traductor al alemán.</string>
     <string name="about_fxtwitter_summary">Fuente de datos predeterminada. Perfil público, estado, contenido multimedia y datos de estadísticas de publicaciones recientes</string>
@@ -1233,4 +1233,6 @@
     <string name="review_fact_age">%1$s después de publicar</string>
     <string name="review_fact_history">%1$s en tu tuit del %2$s</string>
     <string name="review_fact_median">%1$s como mediana de %2$s tuits similares</string>
+    <string name="widget_language_ca">Catalán (Català)</string>
+    <string name="language_catalan">Catalán (Català)</string>
 </resources>

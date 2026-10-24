@@ -32,7 +32,7 @@ object AppLocales {
     }
 
     internal fun supportedLocale(locale: Locale): Locale = when (locale.language) {
-        "de", "en", "es", "fr" -> locale
+        "ca", "de", "en", "es", "fr" -> locale
         else -> Locale.Builder().setLocale(locale).setLanguage("en").setScript("").build()
     }
 
@@ -58,7 +58,7 @@ object AppLocales {
     fun resolve(languageTag: String? = DEFAULT): Locale {
         if (languageTag.isNullOrBlank() || languageTag.equals(DEFAULT, true)) return applicationLocale()
         val locale = Locale.forLanguageTag(languageTag)
-        return if (locale.language in setOf("en", "de", "fr", "es")) regionalLocale(locale, deviceLocale())
+        return if (locale.language in setOf("ca", "en", "de", "fr", "es")) regionalLocale(locale, deviceLocale())
         else applicationLocale()
     }
 

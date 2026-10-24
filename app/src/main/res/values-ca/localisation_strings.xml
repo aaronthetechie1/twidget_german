@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="l10n_error_unknown">Alguna cosa ha fallat. Torna-ho a provar.</string>
+    <string name="l10n_error_empty_thread">Cal almenys un element al fil.</string>
+    <string name="l10n_error_empty_item">Cada element del fil ha de contenir text o contingut multimèdia.</string>
+    <string name="l10n_error_text_limit">El text ha de tenir %1$s caràcters o menys.</string>
+    <string name="l10n_error_media_limit">Cada element pot contenir com a màxim %1$s fitxers multimèdia.</string>
+    <string name="l10n_error_future_time">L\'hora programada ha de ser futura.</string>
+    <string name="l10n_error_schedule_failed">No s\'ha pogut programar. Torna-ho a provar.</string>
+    <string name="l10n_error_reminder_failed">No s\'ha pogut programar el recordatori. Comprova els permisos d\'alarma.</string>
+    <string name="l10n_error_buffer_request">Buffer no ha pogut completar la sol·licitud. Torna-ho a provar.</string>
+    <string name="l10n_error_buffer_channel">Tria un canal d\'X de Buffer.</string>
+    <string name="l10n_error_buffer_time">Cal indicar una hora programada.</string>
+    <string name="l10n_error_buffer_connect">Connecta Buffer a la configuració de programació.</string>
+    <string name="l10n_error_buffer_login">No s\'ha pogut iniciar la sessió a Buffer. Torna-ho a provar.</string>
+    <string name="l10n_error_buffer_verify">No s\'ha pogut verificar l\'inici de sessió a Buffer. Torna-ho a provar.</string>
+    <string name="l10n_error_buffer_config">L\'inici de sessió a Buffer no està configurat en aquesta versió.</string>
+    <string name="l10n_error_buffer_limit">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar més tard.</string>
+    <string name="l10n_error_cloudinary_config">Afegeix el nom del núvol i la configuració predefinida de càrrega de Cloudinary a la configuració de Buffer per adjuntar fitxers del dispositiu a les publicacions de Buffer.</string>
+    <string name="l10n_error_upload">No s\'ha pogut pujar el contingut a Cloudinary. Comprova la connexió i la configuració de càrrega.</string>
+    <string name="l10n_error_read_media">No s\'ha pogut llegir el contingut multimèdia seleccionat.</string>
+    <string name="l10n_error_media_large">El fitxer multimèdia és massa gran.</string>
+    <string name="l10n_error_save_media">No s\'ha pogut desar el contingut multimèdia. Comprova l\'accés a l\'emmagatzematge i torna-ho a provar.</string>
+    <string name="l10n_error_download_media">No s\'ha pogut baixar el contingut multimèdia. Comprova la connexió.</string>
+    <string name="l10n_error_csv_anchor">El compte seleccionat encara no té un recompte de seguidors vàlid.</string>
+    <string name="l10n_error_csv_empty">El fitxer no conté cap fila d\'estadístiques.</string>
+    <string name="l10n_error_csv_column">Falta la columna %1$s.</string>
+    <string name="l10n_error_csv_row">La fila %1$s és incompleta o té un valor no vàlid a %2$s.</string>
+    <string name="l10n_error_csv_year">L\'exportació conté més d\'un any de dades.</string>
+    <string name="l10n_error_csv_duplicate">L\'exportació conté dates duplicades.</string>
+    <string name="l10n_error_csv_invalid">No s\'ha pogut llegir el fitxer d\'estadístiques. Comprova les columnes i els valors.</string>
+    <string name="l10n_error_account_changed">El compte desat ha canviat. Torna-ho a provar.</string>
+    <string name="l10n_error_account_identity">El nou nom d\'usuari pertany a un altre compte d\'X.</string>
+    <string name="l10n_error_account_stale">La consulta del perfil és anterior a les dades desades. Torna-ho a provar.</string>
+    <string name="l10n_error_account_exists">Aquest nom d\'usuari ja té dades desades. S\'han conservat els comptes existents.</string>
+    <string name="l10n_error_account_invalid">Introdueix un nom d\'usuari d\'X vàlid.</string>
+    <string name="l10n_error_account_save">No s\'han pogut desar les dades del compte. Reinicia l\'app per recuperar-les de manera segura.</string>
+    <string name="l10n_buffer_connected_message">Buffer connectat</string>
+    <string name="l10n_buffer_retry_wait">S\'ha assolit el límit de sol·licituds de Buffer. Torna-ho a provar d\'aquí a %1$s.</string>
+    <string name="l10n_widget_followers_of">de seguidors</string>
+    <string name="l10n_import_localized_range">de %1$s a %2$s</string>
+    <string name="l10n_error_csv_inconsistent">La fila %1$s indica %2$s interaccions, menys que les %3$s accions d\'interacció visibles.</string>
+    <string name="l10n_error_csv_gap">L\'exportació té un buit entre %1$s i %2$s.</string>
+    <string name="l10n_error_csv_size">El fitxer d\'estadístiques és massa gran. El límit és de %1$s caràcters.</string>
+    <string name="l10n_error_csv_quotes">El fitxer conté un valor entre cometes sense tancar.</string>
+</resources>

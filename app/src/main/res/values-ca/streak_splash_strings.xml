@@ -2,10 +2,11 @@
 <resources>
     <plurals name="streak_days">
         <item quantity="one">%1$d dia</item>
+        <item quantity="many">%1$d dies</item>
         <item quantity="other">%1$d dies</item>
     </plurals>
     <string name="streak_safe_until_tomorrow">La teva ratxa està fora de perill fins demà</string>
     <string name="streak_post_to_continue">Publica un tuit avui per mantenir la teva ratxa</string>
-    <string name="streak_expiring_soon">Publica un tuit en els propers 10 minuts abans que s'acabi la teva ratxa</string>
+    <string name="streak_expiring_soon">Publica un tuit en els propers 10 minuts abans que s\'acabi la teva ratxa</string>
     <string name="streak_revive">Publica un tuit avui per començar una ratxa de publicacions</string>
 </resources>

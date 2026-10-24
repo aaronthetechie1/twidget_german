@@ -3,8 +3,8 @@
 Thanks for wanting to bring Twidget to your language. Translations are plain
 Android XML files edited in a fork and submitted through GitHub; there is no
 hosted translation platform. Twidget ships in **English** (the default), **German** (`values-de`,
-contributed by Aaron the Techie), **French** (`values-fr`) and **Spanish**
-(`values-es`, contributed by Wigetta).
+contributed by Aaron the Techie), **French** (`values-fr`), **Spanish**
+(`values-es`, contributed by Wigetta), and **Catalan** (`values-ca`, contributed by Wigetta).
 
 ## Quick start
 

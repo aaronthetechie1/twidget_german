@@ -1238,4 +1238,6 @@
     <string name="review_fact_age">%1$s after posting</string>
     <string name="review_fact_history">%1$s on your tweet from %2$s</string>
     <string name="review_fact_median">%1$s as the median across %2$s similar tweets</string>
+    <string name="widget_language_ca">Catalan (Català)</string>
+    <string name="language_catalan">Catalan (Català)</string>
 </resources>

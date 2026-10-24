@@ -10,12 +10,12 @@
     <string name="settings_self_hosted_bridge">Pont de Twidget autoallotjat</string>
     <string name="settings_widget_defaults">Valors predeterminats del widget</string>
     <string name="settings_system_default">Predeterminat del sistema</string>
-    <string name="settings_analytics_import">Importar estadístiques d'X</string>
+    <string name="settings_analytics_import">Importar estadístiques d\'X</string>
     <string name="settings_import_pending">Pendent</string>
     <string name="settings_imported">Importat</string>
     <string name="settings_connected">Connectat</string>
     <string name="settings_enable_dummy">Activar perfil de prova</string>
-    <string name="settings_android_api">API d'Android %1$d</string>
+    <string name="settings_android_api">API d\'Android %1$d</string>
     <string name="settings_last_error">Últim error: %1$s</string>
     <string name="settings_palette_seed">Base</string>
     <string name="settings_palette_primary_light">Principal · clar</string>
@@ -25,10 +25,10 @@
     <string name="settings_palette_token">%1$s: %2$s</string>
     <string name="settings_demo_name">Demo de Twidget</string>
     <string name="settings_brief_description">%1$s\n\n%2$s</string>
-    <string name="settings_update_channel">Canal d'actualització</string>
-    <string name="settings_app_font">Tipus de lletra de l'app</string>
+    <string name="settings_update_channel">Canal d\'actualització</string>
+    <string name="settings_app_font">Tipus de lletra de l\'app</string>
     <string name="settings_app_font_default">Predeterminada (One UI Sans)</string>
     <string name="settings_font_tip_title">Consell sobre tipus de lletra personalitzats</string>
-    <string name="settings_font_tip_summary">Utilitza SamFonts per canviar el tipus de lletra del sistema One UI i, després, selecciona Predeterminat del sistema al tipus de lletra de l'app.</string>
+    <string name="settings_font_tip_summary">Utilitza SamFonts per canviar el tipus de lletra del sistema One UI i, després, selecciona Predeterminat del sistema al tipus de lletra de l\'app.</string>
     <string name="settings_font_tip_link">Obtenir SamFonts</string>
 </resources>

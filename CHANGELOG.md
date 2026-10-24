@@ -4,6 +4,8 @@ All notable changes to Twidget are documented here.
 
 ## [Unreleased]
 
+- Add Catalan localisation for the app, widgets, goals and Brief.
+
 - Preserve regional number and date conventions when choosing an app or widget
   language, including local compact counts, date order and calendar weekdays.
   Let translated Brief and onboarding buttons wrap and grow to fit their labels.

@@ -61,7 +61,7 @@ object WidgetArtworkRenderer {
         val countWords = TwidgetWidget.followersInWords(stats.followersCount, locale)
             .split(Regex("\\s+"))
             .filter { it.isNotBlank() }
-        val followerNoun = if (locale.language == "es" && stats.followersCount >= 1_000_000 && stats.followersCount % 1_000_000 == 0L)
+        val followerNoun = if (locale.language in setOf("es", "ca") && stats.followersCount >= 1_000_000 && stats.followersCount % 1_000_000 == 0L)
             localizedContext.getString(R.string.l10n_widget_followers_of) else localizedContext.resources.getQuantityString(R.plurals.widget_count_followers, com.tjg.twidget.brief.BriefStrings.quantity(stats.followersCount))
         val words = countWords + followerNoun + listOfNotNull(deltaText.takeIf { it.isNotEmpty() })
         val gap = wordSpacing(context, textMaxWidth)

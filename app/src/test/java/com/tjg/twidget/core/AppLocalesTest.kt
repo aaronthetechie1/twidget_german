@@ -6,6 +6,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AppLocalesTest {
+    @Test fun catalanIsSupportedAndInheritsTheDeviceRegion() {
+        val ca = Locale.forLanguageTag("ca-ES")
+        assertEquals(ca, AppLocales.supportedLocale(ca))
+        assertEquals(ca, AppLocales.regionalLocale(Locale.forLanguageTag("ca"), Locale.forLanguageTag("es-ES")))
+        assertEquals(ca, AppLocales.resolve("ca-ES"))
+    }
+
     @Test fun unsupportedLanguagesUseEnglishButSupportedRegionsKeepTheirFormatting() {
         assertEquals(Locale.forLanguageTag("en-JP"), AppLocales.supportedLocale(Locale.JAPAN))
         assertEquals(Locale.GERMANY, AppLocales.supportedLocale(Locale.GERMANY))
