@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="top_followers_browser_title">Mejores seguidores</string>
+    <string name="top_followers_browser_search">Buscar seguidores</string>
+    <string name="top_followers_browser_search_hint">Buscar</string>
+    <string name="top_followers_browser_refresh">Actualizar lista completa</string>
+    <string name="top_followers_browser_refreshed">%1$d seguidores sincronizados</string>
+    <string name="top_followers_browser_refresh_failed">No se pudo actualizar la lista completa de seguidores. Inténtalo de nuevo.</string>
+    <string name="top_followers_browser_empty">Aún no hay ninguna clasificación de seguidores disponible.</string>
+    <string name="top_followers_browser_no_results">Ningún seguidor coincide con tu búsqueda.</string>
+</resources>

@@ -11,6 +11,13 @@ class AppLocalesTest {
         assertEquals(Locale.GERMANY, AppLocales.supportedLocale(Locale.GERMANY))
         assertEquals(Locale.FRANCE, AppLocales.supportedLocale(Locale.FRANCE))
         assertEquals(Locale.UK, AppLocales.supportedLocale(Locale.UK))
+        assertEquals(Locale.forLanguageTag("es-ES"), AppLocales.supportedLocale(Locale.forLanguageTag("es-ES")))
+        assertEquals(Locale.forLanguageTag("es-MX"), AppLocales.supportedLocale(Locale.forLanguageTag("es-MX")))
+    }
+
+    @Test fun explicitSpanishWidgetLocaleOverridesTheAppLocale() {
+        assertEquals(Locale.forLanguageTag("es"), AppLocales.resolve("es"))
+        assertEquals(Locale.forLanguageTag("es"), AppLocales.resolve("ES"))
     }
 
     @Test fun datePatternsFollowTheLocaleLanguage() {

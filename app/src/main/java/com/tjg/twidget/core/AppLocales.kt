@@ -32,13 +32,14 @@ object AppLocales {
     }
 
     internal fun supportedLocale(locale: Locale): Locale = when (locale.language) {
-        "de", "en", "fr" -> locale
+        "de", "en", "es", "fr" -> locale
         else -> Locale.ENGLISH
     }
 
     fun resolve(languageTag: String? = DEFAULT): Locale = when (languageTag?.lowercase(Locale.ROOT)) {
         "de" -> Locale.GERMAN
         "en" -> Locale.ENGLISH
+        "es" -> Locale.forLanguageTag("es")
         "fr" -> Locale.FRENCH
         else -> applicationLocale()
     }
