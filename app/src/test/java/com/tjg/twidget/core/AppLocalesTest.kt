@@ -6,6 +6,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AppLocalesTest {
+    @Test fun catalanCompactThousandsUseKWithoutChangingOtherUnitsOrLanguages() {
+        val ca = Locale.forLanguageTag("ca-ES")
+        for (space in listOf("", " ", "\u00a0", "\u202f")) {
+            assertEquals("17,5k", AppLocales.compactLabel("17,5${space}mil", ca))
+            assertEquals("-17,5k", AppLocales.compactLabel("-17,5${space}mil", ca))
+        }
+        for (value in listOf("999", "1,25 M", "1 mil M", "1 bilió")) {
+            assertEquals(value, AppLocales.compactLabel(value, ca))
+        }
+        assertEquals("17,5 mil", AppLocales.compactLabel("17,5 mil", Locale.forLanguageTag("es-ES")))
+    }
+
     @Test fun catalanIsSupportedAndInheritsTheDeviceRegion() {
         val ca = Locale.forLanguageTag("ca-ES")
         assertEquals(ca, AppLocales.supportedLocale(ca))

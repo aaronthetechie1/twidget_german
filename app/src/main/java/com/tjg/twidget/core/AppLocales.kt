@@ -22,6 +22,7 @@ object AppLocales {
     const val DEFAULT = "DEFAULT"
 
     private var appContext: Context? = null
+    private val catalanThousandsSuffix = Regex("[\\s\\u00a0\\u202f]*mil$")
 
     /** Restore AppCompat's persisted choice before a worker or widget is started. */
     fun initialize(context: Context) {
@@ -89,7 +90,11 @@ object AppLocales {
         if (value in -999L..999L) integer(value, locale) else android.icu.text.CompactDecimalFormat.getInstance(locale,
             android.icu.text.CompactDecimalFormat.CompactStyle.SHORT).apply {
                 maximumSignificantDigits = 3
-            }.format(value)
+            }.format(value).let { compactLabel(it, locale) }
+
+    /** Keep Catalan compact counts short while retaining the regional digits and decimal separator. */
+    internal fun compactLabel(formatted: String, locale: Locale): String =
+        if (locale.language == "ca") formatted.replace(catalanThousandsSuffix, "k") else formatted
 
     fun percent(value: Double, digits: Int = 1, locale: Locale = applicationLocale()): String =
         NumberFormat.getPercentInstance(locale).apply {
