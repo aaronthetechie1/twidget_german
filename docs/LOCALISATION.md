@@ -73,7 +73,9 @@ UI languages fall back to English while preserving the device country.
 
 Use `AppLocales.integer`, `compact`, `percent`, `date` and `formatDate` for
 visible values. Compact counts use Android ICU/CLDR units, spacing, precision
-and separators, rather than fixed K/M suffixes. Date skeletons describe the
+and separators, rather than fixed K/M suffixes. Catalan compact thousands use `k` instead of
+`mil`, retaining the regional decimal separator; written-out number words are
+unchanged. Date skeletons describe the
 fields to display; Android chooses their regional order and punctuation and
 honours the user's 12/24-hour setting. Calendar headers use the regional first
 weekday. Keep protocol dates, CSV parsing formats and stored identifiers stable.
