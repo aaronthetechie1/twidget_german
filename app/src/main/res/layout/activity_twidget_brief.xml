@@ -179,7 +179,7 @@
             android:gravity="center"
             android:id="@+id/brief_provider_required_body"
             android:text="@string/brief_provider_required_body"
-            android:textColor="@color/oneui_text_secondary"
+            android:textColor="@color/brief_loading_status_text"
             android:textSize="14sp" />
 
         <androidx.appcompat.widget.AppCompatButton
