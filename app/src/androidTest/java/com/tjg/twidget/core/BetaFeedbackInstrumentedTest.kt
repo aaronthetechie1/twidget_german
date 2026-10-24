@@ -108,9 +108,9 @@ class BetaFeedbackInstrumentedTest {
 
     @Test fun onboardingFitsNarrowAndShortWindowsWithLargeGermanText() {
         instrumentation.runOnMainSync {
-            for (widthDp in listOf(240, 360, 800)) {
+            for (widthDp in listOf(240, 360, 800)) for (scale in listOf(1.5f, 2f)) {
                 val config = Configuration(context.resources.configuration).apply {
-                    fontScale = 1.5f
+                    fontScale = scale
                     setLocale(java.util.Locale.GERMAN)
                 }
                 val themed = ContextThemeWrapper(context.createConfigurationContext(config), R.style.Theme_Twidget)

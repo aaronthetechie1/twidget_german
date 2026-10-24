@@ -2,6 +2,8 @@ package com.tjg.twidget.brief
 
 import android.view.ViewGroup
 import android.animation.ArgbEvaluator
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -63,6 +65,7 @@ import com.tjg.twidget.ui.FoldablePopOverActivity
 import com.tjg.twidget.ui.CardValueTextView
 import com.tjg.twidget.ui.MetricChartView
 import com.tjg.twidget.ui.ProfileImageLoader
+import com.tjg.twidget.ui.TwidgetFonts
 import com.tjg.twidget.ui.startRightSidePopOverActivity
 import dev.oneuiproject.oneui.R as OneUiIconR
 import java.text.NumberFormat
@@ -335,7 +338,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun showRememberedPresentation(presentation: BriefPresentation) {
         visiblePresentation = presentation
-        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title).showStaticText(presentation.title)
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+            .showStaticText(getString(R.string.brief_summary_title_week))
         findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body).showStaticText(presentation.body)
         findViewById<LinearLayout>(R.id.brief_cards).removeAllViews()
         entranceSections = emptyList()
@@ -371,6 +375,10 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         scroll.seslSetFadingEdgeEnabled(false)
         val tint = ColorStateList.valueOf(getColor(R.color.oneui_text_primary))
         BriefPageChrome.compact(findViewById(R.id.brief_root)) { onBackPressedDispatcher.onBackPressed() }
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title).typeface =
+            TwidgetFonts.forApp(this, 600)
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body).typeface =
+            TwidgetFonts.forApp(this, 400)
         findViewById<TextView>(R.id.brief_footer_account).text = "@$username"
         findViewById<View>(R.id.brief_provider_required_action).setOnClickListener {
             showRequiredApiKeyDialog()
@@ -575,7 +583,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         renderedSnapshot = snapshot
         visiblePresentation = BriefStore.presentation(this, username, snapshot)
         val summary = BriefEditorialSummary.from(snapshot, BriefStrings.from(this))
-        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title).showStaticText(summary.title)
+        findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
+            .showStaticText(getString(R.string.brief_summary_title_week))
         findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body).showStaticText(summary.body)
         val columns = configureResponsiveLayout()
         val container = findViewById<LinearLayout>(R.id.brief_cards)
@@ -596,6 +605,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 add(upcomingSection(snapshot.upcomingTweets) to 24)
             }
             snapshot.cards.forEach { card -> add(cardSection(card, analytics) to 20) }
+        }.mapIndexed { index, (section, topMargin) ->
+            section to if (index == 0) 32 else topMargin
         }
         entranceSections = sections.map { it.first }
         if (columns == 1) {
@@ -1144,24 +1155,19 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private fun startPreparedBriefEntrance() {
         findViewById<View>(R.id.brief_scroll).post {
             if (isFinishing || isDestroyed) return@post
-            val interpolator = PathInterpolator(0.2f, 0f, 0f, 1f)
             findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_title)
                 .startNowBriefTitleMotion(TITLE_DELAY_MS)
             findViewById<NowBriefSubtitleMotionView>(R.id.brief_summary_body)
-                .startNowBriefMotion(COPY_DELAY_MS)
-            entranceSections.forEachIndexed { index, section ->
-                startEntranceView(
-                    section,
-                    CARD_DELAY_MS + minOf(index, MAX_STAGGERED_CARD_INDEX) * CARD_STAGGER_MS,
-                    CARD_DURATION_MS,
-                    interpolator,
-                )
-            }
+                .startNowBriefMotion(COPY_DELAY_MS) {
+                    entranceSections.forEach { section ->
+                        startNowBriefCardEntrance(section, 0L)
+                    }
+                }
             startEntranceView(
                 findViewById(R.id.brief_footer),
                 FOOTER_DELAY_MS,
                 COPY_DURATION_MS,
-                interpolator,
+                PathInterpolator(0.2f, 0f, 0f, 1f),
             )
         }
     }
@@ -1187,8 +1193,23 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             .start()
     }
 
+    private fun startNowBriefCardEntrance(view: View, delay: Long) {
+        val alpha = ObjectAnimator.ofFloat(view, View.ALPHA, 1f).apply {
+            duration = NOW_BRIEF_CARD_ALPHA_DURATION_MS
+        }
+        val translation = ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, 0f).apply {
+            duration = NOW_BRIEF_CARD_TRANSLATE_DURATION_MS
+            interpolator = PathInterpolator(0.22f, 0.25f, 0f, 1f)
+        }
+        AnimatorSet().apply {
+            startDelay = delay
+            playTogether(alpha, translation)
+            start()
+        }
+    }
+
     private fun sectionLabel(value: String) = primaryText(value, 14f).apply {
-        setPadding(dp(19), 0, dp(19), 0)
+        setPadding(dp(13), 0, dp(13), 0)
     }
 
     private fun primaryText(value: String, size: Float, bold: Boolean = false) = TextView(this).apply {
@@ -1222,15 +1243,13 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     companion object {
         private const val MASONRY_COLUMN_GAP_DP = 20
         private const val COPY_LIFT_DP = 12
-        private const val CARD_LIFT_DP = 18
+        private const val CARD_LIFT_DP = 15
         private const val TITLE_DELAY_MS = 0L
         private const val COPY_DELAY_MS = 220L
-        private const val CARD_DELAY_MS = 190L
-        private const val CARD_STAGGER_MS = 58L
         private const val FOOTER_DELAY_MS = 420L
         private const val COPY_DURATION_MS = 400L
-        private const val CARD_DURATION_MS = 440L
-        private const val MAX_STAGGERED_CARD_INDEX = 7
+        private const val NOW_BRIEF_CARD_ALPHA_DURATION_MS = 950L
+        private const val NOW_BRIEF_CARD_TRANSLATE_DURATION_MS = 500L
         private const val BACKGROUND_TRANSITION_DURATION_MS = 560L
         const val EXTRA_USERNAME = "username"
         private const val EXTRA_DEBUG_SCENARIO = "brief_debug_scenario"

@@ -59,7 +59,7 @@ internal object BriefReviewViews {
         setPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
     }
     fun label(context: Context, value: CharSequence) = text(context, value).apply {
-        setPadding(dp(context, 19), dp(context, 10), dp(context, 19), 0)
+        setPadding(dp(context, 13), dp(context, 10), dp(context, 13), 0)
         androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
     }
     fun icon(context: Context, res: Int, size: Int = 24) = ImageView(context).apply {

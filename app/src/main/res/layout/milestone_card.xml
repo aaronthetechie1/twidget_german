@@ -33,17 +33,16 @@
 
     <ImageButton
         android:id="@+id/milestone_edit"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginTop="14dp"
-        android:layout_marginEnd="14dp"
-        android:background="@drawable/milestone_edit_bg"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_marginTop="13dp"
+        android:layout_marginEnd="13dp"
+        android:background="@drawable/brief_custom_card_edit_background"
         android:contentDescription="@string/milestone_setup_edit"
-        android:padding="4dp"
-        android:src="@drawable/ic_milestone_edit"
+        android:padding="0dp"
+        android:src="@drawable/ic_brief_custom_card_edit"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/oneui_text_primary" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
         android:id="@+id/milestone_copy"

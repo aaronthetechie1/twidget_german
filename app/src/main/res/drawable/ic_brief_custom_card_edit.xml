@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <group
+        android:pivotX="10"
+        android:pivotY="10"
+        android:scaleX="1.25"
+        android:scaleY="1.25">
+        <path
+            android:fillColor="@color/brief_custom_card_edit_icon"
+            android:fillType="evenOdd"
+            android:pathData="M6.156,11.273C6.106,11.323 6.014,11.46 5.976,11.591C5.707,12.51 5.35,13.981 5.263,14.323C5.206,14.545 5.461,14.799 5.678,14.737C5.972,14.653 7.084,14.341 7.977,14.087L8.237,14.013C8.279,14.001 8.32,13.989 8.36,13.977C8.491,13.94 8.627,13.848 8.677,13.799L10.942,11.532C11.071,11.403 11.204,11.272 11.339,11.137L13.256,9.22L10.725,6.703L6.156,11.273Z" />
+        <path
+            android:fillColor="@color/brief_custom_card_edit_icon"
+            android:pathData="M13.442,5.595C12.983,5.135 12.232,5.139 11.825,5.604L11.338,6.091L13.861,8.613L14.349,8.127C14.813,7.663 14.817,6.969 14.357,6.51L13.442,5.595Z" />
+    </group>
+</vector>

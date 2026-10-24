@@ -5,6 +5,8 @@
     <color name="dashboard_edit_shadow">#387C8390</color>
     <color name="dashboard_edit_border">#24FFFFFF</color>
     <color name="dashboard_edit_button_bg">#353538</color>
+    <color name="brief_custom_card_edit_button_bg">#4DFAFAFF</color>
+    <color name="brief_custom_card_edit_icon">#FAFAFF</color>
     <color name="oneui_bg">#010102</color>
     <color name="oneui_card_bg">#17171a</color>
     <color name="oneui_drawer_bg">#17171a</color>
@@ -57,5 +59,7 @@
     <color name="brief_onboarding_top">#01233F</color>
     <color name="brief_onboarding_bottom">#000000</color>
     <color name="brief_onboarding_button">#CC17171A</color>
+    <color name="brief_onboarding_guiding_light">#E6FFFFFF</color>
+    <color name="brief_footer_action_surface">#CC272A30</color>
     <color name="card_catalogue_preview_bg">#353538</color>
 </resources>
