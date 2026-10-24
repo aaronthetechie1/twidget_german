@@ -65,10 +65,11 @@
                         android:textColor="@color/oneui_text_primary"
                         android:textSize="14sp" />
                 </LinearLayout>
-                <FrameLayout
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/brief_onboarding_continue_container"
                     android:layout_width="0dp"
-                    android:layout_height="132dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="132dp"
                     app:layout_constraintWidth_max="308dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -79,14 +80,25 @@
                     android:clipToPadding="false">
 
                     <com.tjg.twidget.brief.BriefOnboardingGuidingLightView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
 
                     <TextView
                         android:id="@+id/brief_onboarding_continue"
-                        android:layout_width="268dp"
-                        android:layout_height="60dp"
-                        android:layout_gravity="center"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:minHeight="60dp"
+                        android:layout_marginTop="36dp"
+                        android:layout_marginBottom="36dp"
+                        app:layout_constraintWidth_max="268dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
                         android:background="@drawable/brief_onboarding_button_bg"
                         android:clickable="true"
                         android:elevation="8dp"
@@ -98,7 +110,7 @@
                         android:textColor="@color/oneui_text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
-                </FrameLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
         </LinearLayout>
     </ScrollView>

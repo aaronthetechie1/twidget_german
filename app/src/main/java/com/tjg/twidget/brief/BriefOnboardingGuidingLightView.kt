@@ -17,8 +17,6 @@ class BriefOnboardingGuidingLightView @JvmOverloads constructor(
 ) : View(context, attrs) {
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val buttonHeight = 60f * density
-    private val buttonWidth = 268f * density
     private val glowColor = ContextCompat.getColor(context, R.color.brief_onboarding_guiding_light)
 
     init {
@@ -27,15 +25,14 @@ class BriefOnboardingGuidingLightView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val horizontalInset = ((width - buttonWidth) / 2f).coerceAtLeast(0f)
-        val verticalInset = ((height - buttonHeight) / 2f).coerceAtLeast(0f)
-        if (width <= horizontalInset * 2 || height <= verticalInset * 2) return
-
+        val button = (parent as? View)?.findViewById<View>(R.id.brief_onboarding_continue) ?: return
+        if (button.width <= 0 || button.height <= 0) return
+        // Follow the measured button, including narrow windows and larger translated labels.
         val buttonBounds = RectF(
-            horizontalInset,
-            verticalInset,
-            width - horizontalInset,
-            height - verticalInset,
+            (button.left - left).toFloat(),
+            (button.top - top).toFloat(),
+            (button.right - left).toFloat(),
+            (button.bottom - top).toFloat(),
         )
         val radius = buttonBounds.height() / 2f
         drawGlow(canvas, buttonBounds, radius, 34f * density, 0x28)

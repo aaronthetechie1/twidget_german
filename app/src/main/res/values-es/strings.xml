@@ -1235,4 +1235,5 @@
     <string name="review_fact_median">%1$s como mediana de %2$s tuits similares</string>
     <string name="widget_language_ca">Catalán (Català)</string>
     <string name="language_catalan">Catalán (Català)</string>
+    <string name="update_suggestion_close">Descartar sugerencia de actualización</string>
 </resources>

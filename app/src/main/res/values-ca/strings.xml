@@ -1235,4 +1235,5 @@
     <string name="review_fact_history">%1$s al teu tuit del %2$s</string>
     <string name="review_fact_median">%1$s com a mediana de %2$s tuits similars</string>
     <string name="language_catalan">Català</string>
+    <string name="update_suggestion_close">Descarta el suggeriment d’actualització</string>
 </resources>
