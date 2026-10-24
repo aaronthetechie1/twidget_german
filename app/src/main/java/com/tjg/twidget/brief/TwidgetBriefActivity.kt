@@ -86,6 +86,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
     private var checkContentOnResume = false
     private var entranceSections: List<View> = emptyList()
     private var backgroundAnimator: ValueAnimator? = null
+    private var loadingStatusIndex = 0
+    private var loadingStatusRunnable: Runnable? = null
     private var providerSetupRequired = false
     private var apiKeyPromptShown = false
     private var apiKeyDialog: AlertDialog? = null
@@ -170,10 +172,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
 
     private fun showLaunchShell() {
         findViewById<View>(R.id.brief_scroll).visibility = View.GONE
+        findViewById<View>(R.id.brief_loading_container).visibility = View.GONE
         findViewById<LottieAnimationView>(R.id.brief_loading).apply {
-            visibility = View.GONE
             cancelAnimation()
         }
+        stopLoadingStatusRotation()
         findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = false
         findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = false
     }
@@ -333,6 +336,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         apiKeyDialog = null
         backgroundAnimator?.cancel()
         backgroundAnimator = null
+        stopLoadingStatusRotation()
         super.onDestroy()
     }
 
@@ -351,11 +355,12 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             if (!loading && (remembered || !providerSetupRequired)) View.VISIBLE else View.GONE
         findViewById<View>(R.id.brief_provider_required).visibility =
             if (!remembered && !loading && providerSetupRequired) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.brief_loading_container).visibility =
+            if (loading) View.VISIBLE else View.GONE
         findViewById<LottieAnimationView>(R.id.brief_loading).apply {
-            val active = loading
-            visibility = if (active) View.VISIBLE else View.GONE
-            if (active && ValueAnimator.areAnimatorsEnabled()) playAnimation() else { cancelAnimation(); progress = 0.5f }
+            if (loading && ValueAnimator.areAnimatorsEnabled()) playAnimation() else { cancelAnimation(); progress = 0.5f }
         }
+        if (loading) startLoadingStatusRotation() else stopLoadingStatusRotation()
         findViewById<View>(R.id.brief_refresh_state).visibility =
             if (remembered && !loading && providerSetupRequired) View.VISIBLE else View.GONE
         findViewById<LottieAnimationView>(R.id.brief_refresh_loading).apply {
@@ -367,6 +372,50 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
         val contentEnabled = !loading && (remembered || !providerSetupRequired)
         findViewById<ImageButton>(R.id.brief_footer_info).isEnabled = contentEnabled
         findViewById<ImageButton>(R.id.brief_footer_settings).isEnabled = contentEnabled
+    }
+
+    private fun startLoadingStatusRotation() {
+        if (loadingStatusRunnable != null) return
+        val statusView = findViewById<TextView>(R.id.brief_loading_status)
+        val messageIds = intArrayOf(
+            R.string.brief_loading_status_analyzing,
+            R.string.brief_loading_status_insights,
+            R.string.brief_loading_status_preparing,
+        )
+        loadingStatusIndex = 0
+        val runnable = object : Runnable {
+            override fun run() {
+                if (loadingStatusRunnable !== this) return
+                val message = getString(messageIds[loadingStatusIndex % messageIds.size])
+                loadingStatusIndex += 1
+                statusView.animate().cancel()
+                if (ValueAnimator.areAnimatorsEnabled() && statusView.alpha > 0f) {
+                    statusView.animate()
+                        .alpha(0f)
+                        .setDuration(180L)
+                        .withEndAction {
+                            if (loadingStatusRunnable !== this) return@withEndAction
+                            statusView.text = message
+                            statusView.animate().alpha(1f).setDuration(260L).start()
+                        }
+                        .start()
+                } else {
+                    statusView.text = message
+                    statusView.alpha = 1f
+                }
+                statusView.postDelayed(this, 2_800L)
+            }
+        }
+        loadingStatusRunnable = runnable
+        runnable.run()
+    }
+
+    private fun stopLoadingStatusRotation() {
+        val statusView = findViewById<TextView>(R.id.brief_loading_status)
+        loadingStatusRunnable?.let(statusView::removeCallbacks)
+        loadingStatusRunnable = null
+        statusView.animate().cancel()
+        statusView.alpha = 0f
     }
 
     private fun bindChrome() {
