@@ -177,6 +177,7 @@ internal class MainDashboardBinder(
         val container = page.findViewById<RecyclerView>(R.id.dashboard_content) ?: return
         container.clipChildren = false
         container.clipToPadding = false
+        container.setItemViewCacheSize(8)
         (container.parent as? ViewGroup)?.apply {
             clipChildren = false
             clipToPadding = false
