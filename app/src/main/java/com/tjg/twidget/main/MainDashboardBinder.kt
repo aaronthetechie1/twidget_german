@@ -780,6 +780,9 @@ internal class MainDashboardBinder(
         root.findViewById<MetricChartView>(chartId)?.apply {
             setData(history, selector)
             setAverageSeries(AccountAverageSeries.values(fullHistory, history, selector, allowSparseAverage))
+            root.post {
+                (root.parent as? FrameLayout)?.let { host -> setTooltipOverlayHost(host) }
+            }
         }
     }
 

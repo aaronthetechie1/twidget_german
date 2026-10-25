@@ -14,6 +14,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.widget.FrameLayout
 import androidx.core.graphics.ColorUtils
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.ImportedChartPoint
@@ -37,29 +38,14 @@ class MetricChartView @JvmOverloads constructor(
         textSize = 10f * resources.displayMetrics.scaledDensity
         typeface = TwidgetFonts.forApp(context, 700)
     }
+    private val tooltipMeasurePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 12f * resources.displayMetrics.scaledDensity
+        typeface = TwidgetFonts.forApp(context, 700)
+    }
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_divider)
         style = Paint.Style.FILL
         this@apply.alpha = 105
-    }
-    private val tooltipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.oneui_card_bg)
-        textSize = 12f * resources.displayMetrics.scaledDensity
-        typeface = TwidgetFonts.forApp(context, 700)
-    }
-    private val tooltipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.oneui_text_primary)
-    }
-    private val tooltipOuterShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(18, 0, 0, 0)
-    }
-    private val tooltipInnerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(28, 0, 0, 0)
-    }
-    private val tooltipStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = context.getColor(R.color.oneui_accent)
-        style = Paint.Style.STROKE
-        strokeWidth = resources.displayMetrics.density
     }
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val areaFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -86,7 +72,6 @@ class MetricChartView @JvmOverloads constructor(
     private val plotClipPath = Path()
     private val barRect = RectF()
     private val plotRect = RectF()
-    private val tooltipRect = RectF()
     private val barHitBounds = mutableListOf<RectF>()
     private val numberFormat = NumberFormat.getIntegerInstance(AppLocales.applicationLocale())
     private var labels: List<String> = emptyList()
@@ -105,7 +90,18 @@ class MetricChartView @JvmOverloads constructor(
     private var downX = 0f
     private var downY = 0f
     private var touchMoved = false
+    private var tooltipOverlayHost: FrameLayout? = null
+    private var tooltipOverlay: MetricChartTooltipOverlay? = null
+    private var pendingTooltip: TooltipState? = null
+    private var shownTooltip: TooltipState? = null
+    private val applyTooltipOverlay = Runnable {
+        val state = pendingTooltip ?: return@Runnable
+        tooltipOverlay?.show(state.label, state.left, state.top)
+        shownTooltip = state
+    }
     var onChartTapListener: (() -> Unit)? = null
+
+    private data class TooltipState(val label: String, val left: Float, val top: Float)
 
     init {
         setLayerType(LAYER_TYPE_NONE, null)
@@ -121,7 +117,7 @@ class MetricChartView @JvmOverloads constructor(
         barHitBounds.clear()
         repeat(labels.size) { barHitBounds += RectF() }
         removeCallbacks(hideTooltipRunnable)
-        activeIndex = -1
+        clearActiveBar()
         invalidate()
     }
 
@@ -143,8 +139,20 @@ class MetricChartView @JvmOverloads constructor(
         barHitBounds.clear()
         repeat(labels.size) { barHitBounds += RectF() }
         removeCallbacks(hideTooltipRunnable)
-        activeIndex = -1
+        clearActiveBar()
         invalidate()
+    }
+
+    fun setTooltipOverlayHost(host: FrameLayout) {
+        if (tooltipOverlayHost === host && tooltipOverlay != null) return
+        (tooltipOverlay?.parent as? FrameLayout)?.removeView(tooltipOverlay)
+        tooltipOverlayHost = host
+        tooltipOverlay = MetricChartTooltipOverlay(context).also { overlay ->
+            host.addView(overlay, FrameLayout.LayoutParams(0, 0))
+        }
+        pendingTooltip?.let { state ->
+            post { applyTooltipOverlay.run() }
+        }
     }
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
@@ -301,8 +309,7 @@ class MetricChartView @JvmOverloads constructor(
             val label = labels[activeIndex]
             val value = values[activeIndex]
             val x = left + activeIndex * barSlot + (barSlot - barWidth) / 2f
-            drawTooltip(
-                canvas = canvas,
+            showTooltipOverlay(
                 label = "$label  ${if (estimated[activeIndex]) "~" else ""}${numberFormat.format(value)}",
                 anchorX = x + barWidth / 2f,
                 anchorY = yFor(value),
@@ -382,6 +389,9 @@ class MetricChartView @JvmOverloads constructor(
         removeCallbacks(hideTooltipRunnable)
         removeCallbacks(longPressRunnable)
         clearActiveBar()
+        (tooltipOverlay?.parent as? FrameLayout)?.removeView(tooltipOverlay)
+        tooltipOverlay = null
+        tooltipOverlayHost = null
         super.onDetachedFromWindow()
     }
 
@@ -408,10 +418,13 @@ class MetricChartView @JvmOverloads constructor(
             activeIndex = -1
             invalidate()
         }
+        pendingTooltip = null
+        shownTooltip = null
+        removeCallbacks(applyTooltipOverlay)
+        tooltipOverlay?.hide()
     }
 
-    private fun drawTooltip(
-        canvas: Canvas,
+    private fun showTooltipOverlay(
         label: String,
         anchorX: Float,
         anchorY: Float,
@@ -420,43 +433,27 @@ class MetricChartView @JvmOverloads constructor(
         chartTop: Float,
         density: Float,
     ) {
+        val host = tooltipOverlayHost ?: return
         val horizontalPadding = 9f * density
         val verticalPadding = 6f * density
-        val textWidth = tooltipTextPaint.measureText(label)
-        val textHeight = tooltipTextPaint.fontMetrics.run { descent - ascent }
+        val textWidth = tooltipMeasurePaint.measureText(label)
+        val textHeight = tooltipMeasurePaint.fontMetrics.run { descent - ascent }
         val rectWidth = textWidth + horizontalPadding * 2f
         val rectHeight = textHeight + verticalPadding * 2f
         val rectLeft = (anchorX - rectWidth / 2f).coerceIn(chartLeft, chartRight - rectWidth)
         val rectTop = (anchorY - rectHeight - 8f * density).coerceAtLeast(chartTop)
-
-        tooltipRect.set(rectLeft, rectTop, rectLeft + rectWidth, rectTop + rectHeight)
-        val radius = 14f * density
-        canvas.drawRoundRect(
-            rectLeft - 5f * density,
-            rectTop - density,
-            rectLeft + rectWidth + 5f * density,
-            rectTop + rectHeight + 7f * density,
-            radius + 5f * density,
-            radius + 5f * density,
-            tooltipOuterShadowPaint,
+        val chartPosition = IntArray(2)
+        val hostPosition = IntArray(2)
+        getLocationInWindow(chartPosition)
+        host.getLocationInWindow(hostPosition)
+        val state = TooltipState(
+            label = label,
+            left = chartPosition[0] - hostPosition[0] + rectLeft,
+            top = chartPosition[1] - hostPosition[1] + rectTop,
         )
-        canvas.drawRoundRect(
-            rectLeft - 2f * density,
-            rectTop + density,
-            rectLeft + rectWidth + 2f * density,
-            rectTop + rectHeight + 4f * density,
-            radius + 2f * density,
-            radius + 2f * density,
-            tooltipInnerShadowPaint,
-        )
-        canvas.drawRoundRect(tooltipRect, radius, radius, tooltipPaint)
-        canvas.drawRoundRect(tooltipRect, radius, radius, tooltipStrokePaint)
-        canvas.drawText(
-            label,
-            rectLeft + horizontalPadding,
-            rectTop + verticalPadding - tooltipTextPaint.fontMetrics.ascent,
-            tooltipTextPaint,
-        )
+        if (state == shownTooltip || state == pendingTooltip) return
+        pendingTooltip = state
+        post(applyTooltipOverlay)
     }
 
     private companion object {
