@@ -389,7 +389,7 @@ class MetricChartView @JvmOverloads constructor(
         removeCallbacks(hideTooltipRunnable)
         removeCallbacks(longPressRunnable)
         clearActiveBar()
-        (tooltipOverlay?.parent as? FrameLayout)?.removeView(tooltipOverlay)
+        tooltipOverlay?.hide()
         tooltipOverlay = null
         tooltipOverlayHost = null
         super.onDetachedFromWindow()
