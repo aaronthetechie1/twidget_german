@@ -2,6 +2,7 @@ package com.tjg.twidget.ui
 
 import com.tjg.twidget.core.AppLocales
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -79,6 +80,8 @@ class MetricChartView @JvmOverloads constructor(
     private var values: List<Long> = emptyList()
     private var averageValues: List<Long> = emptyList()
     private var barGradient: LinearGradient? = null
+    private var staticChartBitmap: Bitmap? = null
+    private var recordingStaticChart = false
     private var activeIndex = -1
     private val hideTooltipRunnable = Runnable { clearActiveBar() }
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
@@ -118,6 +121,7 @@ class MetricChartView @JvmOverloads constructor(
         repeat(labels.size) { barHitBounds += RectF() }
         removeCallbacks(hideTooltipRunnable)
         clearActiveBar()
+        invalidateStaticChart()
         invalidate()
     }
 
@@ -128,6 +132,7 @@ class MetricChartView @JvmOverloads constructor(
      */
     fun setAverageSeries(values: List<Long>) {
         averageValues = values.takeIf { it.size == this.values.size } ?: emptyList()
+        invalidateStaticChart()
         invalidate()
     }
 
@@ -140,6 +145,7 @@ class MetricChartView @JvmOverloads constructor(
         repeat(labels.size) { barHitBounds += RectF() }
         removeCallbacks(hideTooltipRunnable)
         clearActiveBar()
+        invalidateStaticChart()
         invalidate()
     }
 
@@ -157,6 +163,7 @@ class MetricChartView @JvmOverloads constructor(
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
+        invalidateStaticChart()
         val density = resources.displayMetrics.density
         val top = 12f * density
         val accent = context.getColor(R.color.oneui_accent)
@@ -173,7 +180,21 @@ class MetricChartView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (labels.isEmpty()) return
+        if (labels.isEmpty() || width <= 0 || height <= 0) return
+        if (!recordingStaticChart) {
+            val bitmap = staticChartBitmap?.takeIf { it.width == width && it.height == height }
+                ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { captured ->
+                    recordingStaticChart = true
+                    try {
+                        onDraw(Canvas(captured))
+                    } finally {
+                        recordingStaticChart = false
+                    }
+                    staticChartBitmap = captured
+                }
+            canvas.drawBitmap(bitmap, 0f, 0f, null)
+            return
+        }
 
         val density = resources.displayMetrics.density
         val labelInset = 20f * density
@@ -409,6 +430,7 @@ class MetricChartView @JvmOverloads constructor(
         if (nextIndex != activeIndex) {
             activeIndex = nextIndex
             if (fromTouch && nextIndex >= 0) TwidgetHaptics.selection(this)
+            invalidateStaticChart()
             invalidate()
         }
     }
@@ -416,12 +438,17 @@ class MetricChartView @JvmOverloads constructor(
     private fun clearActiveBar() {
         if (activeIndex != -1) {
             activeIndex = -1
+            invalidateStaticChart()
             invalidate()
         }
         pendingTooltip = null
         shownTooltip = null
         removeCallbacks(applyTooltipOverlay)
         tooltipOverlay?.hide()
+    }
+
+    private fun invalidateStaticChart() {
+        staticChartBitmap = null
     }
 
     private fun showTooltipOverlay(
