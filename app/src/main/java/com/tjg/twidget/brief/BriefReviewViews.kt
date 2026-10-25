@@ -105,7 +105,9 @@ internal object BriefReviewViews {
             }, LinearLayout.LayoutParams(
                 if (actions.size > 1 && !compact) 0 else ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, if (actions.size > 1 && !compact) 1f else 0f).apply {
-                if (index > 0) marginStart = dp(context, if (compact) 20 else 10)
+                if (index > 0 && !(compact && stackCompactActions)) {
+                    marginStart = dp(context, if (compact) 20 else 10)
+                }
             })
         }
     }
@@ -129,7 +131,9 @@ private class BriefTweetActions(context: Context, private val stackActions: Bool
         for (index in 0 until childCount) {
             (getChildAt(index).layoutParams as LayoutParams).apply {
                 marginStart = if (!stacked && index > 0) BriefReviewViews.dp(context, 20) else 0
+                marginEnd = 0
                 topMargin = if (stacked && index > 0) BriefReviewViews.dp(context, 8) else 0
+                gravity = if (stacked) Gravity.CENTER_HORIZONTAL else Gravity.NO_GRAVITY
             }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
