@@ -131,6 +131,7 @@ object ProfileImageLoader {
         imageView.setImageDrawable(null)
         AppExecutors.executeImage {
             val bitmap = cachedMediaBitmap(context, imageUrl) ?: downloadMediaToCache(context, imageUrl)
+            bitmap?.prepareToDraw()
             imageView.post {
                 if (imageView.getTag(R.id.profile_image_request) != requestToken) return@post
                 if (bitmap != null) {

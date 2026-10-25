@@ -9,8 +9,10 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.RenderNode
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -81,6 +83,7 @@ class MetricChartView @JvmOverloads constructor(
     private var averageValues: List<Long> = emptyList()
     private var barGradient: LinearGradient? = null
     private var staticChartBitmap: Bitmap? = null
+    private var staticChartRenderNode: RenderNode? = null
     private var recordingStaticChart = false
     private var activeIndex = -1
     private val hideTooltipRunnable = Runnable { clearActiveBar() }
@@ -107,7 +110,7 @@ class MetricChartView @JvmOverloads constructor(
     private data class TooltipState(val label: String, val left: Float, val top: Float)
 
     init {
-        setLayerType(LAYER_TYPE_HARDWARE, null)
+        setLayerType(LAYER_TYPE_NONE, null)
         isClickable = true
         isFocusable = true
     }
@@ -181,12 +184,30 @@ class MetricChartView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (labels.isEmpty() || width <= 0 || height <= 0) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canvas.isHardwareAccelerated) {
+            val node = staticChartRenderNode ?: RenderNode("MetricChartView").also {
+                staticChartRenderNode = it
+            }
+            if (!node.hasDisplayList()) {
+                node.setPosition(0, 0, width, height)
+                val recordingCanvas = node.beginRecording(width, height)
+                recordingStaticChart = true
+                try {
+                    drawStaticChart(recordingCanvas)
+                } finally {
+                    recordingStaticChart = false
+                    node.endRecording()
+                }
+            }
+            canvas.drawRenderNode(node)
+            return
+        }
         if (!recordingStaticChart) {
             val bitmap = staticChartBitmap?.takeIf { it.width == width && it.height == height }
                 ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { captured ->
                     recordingStaticChart = true
                     try {
-                        onDraw(Canvas(captured))
+                        drawStaticChart(Canvas(captured))
                     } finally {
                         recordingStaticChart = false
                     }
@@ -195,6 +216,11 @@ class MetricChartView @JvmOverloads constructor(
             canvas.drawBitmap(bitmap, 0f, 0f, null)
             return
         }
+
+        drawStaticChart(canvas)
+    }
+
+    private fun drawStaticChart(canvas: Canvas) {
 
         val density = resources.displayMetrics.density
         val labelInset = 20f * density
@@ -449,6 +475,7 @@ class MetricChartView @JvmOverloads constructor(
 
     private fun invalidateStaticChart() {
         staticChartBitmap = null
+        staticChartRenderNode = null
     }
 
     private fun showTooltipOverlay(
