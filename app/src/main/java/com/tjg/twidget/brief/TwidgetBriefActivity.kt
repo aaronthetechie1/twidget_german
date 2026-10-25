@@ -370,6 +370,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             loadingContainer.alpha = 1f
             loadingContainer.translationY = 0f
             loadingContainer.visibility = View.VISIBLE
+            loadingAnimation.animate().cancel()
+            loadingAnimation.alpha = 1f
             if (ValueAnimator.areAnimatorsEnabled()) loadingAnimation.playAnimation() else {
                 loadingAnimation.cancelAnimation()
                 loadingAnimation.progress = 0.5f
@@ -388,6 +390,11 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 .setInterpolator(loadingStatusDisappearInterpolator)
                 .start()
             loadingAnimation.cancelAnimation()
+            loadingAnimation.animate()
+                .alpha(0f)
+                .setDuration(300L)
+                .setInterpolator(loadingStatusDisappearInterpolator)
+                .start()
             loadingContainer.animate()
                 .alpha(0f)
                 .translationY(-offset)
@@ -398,6 +405,7 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                     loadingContainer.visibility = View.GONE
                     loadingContainer.alpha = 1f
                     loadingContainer.translationY = 0f
+                    loadingAnimation.alpha = 1f
                 }
                 .start()
             scroll.animate()
