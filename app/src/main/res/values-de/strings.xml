@@ -861,6 +861,9 @@
     <string name="brief_widget_label">Dein Briefing</string>
     <string name="brief_widget_description">Eine persönliche Nachricht, die sich dynamisch an deine aktuellen Aktivitäten anpasst</string>
     <string name="brief_widget_empty_title">Dein Briefing wird vorbereitet</string>
+    <string name="brief_loading_status_analyzing">Deine aktuellen Tweets werden ausgewertet&#8230;</string>
+    <string name="brief_loading_status_insights">Die wichtigsten Einblicke werden zusammengestellt&#8230;</string>
+    <string name="brief_loading_status_preparing">Dein persönliches Briefing wird vorbereitet&#8230;</string>
     <string name="brief_widget_empty_body">Öffne Dein Briefing, um es einzurichten.</string>
     <string name="brief_preview_title">Du erhältst Aufmerksamkeit</string>
     <string name="brief_preview_body">Dein letzter Post bekommt immer mehr Reichweite. Du bist auf einem guten Weg.</string>
@@ -1132,7 +1135,7 @@
     <string name="brief_saved_summary_info">Dein letzter erfolgreicher Brief vom %1$s bleibt sichtbar, während ein neuer erstellt wird.</string>
 
     <!-- Brief and tweet-review debug tools. -->
-    <string name="debug_brief_home">Dein Brief debuggen</string>
+    <string name="debug_brief_home">Dein Briefing-Debug</string>
     <string name="debug_brief_ai">KI-Debugging</string>
     <string name="debug_brief_ranking">Kartenrangfolge</string>
     <string name="debug_ui_state">Oberflächenstatus</string>
