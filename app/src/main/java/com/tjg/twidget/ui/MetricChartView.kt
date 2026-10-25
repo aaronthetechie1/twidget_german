@@ -49,12 +49,12 @@ class MetricChartView @JvmOverloads constructor(
     }
     private val tooltipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_text_primary)
-        setShadowLayer(
-            6f * resources.displayMetrics.density,
-            0f,
-            3f * resources.displayMetrics.density,
-            Color.argb(90, 0, 0, 0),
-        )
+    }
+    private val tooltipOuterShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(18, 0, 0, 0)
+    }
+    private val tooltipInnerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(28, 0, 0, 0)
     }
     private val tooltipStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = context.getColor(R.color.oneui_accent)
@@ -108,9 +108,7 @@ class MetricChartView @JvmOverloads constructor(
     var onChartTapListener: (() -> Unit)? = null
 
     init {
-        // Paint shadows on custom shapes require software rendering. The view
-        // is small, and this keeps the tooltip visibly elevated in both themes.
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
+        setLayerType(LAYER_TYPE_NONE, null)
         isClickable = true
         isFocusable = true
     }
@@ -432,8 +430,27 @@ class MetricChartView @JvmOverloads constructor(
         val rectTop = (anchorY - rectHeight - 8f * density).coerceAtLeast(chartTop)
 
         tooltipRect.set(rectLeft, rectTop, rectLeft + rectWidth, rectTop + rectHeight)
-        canvas.drawRoundRect(tooltipRect, 14f * density, 14f * density, tooltipPaint)
-        canvas.drawRoundRect(tooltipRect, 14f * density, 14f * density, tooltipStrokePaint)
+        val radius = 14f * density
+        canvas.drawRoundRect(
+            rectLeft - 5f * density,
+            rectTop - density,
+            rectLeft + rectWidth + 5f * density,
+            rectTop + rectHeight + 7f * density,
+            radius + 5f * density,
+            radius + 5f * density,
+            tooltipOuterShadowPaint,
+        )
+        canvas.drawRoundRect(
+            rectLeft - 2f * density,
+            rectTop + density,
+            rectLeft + rectWidth + 2f * density,
+            rectTop + rectHeight + 4f * density,
+            radius + 2f * density,
+            radius + 2f * density,
+            tooltipInnerShadowPaint,
+        )
+        canvas.drawRoundRect(tooltipRect, radius, radius, tooltipPaint)
+        canvas.drawRoundRect(tooltipRect, radius, radius, tooltipStrokePaint)
         canvas.drawText(
             label,
             rectLeft + horizontalPadding,
