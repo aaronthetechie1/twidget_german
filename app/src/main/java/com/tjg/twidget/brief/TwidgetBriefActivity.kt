@@ -627,7 +627,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
             BriefPostCoach.reviewablePosts(AnalyticsClient.cached(this, username), username, System.currentTimeMillis())
                 .any { it.url == post.url }
         val actions = if (eligible) listOf(BriefReviewAction(R.string.review_view) { openReview(post) }) else emptyList()
-        return BriefReviewTweetCard.create(this, username, post = post, compact = true, actions = actions, sourceAttribution = sourceAttribution)
+        return BriefReviewTweetCard.create(this, username, post = post, compact = true, actions = actions,
+            sourceAttribution = sourceAttribution, stackCompactActions = true)
     }
 
     private fun openReview(post: PostSummary) = startRightSidePopOverActivity(
@@ -874,7 +875,8 @@ class TwidgetBriefActivity : FoldablePopOverActivity() {
                 })
             }
         }
-        return BriefReviewTweetCard.create(this, username, draft = post, compact = true, actions = actions)
+        return BriefReviewTweetCard.create(this, username, draft = post, compact = true, actions = actions,
+            stackCompactActions = true)
     }
 
     private fun scheduleDate(timestamp: Long): String = if (timestamp > 0L) {
