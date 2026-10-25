@@ -107,7 +107,7 @@ class MetricChartView @JvmOverloads constructor(
     private data class TooltipState(val label: String, val left: Float, val top: Float)
 
     init {
-        setLayerType(LAYER_TYPE_NONE, null)
+        setLayerType(LAYER_TYPE_HARDWARE, null)
         isClickable = true
         isFocusable = true
     }
