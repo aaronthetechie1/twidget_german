@@ -26,6 +26,7 @@ import java.util.concurrent.FutureTask
 object ProfileImageLoader {
     private const val MAX_IMAGE_BYTES = 12 * 1024 * 1024L
     private const val MAX_IMAGE_CACHE_BYTES = 32 * 1024 * 1024L
+    private const val MAX_MEDIA_DIMENSION = 1080
     private val bitmaps = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
     }
@@ -40,7 +41,9 @@ object ProfileImageLoader {
                 runCatching {
                     val file = if (media) mediaCacheFile(context, url) else cacheFile(context, url)
                     if (!file.exists() && download) downloadFile(url, file)
-                    val bitmap = file.takeIf { it.exists() }?.let { decodeSampledBitmap(it, if (media) 1600 else 400) }
+                    val bitmap = file.takeIf { it.exists() }?.let {
+                        decodeSampledBitmap(it, if (media) MAX_MEDIA_DIMENSION else 400)
+                    }
                     bitmap?.also { bitmaps.put(key, it) }
                 }.getOrNull()
             }.also { requests[key] = it }

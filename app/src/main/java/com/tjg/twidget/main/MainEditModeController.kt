@@ -3,11 +3,10 @@ package com.tjg.twidget.main
 import android.view.DragEvent
 import android.view.View
 import android.os.SystemClock
-import android.widget.GridLayout
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
-import androidx.core.widget.NestedScrollView
+import androidx.recyclerview.widget.RecyclerView
 import com.tjg.twidget.R
 import com.tjg.twidget.analytics.ImportedAnalyticsStore
 import com.tjg.twidget.data.TwidgetStore
@@ -71,7 +70,7 @@ internal class MainEditModeController(
 
     private fun updateDropTarget(x: Float, y: Float, immediate: Boolean) {
         val dragged = draggedCardId ?: return
-        val grid = activity.findViewById<GridLayout>(R.id.dashboard_content) ?: return
+        val grid = activity.findViewById<RecyclerView>(R.id.dashboard_content) ?: return
         val gridOrigin = IntArray(2).also(grid::getLocationOnScreen)
         val margin = activity.dp(5)
         var candidate: Pair<String, Boolean>? = null
@@ -112,7 +111,7 @@ internal class MainEditModeController(
     private val autoScrollStep: Runnable = object : Runnable {
         override fun run() {
             autoScrollScheduled = false
-            val scroll = activity.findViewById<NestedScrollView>(R.id.dashboard_scroll) ?: return
+            val scroll = activity.findViewById<RecyclerView>(R.id.dashboard_content) ?: return
             if (autoScrollDirection == 0 || draggedCardId == null) return
             if (!scroll.canScrollVertically(autoScrollDirection)) {
                 autoScrollDirection = 0
@@ -261,7 +260,7 @@ internal class MainEditModeController(
     }
 
     fun updateDashboardDragAutoScroll(source: View, event: DragEvent) {
-        val scroll = activity.findViewById<NestedScrollView>(R.id.dashboard_scroll) ?: return
+        val scroll = activity.findViewById<RecyclerView>(R.id.dashboard_content) ?: return
         val sourceLocation = IntArray(2).also(source::getLocationOnScreen)
         dragPointerX = sourceLocation[0] + event.x
         dragPointerY = sourceLocation[1] + event.y
@@ -284,7 +283,7 @@ internal class MainEditModeController(
 
     private fun stopDashboardDragAutoScroll() {
         autoScrollDirection = 0
-        activity.findViewById<NestedScrollView>(R.id.dashboard_scroll)?.removeCallbacks(autoScrollStep)
+        activity.findViewById<RecyclerView>(R.id.dashboard_content)?.removeCallbacks(autoScrollStep)
         autoScrollScheduled = false
     }
 

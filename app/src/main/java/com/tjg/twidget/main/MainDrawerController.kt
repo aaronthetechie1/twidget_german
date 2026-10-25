@@ -217,7 +217,8 @@ internal class MainDrawerController(
     private fun renderDrawerNavigation(layout: DrawerLayout) {
         if (showingEditNavigation) {
             layout.appBarLayout.seslAllowStartNestedScroll(true)
-            val scrollY = activity.findViewById<androidx.core.widget.NestedScrollView>(R.id.dashboard_scroll)?.scrollY ?: 0
+            val scrollY = activity.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.dashboard_content)
+                ?.computeVerticalScrollOffset() ?: 0
             layout.setExpanded(expanded = expandedBeforeEditing && scrollY == 0, animate = false)
             if (hiddenBeforeEditing && scrollY > 0) layout.appBarLayout.seslSetHide(true, false)
             showingEditNavigation = false
